@@ -1,0 +1,17 @@
+{
+  "name": "crud-slack-taskflow-ai",
+  "version": "1.0.0",
+  "description": "TaskFlow AI — Omnichannel Request-to-Task CRUD Workspace & Neuro-Symbolic Anti-Hallucination Triage Engine (EOS Layer-0 Hexagonal Standard)",
+  "type": "module",
+  "dependencies": {},
+  "scripts": {
+    "test": "node --test test/taskflow.test.mjs",
+    "verify:strict": "node scripts/verify-strict.mjs",
+    "cicd:gate": "node scripts/verify-strict.mjs"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "author": "Valentín Flórez Arbeláez",
+  "license": "MIT"
+}

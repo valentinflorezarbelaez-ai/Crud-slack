@@ -1,0 +1,17 @@
+{
+  "name": "TaskFlow AI — Organizador de Tareas con IA",
+  "short_name": "TaskFlow AI",
+  "description": "Transforma solicitudes de correo, Slack o Teams en listas de tareas priorizadas con verificación anti-alucinación y CRUD completo.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#070B14",
+  "theme_color": "#0B1120",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

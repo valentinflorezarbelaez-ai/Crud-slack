@@ -1,0 +1,21 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: crud-slack-taskflow-ai
+  title: TaskFlow AI — Omnichannel Request-to-Task CRUD & Triage
+  description: Hexagonal Layer-0 AI workspace transforming unstructured email and chat requests into verified, prioritized, anti-hallucination task lists with SharePoint Lists & Slack interoperability.
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+    github.com/project-slug: valentinflorezarbelaez-ai/Crud-slack
+  tags:
+    - eos-fleet
+    - hexagonal-architecture
+    - layer-0-zero-deps
+    - gemini-3-8-flash
+    - anti-hallucination
+    - sharepoint-interop
+spec:
+  type: service
+  lifecycle: production
+  owner: user:valentin-florez-arbelaez
+  system: eos-sovereign-fleet

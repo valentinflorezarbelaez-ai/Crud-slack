@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>TaskFlow AI · Organizador Omnicanal de Tareas con IA &amp; CRUD Verificado</title>
+    <meta
+      name="description"
+      content="Solución de productividad con IA que transforma solicitudes de correo, Slack o Microsoft Teams en listas de tareas priorizadas, con detección anti-alucinación de datos faltantes, CRUD completo y exportación a SharePoint Lists."
+    />
+    <meta name="application-name" content="TaskFlow AI" />
+    <meta name="theme-color" content="#0B1120" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="TaskFlow AI · Organiza Tareas con IA (Sin Alucinaciones)" />
+    <meta
+      property="og:description"
+      content="Transforma mensajes de correo o chat en tareas priorizadas con verificación determinista de fechas faltantes, CRUD interactivo y exportación a SharePoint Lists."
+    />
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./css/styles.css" />
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "TaskFlow AI — Organizador Omnicanal de Tareas con IA",
+        "applicationCategory": "BusinessApplication",
+        "operatingSystem": "Web",
+        "author": {
+          "@type": "Person",
+          "name": "Valentín Flórez Arbeláez"
+        },
+        "description": "Transforma solicitudes recibidas por correo, Slack o Teams en listas de tareas organizadas, priorizadas y auditadas contra invención de fechas límite."
+      }
+    </script>
+  </head>
+  <body>
+    <a class="skip-link" href="#main-content">Saltar al contenido principal</a>
+
+    <header class="topbar" role="banner">
+      <div class="container topbar__inner">
+        <div class="brand">
+          <img src="./favicon.svg" alt="Emblema de TaskFlow AI" width="38" height="38" class="brand__logo" />
+          <div class="brand__copy">
+            <div class="brand__title-row">
+              <span class="brand__name">TaskFlow AI</span>
+              <span class="badge badge--accent">Reto Práctico Final</span>
+            </div>
+            <p class="brand__subtitle">Solicitudes de Correo &amp; Chat ➔ Tareas Priorizadas · Anti-Alucinación · CRUD</p>
+          </div>
+        </div>
+
+        <div class="topbar__actions">
+          <nav class="mode-nav" aria-label="Secciones principales">
+            <button
+              type="button"
+              id="nav-btn-workspace"
+              class="mode-nav__btn is-active"
+              aria-pressed="true"
+            >
+              Espacio IA &amp; CRUD
+            </button>
+            <button
+              type="button"
+              id="nav-btn-presentation"
+              class="mode-nav__btn"
+              aria-pressed="false"
+            >
+              Informe &amp; Sustentación
+            </button>
+          </nav>
+
+          <button
+            type="button"
+            id="theme-toggle-btn"
+            class="btn btn--ghost btn--icon"
+            aria-label="Cambiar entre tema oscuro y claro"
+            title="Cambiar tema visual"
+          >
+            <span id="theme-toggle-label">Claro</span>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <main id="main-content" class="container main-shell">
+      <div id="live-announcer" class="sr-only" aria-live="polite" aria-atomic="true"></div>
+
+      <!-- ================================================================ -->
+      <!-- VIEW 1: AI TASK TRIAGE & FULL CRUD WORKSPACE                      -->
+      <!-- ================================================================ -->
+      <section id="view-workspace" aria-labelledby="workspace-heading">
+        <div class="hero-strip">
+          <div class="hero-strip__text">
+            <h1 id="workspace-heading" class="hero-strip__title">
+              Transforma cualquier correo o mensaje en un plan accionable
+            </h1>
+            <p class="hero-strip__lead">
+              Identifica actividades, sugiere prioridades por dependencia lógica y detecta fechas límite reales
+              <strong>señalando explícitamente la información faltante en lugar de inventarla</strong>.
+            </p>
+          </div>
+          <div class="engine-pill" id="engine-status-pill" aria-live="polite">
+            <span class="engine-pill__dot" aria-hidden="true"></span>
+            <span id="engine-status-text">Motor Neuro-Simbólico Verificado · Listo</span>
+          </div>
+        </div>
+
+        <div class="workspace-grid">
+          <!-- LEFT COLUMN: OMNICHANNEL MESSAGE INGESTION -->
+          <section class="panel panel--intake" aria-labelledby="intake-heading">
+            <div class="panel__header">
+              <div>
+                <span class="eyebrow">Paso 1 · Ingesta Omnicanal</span>
+                <h2 id="intake-heading" class="panel__title">Solicitud recibida (Correo o Chat)</h2>
+              </div>
+              <span class="char-counter" id="char-counter">0 / 4000</span>
+            </div>
+
+            <div class="preset-bar" aria-label="Ejemplos rápidos de prueba">
+              <span class="preset-bar__label">Casos de prueba:</span>
+              <div class="preset-chips" id="preset-chips-container"></div>
+            </div>
+
+            <form id="analyze-form" class="intake-form" novalidate>
+              <div class="form-row-2">
+                <div class="field">
+                  <label for="input-channel" class="field__label">Canal de origen</label>
+                  <select id="input-channel" name="channel" class="field__control">
+                    <option value="email">Correo / Outlook</option>
+                    <option value="slack">Slack (#canal / DM)</option>
+                    <option value="teams">Microsoft Teams</option>
+                    <option value="whatsapp">WhatsApp Corporativo</option>
+                  </select>
+                </div>
+                <div class="field">
+                  <label for="input-ref-date" class="field__label">Fecha de referencia</label>
+                  <input type="date" id="input-ref-date" name="referenceDate" class="field__control" required />
+                </div>
+              </div>
+
+              <div class="field">
+                <label for="input-message" class="field__label">Mensaje o correo a organizar</label>
+                <textarea
+                  id="input-message"
+                  name="message"
+                  rows="6"
+                  maxlength="4000"
+                  class="field__control field__textarea"
+                  placeholder="Pega aquí un correo, mensaje de Slack o solicitud de Teams..."
+                  required
+                ></textarea>
+              </div>
+
+              <div id="form-error-banner" class="alert alert--error" hidden role="alert"></div>
+
+              <div class="intake-actions">
+                <button type="submit" id="analyze-submit-btn" class="btn btn--primary btn--full">
+                  Analizar y Organizar Tareas con IA
+                </button>
+                <button type="button" id="clear-input-btn" class="btn btn--ghost">
+                  Limpiar texto
+                </button>
+              </div>
+            </form>
+
+            <!-- VERIFICATION & ANTI-HALLUCINATION TELEMETRY CARD -->
+            <div class="verification-box" id="verification-box" aria-live="polite">
+              <div class="verification-box__header">
+                <span class="eyebrow">Auditoría de Confiabilidad IA</span>
+                <span class="badge badge--verified" id="verif-confidence-badge">100% Verificado</span>
+              </div>
+              <div class="verification-metrics">
+                <div class="v-metric">
+                  <span class="v-metric__val" id="verif-grounding-val">100%</span>
+                  <span class="v-metric__lbl">Sustento textual</span>
+                </div>
+                <div class="v-metric">
+                  <span class="v-metric__val" id="verif-coverage-val">100%</span>
+                  <span class="v-metric__lbl">Cobertura cláusulas</span>
+                </div>
+                <div class="v-metric">
+                  <span class="v-metric__val" id="verif-hallucinations-val">0</span>
+                  <span class="v-metric__lbl">Fechas inventadas</span>
+                </div>
+              </div>
+              <p class="verification-box__note" id="verif-summary-note">
+                Cada tarea se valida contra fragmentos reales del mensaje original; ninguna fecha ausente es inventada.
+              </p>
+            </div>
+          </section>
+
+          <!-- RIGHT COLUMN: VISUAL ORGANIZED RESULTS, MISSING INFO AUDIT & FULL CRUD -->
+          <section class="panel panel--results" aria-labelledby="results-heading">
+            <div class="panel__header panel__header--wrap">
+              <div>
+                <span class="eyebrow">Paso 2 · Plan Organizado &amp; CRUD</span>
+                <h2 id="results-heading" class="panel__title">Lista de Tareas Priorizadas</h2>
+              </div>
+              <div class="toolbar-actions">
+                <button type="button" id="add-task-btn" class="btn btn--secondary">
+                  + Nueva Tarea
+                </button>
+                <button type="button" id="export-csv-btn" class="btn btn--ghost" title="Exportar CSV compatible con SharePoint Lists, Planner y Excel">
+                  Exportar SharePoint CSV
+                </button>
+                <button type="button" id="copy-slack-md-btn" class="btn btn--ghost" title="Copiar resumen estructurado para Slack o Teams">
+                  Copiar Resumen Slack
+                </button>
+              </div>
+            </div>
+
+            <!-- KPI SUMMARY CARDS -->
+            <div class="kpi-grid" aria-label="Resumen de métricas del plan">
+              <div class="kpi-card">
+                <span class="kpi-card__label">Actividades</span>
+                <strong class="kpi-card__value" id="kpi-total">0</strong>
+              </div>
+              <div class="kpi-card kpi-card--high">
+                <span class="kpi-card__label">Prioridad Alta / Crítica</span>
+                <strong class="kpi-card__value" id="kpi-high">0</strong>
+              </div>
+              <div class="kpi-card kpi-card--warn">
+                <span class="kpi-card__label">Con Info Faltante</span>
+                <strong class="kpi-card__value" id="kpi-missing">0</strong>
+              </div>
+              <div class="kpi-card kpi-card--ok">
+                <span class="kpi-card__label">Progreso Completado</span>
+                <strong class="kpi-card__value" id="kpi-progress">0%</strong>
+              </div>
+            </div>
+
+            <div class="progress-track-wrap">
+              <label for="board-progress-bar" class="sr-only">Porcentaje de tareas completadas</label>
+              <progress id="board-progress-bar" class="board-progress" value="0" max="100"></progress>
+            </div>
+
+            <!-- MISSING INFORMATION & CLARIFICATION ALERT PANEL -->
+            <aside class="missing-panel" id="missing-info-panel" aria-labelledby="missing-panel-title">
+              <div class="missing-panel__top">
+                <div>
+                  <h3 id="missing-panel-title" class="missing-panel__title">
+                    Información Faltante Detectada (No Inventada por la IA)
+                  </h3>
+                  <p class="missing-panel__sub">
+                    Datos ausentes o ambiguos en la solicitud original que conviene confirmar o editar en cada tarea:
+                  </p>
+                </div>
+                <button type="button" id="copy-clarification-btn" class="btn btn--ghost btn--sm">
+                  Copiar mensaje de aclaración
+                </button>
+              </div>
+              <ul class="missing-list" id="missing-gaps-list"></ul>
+              <details class="clarification-details">
+                <summary>Ver borrador automático de respuesta para pedir los datos faltantes</summary>
+                <pre class="clarification-pre" id="clarification-draft-box"></pre>
+              </details>
+            </aside>
+
+            <!-- VIEW MODE & FILTER CONTROLS -->
+            <div class="filter-bar">
+              <div class="view-switcher" role="group" aria-label="Modo de visualización de tareas">
+                <button type="button" id="view-mode-cards" class="chip is-active" aria-pressed="true">
+                  Lista Visual
+                </button>
+                <button type="button" id="view-mode-table" class="chip" aria-pressed="false">
+                  Tabla Ejecutiva
+                </button>
+                <button type="button" id="view-mode-kanban" class="chip" aria-pressed="false">
+                  Tablero Kanban
+                </button>
+              </div>
+
+              <div class="filter-controls">
+                <label for="filter-priority" class="sr-only">Filtrar por prioridad</label>
+                <select id="filter-priority" class="field__control field__control--sm">
+                  <option value="ALL">Todas las prioridades</option>
+                  <option value="CRITICAL">Crítica (P0)</option>
+                  <option value="HIGH">Alta (P1)</option>
+                  <option value="MEDIUM">Media (P2)</option>
+                  <option value="LOW">Baja (P3)</option>
+                </select>
+
+                <label for="filter-deadline" class="sr-only">Filtrar por estado de fecha</label>
+                <select id="filter-deadline" class="field__control field__control--sm">
+                  <option value="ALL">Todas las fechas</option>
+                  <option value="MISSING">Con info faltante</option>
+                  <option value="CONFIRMED">Fecha confirmada</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- DYNAMIC TASK VIEWS CONTAINER -->
+            <div id="tasks-render-root" class="tasks-root" aria-live="polite"></div>
+
+            <div class="board-footer">
+              <span class="board-footer__meta" id="board-checksum-meta">Integridad CRUD: verificada</span>
+              <div class="board-footer__btns">
+                <button type="button" id="export-json-btn" class="btn btn--ghost btn--sm">
+                  Descargar JSON
+                </button>
+                <button type="button" id="reset-demo-btn" class="btn btn--ghost btn--sm">
+                  Restaurar caso oficial
+                </button>
+              </div>
+            </div>
+          </section>
+        </div>
+      </section>
+
+      <!-- ================================================================ -->
+      <!-- VIEW 2: EXECUTIVE CHALLENGE PRESENTATION & INTERVIEW GUIDE       -->
+      <!-- ================================================================ -->
+      <section id="view-presentation" hidden aria-labelledby="pres-heading">
+        <div class="pres-hero">
+          <span class="eyebrow">Entregable Final · Sustentación Técnica y Funcional</span>
+          <h1 id="pres-heading" class="pres-hero__title">
+            Reto Práctico Final: Organiza Tareas con IA
+          </h1>
+          <p class="pres-hero__sub">
+            Documentación ejecutiva completa de los <strong>5 puntos requeridos para la presentación</strong> y guía
+            estructurada para las <strong>5 preguntas de conversación</strong> con Luis Soto.
+          </p>
+        </div>
+
+        <div class="pres-grid">
+          <article class="pres-card">
+            <span class="pres-card__num">01</span>
+            <h2 class="pres-card__title">La solución propuesta</h2>
+            <p>
+              Construimos <strong>TaskFlow AI</strong>, un espacio de trabajo inteligente que convierte solicitudes no
+              estructuradas recibidas por <strong>correo electrónico, Slack, Microsoft Teams o WhatsApp</strong> en un
+              plan operativo claro, priorizado y editable (CRUD completo).
+            </p>
+            <ul class="pres-list">
+              <li><strong>Problema que resuelve:</strong> Evita que tareas clave ocultas dentro de párrafos largos se olviden, elimina la parálisis por no saber qué atender primero y previene malentendidos por fechas ambiguas.</li>
+              <li><strong>Diferenciador clave (Anti-Alucinación):</strong> En lugar de inventar fechas límite cuando el remitente no las menciona, distingue entre <em>Fecha Confirmada</em>, <em>Referencia Parcial</em> (ej. «para el viernes» sin hora) e <em>Información Faltante</em>, generando además un mensaje listo para pedir aclaración al remitente.</li>
+            </ul>
+          </article>
+
+          <article class="pres-card">
+            <span class="pres-card__num">02</span>
+            <h2 class="pres-card__title">Las herramientas utilizadas y por qué</h2>
+            <ul class="pres-list">
+              <li><strong>Google Gemini 3.8 Flash (Interactions API con JSON Schema estricto):</strong> Elegido por su baja latencia, excelente comprensión del español corporativo y soporte nativo de salidas estructuradas tipadas.</li>
+              <li><strong>Motor Neuro-Simbólico &amp; Verificador Layer-0 (JavaScript/ESM puro sin dependencias externas):</strong> Audita cada salida de la IA contra el texto original para garantizar 0 fechas inventadas y actúa como <em>Circuit Breaker</em> instantáneo (&lt; 2 ms) si la red o la API externa fallan.</li>
+              <li><strong>Arquitectura Hexagonal + Vercel Fluid Compute (Node.js 24):</strong> Aísla la clave de API en el servidor (cero secretos expuestos en el navegador) y ofrece despliegue HTTPS inmediato con encabezados de seguridad OWASP.</li>
+              <li><strong>Exportador Nativo CSV (SharePoint Lists / Planner) y Markdown (Slack/Teams):</strong> Conecta el resultado directamente con las plataformas donde trabajan los equipos reales.</li>
+            </ul>
+          </article>
+
+          <article class="pres-card">
+            <span class="pres-card__num">03</span>
+            <h2 class="pres-card__title">El funcionamiento paso a paso</h2>
+            <ol class="pres-list pres-list--ordered">
+              <li><strong>Ingesta:</strong> El usuario pega la solicitud de correo/chat (o elige un caso de prueba), selecciona el canal y la fecha de referencia.</li>
+              <li><strong>Extracción y Orden Lógico:</strong> La IA separa las actividades compuestas y las ordena por precedencia real (ej. <em>1° Revisar resultados del mes ➔ 2° Actualizar presentación ➔ 3° Enviar agenda antes de la reunión ➔ 4° Reunión del viernes</em>).</li>
+              <li><strong>Auditoría Anti-Alucinación:</strong> El verificador comprueba que cada tarea tenga cita textual real (<code>sourceQuote</code>) y revoca cualquier fecha que no tenga sustento en el mensaje.</li>
+              <li><strong>Gestión Visual y CRUD:</strong> El equipo visualiza métricas, alterna entre <em>Lista Visual</em>, <em>Tabla Ejecutiva</em> y <em>Kanban</em>, completa las fechas faltantes con un clic y exporta a SharePoint Lists o Slack.</li>
+            </ol>
+          </article>
+
+          <article class="pres-card">
+            <span class="pres-card__num">04</span>
+            <h2 class="pres-card__title">Las dificultades encontradas y cómo las resolvimos</h2>
+            <ul class="pres-list">
+              <li><strong>Tendencia de los LLMs a «adivinar» fechas:</strong> Los modelos generativos suelen inventar horas o fechas intermedias para parecer útiles. <em>Solución:</em> Diseñamos un estado explícito <code>MISSING_INFO</code> / <code>PARTIAL_ANCHOR</code> en el esquema y un verificador determinista post-IA que bloquea fechas sin ancla léxica.</li>
+              <li><strong>Prioridades implícitas por dependencia:</strong> En el ejemplo del viernes, ninguna tarea dice la palabra «urgente», pero <em>revisar resultados</em> bloquea <em>actualizar la presentación</em>. <em>Solución:</em> Modelamos fases de dependencia lógica (insumo ➔ entregable ➔ envío previo ➔ evento hito).</li>
+              <li><strong>Disponibilidad garantizada durante evaluaciones en vivo:</strong> Depender de una sola API externa puede fallar por cuota o red. <em>Solución:</em> Implementamos un patrón <em>Circuit Breaker</em> con motor NLP determinista local de respaldo.</li>
+            </ul>
+          </article>
+
+          <article class="pres-card pres-card--wide">
+            <span class="pres-card__num">05</span>
+            <h2 class="pres-card__title">Las oportunidades de mejora (Roadmap)</h2>
+            <div class="roadmap-cols">
+              <div>
+                <h3>Integración Directa Microsoft 365 &amp; SharePoint</h3>
+                <p>Conectar mediante <strong>Microsoft Graph API y Power Automate</strong> para crear ítems automáticamente en <strong>SharePoint Lists, Microsoft Planner o To Do</strong> al marcar un correo en Outlook o Teams.</p>
+              </div>
+              <div>
+                <h3>Bot Nativo Bidireccional en Slack / Teams</h3>
+                <p>Incorporar Slash Commands y Webhooks firmados (HMAC) para transformar un hilo de chat en tareas con un solo emoji (⚡) y publicar botones interactivos de confirmación.</p>
+              </div>
+              <div>
+                <h3>Memoria de Equipo y Carga de Trabajo</h3>
+                <p>Sugerir responsables automáticamente según el rol histórico de cada miembro del equipo y alertar sobrecarga de tareas en una misma semana.</p>
+              </div>
+            </div>
+          </article>
+        </div>
+
+        <!-- 5 INTERVIEW QUESTIONS SECTION -->
+        <section class="qa-section" aria-labelledby="qa-heading">
+          <h2 id="qa-heading" class="qa-section__title">
+            Preguntas de Conversación para la Presentación
+          </h2>
+
+          <div class="qa-stack">
+            <details class="qa-item" open>
+              <summary class="qa-item__q">1. ¿Por qué elegiste esta idea y estas herramientas?</summary>
+              <div class="qa-item__a">
+                <p>
+                  Elegí construir un <strong>espacio de triaje interactivo con CRUD y exportación</strong> porque una tabla estática se queda corta apenas llega la realidad del trabajo: alguien confirma la fecha que faltaba o cambia el estado de una tarea. Combiné <strong>Gemini 3.8 Flash</strong> (para comprensión semántica con JSON Schema estricto) con un <strong>verificador determinista sin dependencias</strong> desplegado en <strong>Vercel</strong> para lograr velocidad, seguridad de credenciales en servidor y cero fricción de uso desde cualquier navegador o celular.
+                </p>
+              </div>
+            </details>
+
+            <details class="qa-item">
+              <summary class="qa-item__q">2. ¿Qué fue lo más difícil y cómo lo resolviste?</summary>
+              <div class="qa-item__a">
+                <p>
+                  Lo más retador fue lograr el equilibrio exacto en las fechas relativas: en <em>«preparar la reunión para el viernes y enviar la agenda antes de la reunión»</em>, «el viernes» sí es un ancla real para la reunión, pero las tareas previas no tienen día ni hora exacta. Lo resolví separando el estado temporal en tres niveles (<strong>Confirmada</strong>, <strong>Referencia Parcial</strong> e <strong>Información Faltante</strong>) y añadiendo una guardia determinista que impide que la IA invente fechas intermedias.
+                </p>
+              </div>
+            </details>
+
+            <details class="qa-item">
+              <summary class="qa-item__q">3. ¿Cómo comprobarías que las tareas identificadas por la IA son correctas?</summary>
+              <div class="qa-item__a">
+                <p>
+                  Implementé <strong>tres mecanismos verificables en tiempo real</strong> visibles en la tarjeta de auditoría de la aplicación:
+                </p>
+                <ul class="pres-list">
+                  <li><strong>Sustento por Cita Textual (Quote Grounding):</strong> Cada tarea exige el campo <code>sourceQuote</code> y el sistema verifica algorítmicamente que esos términos existan realmente en el mensaje original.</li>
+                  <li><strong>Auditoría Anti-Alucinación Temporal y de Responsables:</strong> Si el modelo emite una fecha ISO o un nombre propio que no tiene respaldo léxico en el texto fuente, el verificador la revoca automáticamente y la marca como información faltante.</li>
+                  <li><strong>Suite Automatizada BDD y Revisión Humana (Human-in-the-Loop):</strong> Contamos con pruebas unitarias automatizadas (<code>node:test</code>) con casos borde (0 fechas, múltiples cláusulas, inyección) y edición CRUD inmediata para que el usuario valide antes de exportar.</li>
+                </ul>
+              </div>
+            </details>
+
+            <details class="qa-item">
+              <summary class="qa-item__q">4. ¿Qué mejorarías si tuvieras una hora adicional?</summary>
+              <div class="qa-item__a">
+                <p>
+                  En una hora adicional conectaría un <strong>Webhook entrante hacia Power Automate / SharePoint Lists</strong> (o un Incoming Webhook de Slack/Teams) con un botón <em>«Publicar Plan en Canal / Lista»</em>, de modo que además de descargar el CSV compatible con SharePoint, las tareas queden creadas directamente en la lista compartida del equipo con un clic.
+                </p>
+              </div>
+            </details>
+
+            <details class="qa-item">
+              <summary class="qa-item__q">5. ¿Cómo convertirías esta demostración en una solución que otras personas pudieran utilizar?</summary>
+              <div class="qa-item__a">
+                <p>
+                  En tres pasos incrementales: (1) <strong>Autenticación corporativa SSO (Microsoft Entra ID / Google Workspace)</strong> para separar tableros por equipo; (2) <strong>Persistencia compartida en base de datos transaccional (PostgreSQL / SharePoint Lists backend)</strong> con control de permisos por rol; y (3) <strong>Conectores omnicanal pasivos</strong> (add-in de Outlook, app de Teams/Slack) para que el usuario ni siquiera tenga que copiar y pegar el mensaje.
+                </p>
+              </div>
+            </details>
+          </div>
+        </section>
+      </section>
+    </main>
+
+    <!-- ================================================================ -->
+    <!-- ACCESSIBLE CRUD MODAL DIALOG (<dialog closedby="any">)           -->
+    <!-- ================================================================ -->
+    <dialog id="task-crud-dialog" class="crud-dialog" closedby="any" aria-labelledby="crud-dialog-title">
+      <form id="task-crud-form" method="dialog" class="crud-form">
+        <div class="crud-dialog__header">
+          <h2 id="crud-dialog-title" class="crud-dialog__title">Editar Tarea</h2>
+          <button type="button" id="close-dialog-btn" class="btn btn--ghost btn--sm" aria-label="Cerrar ventana">
+            ✕
+          </button>
+        </div>
+
+        <input type="hidden" id="crud-task-id" />
+
+        <div class="field">
+          <label for="crud-title" class="field__label">Actividad / Tarea *</label>
+          <input type="text" id="crud-title" class="field__control" maxlength="180" required />
+        </div>
+
+        <div class="form-row-2">
+          <div class="field">
+            <label for="crud-priority" class="field__label">Prioridad sugerida</label>
+            <select id="crud-priority" class="field__control">
+              <option value="CRITICAL">Crítica (P0)</option>
+              <option value="HIGH">Alta (P1)</option>
+              <option value="MEDIUM">Media (P2)</option>
+              <option value="LOW">Baja (P3)</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label for="crud-status" class="field__label">Estado</label>
+            <select id="crud-status" class="field__control">
+              <option value="PENDING">Pendiente</option>
+              <option value="IN_PROGRESS">En progreso</option>
+              <option value="COMPLETED">Completada</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-row-2">
+          <div class="field">
+            <label for="crud-deadline" class="field__label">Fecha límite (resuelve info faltante)</label>
+            <input type="date" id="crud-deadline" class="field__control" />
+          </div>
+
+          <div class="field">
+            <label for="crud-assignee" class="field__label">Responsable</label>
+            <input type="text" id="crud-assignee" class="field__control" maxlength="80" placeholder="Ej. Ana Gómez o @carlos" />
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="crud-reason" class="field__label">Justificación de prioridad / Notas</label>
+          <textarea id="crud-reason" rows="2" maxlength="320" class="field__control field__textarea"></textarea>
+        </div>
+
+        <div class="crud-dialog__actions">
+          <button type="button" id="cancel-dialog-btn" class="btn btn--ghost">Cancelar</button>
+          <button type="submit" class="btn btn--primary">Guardar Tarea</button>
+        </div>
+      </form>
+    </dialog>
+
+    <div id="toast-notification" class="toast" role="status" aria-live="polite" hidden></div>
+
+    <script type="module" src="./src/ui/main.mjs"></script>
+  </body>
+</html>

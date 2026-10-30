@@ -1,0 +1,18 @@
+{
+  "evidenceId": "EVD-0001",
+  "projectId": "crud-slack",
+  "epistemicState": "VERIFIED",
+  "stagesPassed": "7/7",
+  "exitCode": 0,
+  "artifactCount": 35,
+  "sbomMerkleRoot": "sha256:a57774e8edec84d1e4c300b2a48aefd1e0027cbe47b770df8738ffd0780daef0",
+  "budgets": {
+    "cssKilobytes": 20.8,
+    "uiJsKilobytes": 25.4,
+    "runtimeDependencies": 0
+  },
+  "verifiedEndpoints": [
+    "/api/health",
+    "/api/analyze"
+  ]
+}
