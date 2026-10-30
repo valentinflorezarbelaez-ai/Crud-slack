@@ -114,7 +114,7 @@ export function createGeminiInteractionsAdapter(config = {}) {
   const isHermetic = process.env.TASKFLOW_HERMETIC_TEST === "1";
   const apiKey = isHermetic ? "" : (config.apiKey ?? process.env.GEMINI_API_KEY ?? "").trim();
   const model = (config.model ?? process.env.GEMINI_MODEL ?? DEFAULT_GEMINI_MODEL).trim();
-  const timeoutMs = config.timeoutMs ?? 5500;
+  const timeoutMs = config.timeoutMs ?? 15000;
 
   return {
     isConfigured() {
@@ -146,7 +146,8 @@ export function createGeminiInteractionsAdapter(config = {}) {
           system_instruction: SYSTEM_INSTRUCTION,
           input: userPrompt,
           generation_config: {
-            temperature: 0.1
+            temperature: 0.1,
+            thinking_level: "low"
           },
           response_format: {
             type: "text",
