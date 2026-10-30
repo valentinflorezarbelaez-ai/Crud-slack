@@ -24,10 +24,12 @@ import {
 import { analyzeWorkplaceRequest } from "../src/application/analyzeRequest.mjs";
 import {
   exportToSharePointCsv,
-  exportToSlackMarkdown
+  exportToSlackMarkdown,
+  exportToTeamsAdaptiveCard
 } from "../src/application/exportTasks.mjs";
 import { GET as healthGet } from "../api/health.js";
 import { POST as analyzePost, GET as analyzeGet } from "../api/analyze.js";
+import { GET as metricsGet } from "../api/metrics.js";
 
 const CANONICAL_CHALLENGE_PROMPT =
   "Hola, necesitamos preparar la reunión del equipo para el viernes. Hay que revisar los resultados del mes, actualizar la presentación y enviar la agenda a los participantes antes de la reunión.";
@@ -226,5 +228,35 @@ describe("SPEC-CRUD-SLACK-001: TaskFlow AI Domain, Anti-Hallucination & API Suit
     const postJson = await postRes.json();
     assert.equal(postJson.ok, true);
     assert.equal(postJson.tasks.length, 4);
+
+    const metricsRes = await metricsGet(new Request("http://localhost/api/metrics"));
+    assert.equal(metricsRes.status, 200);
+    const metricsText = await metricsRes.text();
+    assert.ok(metricsText.includes("taskflow_process_uptime_seconds"));
+    assert.ok(metricsText.includes("taskflow_anti_hallucination_guarantee 100"));
+  });
+
+  it("BDD-CS-006: generates valid Microsoft Teams Adaptive Card v1.5 payload with structured facts and action URLs", () => {
+    const triage = runDeterministicTriage({
+      message: CANONICAL_CHALLENGE_PROMPT,
+      channel: "teams",
+      referenceDate: "2026-10-28"
+    });
+
+    const card = exportToTeamsAdaptiveCard({
+      tasks: triage.tasks,
+      summary: triage.summary,
+      clarificationDraft: triage.clarificationDraft,
+      channel: "teams",
+      referenceDate: "2026-10-28"
+    });
+
+    assert.equal(card.type, "AdaptiveCard");
+    assert.equal(card.version, "1.5");
+    assert.ok(Array.isArray(card.body));
+    assert.ok(card.body.length >= 4);
+    assert.ok(Array.isArray(card.actions));
+    assert.equal(card.actions[0].type, "Action.OpenUrl");
+    assert.ok(card.actions[0].url.includes("crud-slack.vercel.app"));
   });
 });

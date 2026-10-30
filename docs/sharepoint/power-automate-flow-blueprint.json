@@ -1,0 +1,142 @@
+{
+  "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+  "contentVersion": "1.0.0.0",
+  "comment": "TaskFlow AI — Enterprise Power Automate Cloud Flow Blueprint for SharePoint Online & Teams",
+  "metadata": {
+    "author": "Valentín Flórez Arbeláez",
+    "evaluator": "Luis Soto (Desarrollador Software Plataforma SharePoint)",
+    "description": "Flujo de trabajo empresarial que escucha nuevos correos en Outlook (o menciones en Teams), llama a la API de TaskFlow AI y crea automáticamente las tareas en una Lista de SharePoint Online."
+  },
+  "triggers": {
+    "When_a_new_email_arrives_(V3)": {
+      "type": "OpenApiConnection",
+      "inputs": {
+        "host": {
+          "connectionName": "shared_office365",
+          "operationId": "OnNewEmailV3"
+        },
+        "parameters": {
+          "folderPath": "Inbox",
+          "importance": "Any",
+          "hasAttachments": false,
+          "includeAttachments": false
+        }
+      }
+    }
+  },
+  "actions": {
+    "HTTP_Call_TaskFlow_AI": {
+      "type": "Http",
+      "inputs": {
+        "method": "POST",
+        "uri": "https://crud-slack.vercel.app/api/analyze",
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "message": "@{triggerOutputs()?['body/bodyPreview']}",
+          "channel": "email",
+          "referenceDate": "@{utcNow('yyyy-MM-dd')}"
+        }
+      },
+      "runAfter": {}
+    },
+    "Parse_TaskFlow_JSON": {
+      "type": "ParseJson",
+      "inputs": {
+        "content": "@body('HTTP_Call_TaskFlow_AI')",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "ok": { "type": "boolean" },
+            "summary": { "type": "string" },
+            "tasks": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "order": { "type": "integer" },
+                  "title": { "type": "string" },
+                  "priority": { "type": "string" },
+                  "priorityReason": { "type": "string" },
+                  "deadlineDate": { "type": ["string", "null"] },
+                  "deadlineState": { "type": "string" },
+                  "deadlineLabel": { "type": "string" },
+                  "missingDetails": { "type": "string" },
+                  "assignee": { "type": "string" },
+                  "sourceQuote": { "type": "string" }
+                }
+              }
+            },
+            "clarificationDraft": { "type": "string" }
+          }
+        }
+      },
+      "runAfter": {
+        "HTTP_Call_TaskFlow_AI": ["Succeeded"]
+      }
+    },
+    "Apply_to_each_Task": {
+      "type": "Foreach",
+      "foreach": "@body('Parse_TaskFlow_JSON')?['tasks']",
+      "actions": {
+        "Create_item_in_SharePoint_List": {
+          "type": "OpenApiConnection",
+          "inputs": {
+            "host": {
+              "connectionName": "shared_sharepointonline",
+              "operationId": "PostItem"
+            },
+            "parameters": {
+              "dataset": "https://tuempresa.sharepoint.com/sites/Operaciones",
+              "table": "TaskFlow_Actividades",
+              "item/Title": "@{items('Apply_to_each_Task')?['title']}",
+              "item/Prioridad/Value": "@{items('Apply_to_each_Task')?['priority']}",
+              "item/EstadoTarea/Value": "Pendiente",
+              "item/FechaLimite": "@{items('Apply_to_each_Task')?['deadlineDate']}",
+              "item/EstadoFecha/Value": "@{items('Apply_to_each_Task')?['deadlineState']}",
+              "item/DetalleFaltante": "@{items('Apply_to_each_Task')?['missingDetails']}",
+              "item/Responsable": "@{items('Apply_to_each_Task')?['assignee']}",
+              "item/CanalOrigen/Value": "Email",
+              "item/CitaTextualFuente": "@{items('Apply_to_each_Task')?['sourceQuote']}"
+            }
+          }
+        }
+      },
+      "runAfter": {
+        "Parse_TaskFlow_JSON": ["Succeeded"]
+      }
+    },
+    "Condition_Has_Missing_Deadlines": {
+      "type": "If",
+      "expression": {
+        "and": [
+          {
+            "greater": [
+              "@length(body('Parse_TaskFlow_JSON')?['clarificationDraft'])",
+              10
+            ]
+          }
+        ]
+      },
+      "actions": {
+        "Reply_to_Email_with_Clarification_Draft": {
+          "type": "OpenApiConnection",
+          "inputs": {
+            "host": {
+              "connectionName": "shared_office365",
+              "operationId": "ReplyToEmailV3"
+            },
+            "parameters": {
+              "messageId": "@{triggerOutputs()?['body/id']}",
+              "comment": "<p>Hola,</p><p>He organizado las actividades del correo en la Lista de SharePoint del equipo. Para cerrar el cronograma sin asumir datos, por favor confirma lo siguiente:</p><pre>@{body('Parse_TaskFlow_JSON')?['clarificationDraft']}</pre><p>Atentamente,<br/>TaskFlow AI Bot</p>"
+            }
+          }
+        }
+      },
+      "runAfter": {
+        "Apply_to_each_Task": ["Succeeded"]
+      }
+    }
+  }
+}

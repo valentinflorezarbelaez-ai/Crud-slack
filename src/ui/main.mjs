@@ -21,7 +21,8 @@ import { analyzeWorkplaceRequest } from "../application/analyzeRequest.mjs";
 import {
   exportToJsonContract,
   exportToSharePointCsv,
-  exportToSlackMarkdown
+  exportToSlackMarkdown,
+  exportToTeamsAdaptiveCard
 } from "../application/exportTasks.mjs";
 import {
   loadPersistedBoardState,
@@ -74,12 +75,14 @@ const el = {
   copyClarificationBtn: document.getElementById("copy-clarification-btn"),
   addTaskBtn: document.getElementById("add-task-btn"),
   exportCsvBtn: document.getElementById("export-csv-btn"),
+  exportTeamsCardBtn: document.getElementById("export-teams-card-btn"),
   copySlackMdBtn: document.getElementById("copy-slack-md-btn"),
   exportJsonBtn: document.getElementById("export-json-btn"),
   resetDemoBtn: document.getElementById("reset-demo-btn"),
   viewModeCards: document.getElementById("view-mode-cards"),
   viewModeTable: document.getElementById("view-mode-table"),
   viewModeKanban: document.getElementById("view-mode-kanban"),
+  viewModeSharepoint: document.getElementById("view-mode-sharepoint"),
   filterPriority: /** @type {HTMLSelectElement} */ (document.getElementById("filter-priority")),
   filterDeadline: /** @type {HTMLSelectElement} */ (document.getElementById("filter-deadline")),
   tasksRenderRoot: document.getElementById("tasks-render-root"),
@@ -96,6 +99,13 @@ const el = {
   crudReason: /** @type {HTMLTextAreaElement} */ (document.getElementById("crud-reason")),
   closeDialogBtn: document.getElementById("close-dialog-btn"),
   cancelDialogBtn: document.getElementById("cancel-dialog-btn"),
+  teamsCardDialog: /** @type {HTMLDialogElement} */ (document.getElementById("teams-card-dialog")),
+  teamsCardPreviewContainer: document.getElementById("teams-card-preview-container"),
+  teamsCardJsonPre: document.getElementById("teams-card-json-pre"),
+  copyTeamsJsonBtn: document.getElementById("copy-teams-json-btn"),
+  closeTeamsDialogBtn: document.getElementById("close-teams-dialog-btn"),
+  dismissTeamsDialogBtn: document.getElementById("dismiss-teams-dialog-btn"),
+  printBtn: document.getElementById("print-btn"),
   toast: document.getElementById("toast-notification")
 };
 
@@ -281,6 +291,121 @@ function renderKanbanView(tasks) {
   return `<div class="kanban-grid">${colsHtml}</div>`;
 }
 
+function renderSharePointListView(tasks) {
+  const rows = tasks
+    .map((task) => {
+      const isConfirmed = task.deadlineState === DEADLINE_STATES.CONFIRMED;
+      const prioMeta = PRIORITIES[task.priority] || PRIORITIES.MEDIUM;
+      const statusMeta = TASK_STATUSES[task.status] || TASK_STATUSES.PENDING;
+      const initials = (task.assignee && task.assignee !== "Por asignar" ? task.assignee : "PA")
+        .split(/\s+/)
+        .map((w) => w[0])
+        .slice(0, 2)
+        .join("")
+        .toUpperCase();
+
+      return `
+        <tr>
+          <td>
+            <input type="checkbox" data-action="cycle-status" data-id="${escapeHtml(task.id)}" ${task.status === "COMPLETED" ? "checked" : ""} aria-label="Marcar tarea #${task.order}" />
+          </td>
+          <td>
+            <strong>#${escapeHtml(task.order)} ${escapeHtml(task.title)}</strong>
+            ${task.sourceQuote ? `<div class="task-card__quote">Cita: "${escapeHtml(task.sourceQuote)}"</div>` : ""}
+          </td>
+          <td>
+            <span class="prio-badge ${escapeHtml(prioMeta.badgeClass)}">${escapeHtml(prioMeta.labelEs)}</span>
+          </td>
+          <td>
+            <span class="prio-badge badge--accent">${escapeHtml(statusMeta.labelEs)}</span>
+          </td>
+          <td>
+            ${task.deadlineDate ? `<code>${escapeHtml(task.deadlineDate)}</code>` : `<span class="date-badge date-missing">Sin fecha</span>`}
+          </td>
+          <td>
+            <span class="date-badge ${isConfirmed ? "date-confirmed" : "date-missing"}">
+              ${isConfirmed ? "Confirmada" : "Info Faltante"}
+            </span>
+          </td>
+          <td>
+            <div class="sp-avatar-chip">
+              <span class="sp-avatar-icon" aria-hidden="true">${escapeHtml(initials)}</span>
+              <span>${escapeHtml(task.assignee)}</span>
+            </div>
+          </td>
+          <td>
+            <button type="button" class="btn btn--ghost btn--sm" data-action="edit" data-id="${escapeHtml(task.id)}">Editar</button>
+          </td>
+        </tr>
+      `;
+    })
+    .join("");
+
+  return `
+    <div class="sp-list-container">
+      <div class="sp-command-bar" role="toolbar" aria-label="Barra de comandos estilo SharePoint Modern">
+        <button type="button" class="sp-command-btn sp-command-btn--primary" id="sp-new-btn">+ Nuevo ítem</button>
+        <button type="button" class="sp-command-btn" id="sp-export-csv-btn">Exportar a Excel / CSV</button>
+        <button type="button" class="sp-command-btn" id="sp-flow-btn">⚡ Flujo Power Automate</button>
+      </div>
+      <div class="sp-table-wrap">
+        <table class="sp-table">
+          <thead>
+            <tr>
+              <th scope="col">✓</th>
+              <th scope="col">Nombre de la Actividad</th>
+              <th scope="col">Prioridad</th>
+              <th scope="col">Estado</th>
+              <th scope="col">Vencimiento</th>
+              <th scope="col">Confianza Fecha</th>
+              <th scope="col">Asignado a</th>
+              <th scope="col">Acción</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+    </div>
+  `;
+}
+
+function renderTeamsCardPreview() {
+  if (!el.teamsCardPreviewContainer) return;
+  const tasks = boardState.tasks;
+  const summary = boardState.lastAnalysis?.summary || "Plan de tareas organizado.";
+  const draft = boardState.lastAnalysis?.clarificationDraft || "";
+
+  const taskRows = tasks
+    .map((t) => {
+      const isMissing = t.deadlineState !== DEADLINE_STATES.CONFIRMED;
+      const dateText = isMissing
+        ? `⚠️ ${escapeHtml(t.deadlineLabel)} (${escapeHtml(t.missingDetails || "Falta confirmar fecha u hora")})`
+        : `📅 Vencimiento: ${escapeHtml(t.deadlineDate)} · Resp: ${escapeHtml(t.assignee)}`;
+      return `
+        <div class="teams-preview__task">
+          <div><strong>#${t.order} ${escapeHtml(t.title)}</strong></div>
+          <div class="task-card__quote">${escapeHtml(t.priority)} · ${escapeHtml(t.priorityReason || "")}</div>
+          <div><small>${dateText}</small></div>
+        </div>
+      `;
+    })
+    .join("");
+
+  el.teamsCardPreviewContainer.innerHTML = `
+    <div class="teams-preview__header">
+      <span class="teams-preview__title">⚡ TaskFlow AI · Plan de Tareas en Teams</span>
+      <span class="badge badge--accent">Adaptive Card v1.5</span>
+    </div>
+    <p>${escapeHtml(summary)}</p>
+    <div class="teams-preview__tasks-box">${taskRows}</div>
+    ${draft ? `<div class="teams-preview__draft"><strong>Borrador de aclaración:</strong><p>${escapeHtml(draft)}</p></div>` : ""}
+    <div class="teams-preview__actions">
+      <button type="button" class="teams-btn">Abrir en TaskFlow</button>
+      <button type="button" class="teams-btn">Ver en SharePoint</button>
+    </div>
+  `;
+}
+
 function renderWorkspace() {
   const metrics = computeBoardMetrics(boardState.tasks);
   if (el.kpiTotal) el.kpiTotal.textContent = String(metrics.total);
@@ -354,6 +479,8 @@ function renderWorkspace() {
     el.tasksRenderRoot.innerHTML = renderTableView(filtered);
   } else if (currentViewMode === "kanban") {
     el.tasksRenderRoot.innerHTML = renderKanbanView(filtered);
+  } else if (currentViewMode === "sharepoint") {
+    el.tasksRenderRoot.innerHTML = renderSharePointListView(filtered);
   } else {
     el.tasksRenderRoot.innerHTML = `<div class="task-stack">${filtered.map(renderTaskCardHtml).join("")}</div>`;
   }
@@ -480,7 +607,8 @@ function setViewMode(mode) {
   const map = {
     cards: el.viewModeCards,
     table: el.viewModeTable,
-    kanban: el.viewModeKanban
+    kanban: el.viewModeKanban,
+    sharepoint: el.viewModeSharepoint
   };
   for (const [k, btn] of Object.entries(map)) {
     const active = k === mode;
@@ -578,12 +706,32 @@ async function bootstrap() {
   el.viewModeCards?.addEventListener("click", () => setViewMode("cards"));
   el.viewModeTable?.addEventListener("click", () => setViewMode("table"));
   el.viewModeKanban?.addEventListener("click", () => setViewMode("kanban"));
+  el.viewModeSharepoint?.addEventListener("click", () => setViewMode("sharepoint"));
   el.filterPriority?.addEventListener("change", renderWorkspace);
   el.filterDeadline?.addEventListener("change", renderWorkspace);
 
   // Delegated Task CRUD actions
   el.tasksRenderRoot?.addEventListener("click", (ev) => {
-    const btn = /** @type {HTMLElement} */ (ev.target).closest("[data-action]");
+    const target = /** @type {HTMLElement} */ (ev.target);
+
+    // SharePoint toolbar buttons
+    if (target.id === "sp-new-btn") {
+      openCrudDialog(null);
+      return;
+    }
+    if (target.id === "sp-export-csv-btn") {
+      const csv = exportToSharePointCsv(boardState.tasks);
+      triggerDownload(`taskflow-sharepoint-${todayIso}.csv`, csv, "text/csv;charset=utf-8");
+      showToast("CSV exportado (compatible con SharePoint Lists, Planner y Excel).");
+      return;
+    }
+    if (target.id === "sp-flow-btn") {
+      setActiveTopSection("presentation");
+      showToast("Navegando a la arquitectura de integración Microsoft 365 & Power Automate.");
+      return;
+    }
+
+    const btn = target.closest("[data-action]");
     if (!btn) return;
     const action = btn.getAttribute("data-action");
     const taskId = btn.getAttribute("data-id");
@@ -637,6 +785,31 @@ async function bootstrap() {
     showToast("CSV exportado (compatible con SharePoint Lists, Planner y Excel).");
   });
 
+  el.exportTeamsCardBtn?.addEventListener("click", () => {
+    const card = exportToTeamsAdaptiveCard({
+      tasks: boardState.tasks,
+      summary: boardState.lastAnalysis?.summary || "",
+      clarificationDraft: boardState.lastAnalysis?.clarificationDraft || "",
+      channel: el.inputChannel?.value || "email",
+      referenceDate: el.inputRefDate?.value || todayIso
+    });
+    if (el.teamsCardJsonPre) {
+      el.teamsCardJsonPre.textContent = JSON.stringify(card, null, 2);
+    }
+    renderTeamsCardPreview();
+    el.teamsCardDialog?.showModal();
+  });
+
+  el.closeTeamsDialogBtn?.addEventListener("click", () => el.teamsCardDialog?.close());
+  el.dismissTeamsDialogBtn?.addEventListener("click", () => el.teamsCardDialog?.close());
+
+  el.copyTeamsJsonBtn?.addEventListener("click", () => {
+    const text = el.teamsCardJsonPre?.textContent || "";
+    copyTextToClipboard(text, "Payload JSON de Adaptive Card copiado al portapapeles.");
+  });
+
+  el.printBtn?.addEventListener("click", () => window.print());
+
   el.copySlackMdBtn?.addEventListener("click", () => {
     const md = exportToSlackMarkdown({
       tasks: boardState.tasks,
@@ -667,6 +840,53 @@ async function bootstrap() {
       referenceDate: el.inputRefDate.value || todayIso
     });
   });
+
+  // Power-User Keyboard Shortcuts
+  window.addEventListener("keydown", (ev) => {
+    // Ctrl/Cmd + Enter: Trigger analysis
+    if ((ev.ctrlKey || ev.metaKey) && ev.key === "Enter") {
+      ev.preventDefault();
+      if (el.inputMessage && el.inputMessage.value.trim().length >= 4) {
+        runAnalysisFlow({
+          message: el.inputMessage.value,
+          channel: el.inputChannel.value,
+          referenceDate: el.inputRefDate.value || todayIso
+        });
+      }
+      return;
+    }
+
+    // Alt + N: New task modal
+    if (ev.altKey && (ev.key === "n" || ev.key === "N")) {
+      ev.preventDefault();
+      openCrudDialog(null);
+      return;
+    }
+
+    // Alt + P: Print executive memo
+    if (ev.altKey && (ev.key === "p" || ev.key === "P")) {
+      ev.preventDefault();
+      window.print();
+      return;
+    }
+
+    // View Switching 1-4 when not typing in text fields
+    const tag = (document.activeElement?.tagName || "").toLowerCase();
+    const isTyping = tag === "input" || tag === "textarea" || tag === "select";
+    if (!isTyping && !ev.ctrlKey && !ev.altKey && !ev.metaKey) {
+      if (ev.key === "1") setViewMode("cards");
+      else if (ev.key === "2") setViewMode("table");
+      else if (ev.key === "3") setViewMode("kanban");
+      else if (ev.key === "4") setViewMode("sharepoint");
+    }
+  });
+
+  // Progressive Web App (PWA) Offline Service Worker Registration
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", () => {
+      navigator.serviceWorker.register("./sw.js").catch(() => {});
+    });
+  }
 }
 
 bootstrap();

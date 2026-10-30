@@ -1182,3 +1182,267 @@ summary {
     justify-content: flex-end;
   }
 }
+
+/* ==========================================================================
+   SHAREPOINT MODERN LIST SIMULATION VIEW (.sp-list-view)
+   Fluent Design inspired styles tailored for Luis Soto (SharePoint Dev)
+   ========================================================================== */
+
+.sp-list-container {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 0.85rem;
+  overflow: hidden;
+}
+
+.sp-command-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  padding-bottom: 0.65rem;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.sp-command-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: transparent;
+  color: var(--text-primary);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  padding: 0.35rem 0.65rem;
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.sp-command-btn:hover {
+  background: var(--bg-elevated);
+  border-color: var(--border-subtle);
+}
+
+.sp-command-btn--primary {
+  background: #0078d4;
+  color: #ffffff;
+}
+
+.sp-command-btn--primary:hover {
+  background: #106ebe;
+}
+
+.sp-table-wrap {
+  overflow-x: auto;
+}
+
+.sp-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+  text-align: left;
+}
+
+.sp-table th {
+  background: var(--bg-elevated);
+  color: var(--text-muted);
+  font-size: 0.74rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0.6rem 0.75rem;
+  border-bottom: 1px solid var(--border-strong);
+  white-space: nowrap;
+}
+
+.sp-table td {
+  padding: 0.65rem 0.75rem;
+  border-bottom: 1px solid var(--border-subtle);
+  vertical-align: middle;
+}
+
+.sp-table tr:hover td {
+  background: rgba(56, 189, 248, 0.05);
+}
+
+.sp-avatar-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.sp-avatar-icon {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #0078d4;
+  color: #ffffff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.65rem;
+  font-weight: 700;
+}
+
+/* ==========================================================================
+   MICROSOFT TEAMS ADAPTIVE CARD MODAL & PREVIEW
+   ========================================================================== */
+
+.teams-dialog {
+  max-width: 760px;
+}
+
+.teams-dialog__body {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.25rem;
+}
+
+.teams-card-preview {
+  background: #ffffff;
+  color: #242424;
+  border-radius: 8px;
+  padding: 1.25rem;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15);
+  border-left: 4px solid #5b5fc7;
+  font-size: 0.88rem;
+  line-height: 1.5;
+}
+
+html[data-theme="dark"] .teams-card-preview {
+  background: #1f1f1f;
+  color: #f5f5f5;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+}
+
+.teams-preview__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75rem;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+  padding-bottom: 0.5rem;
+}
+
+.teams-preview__title {
+  font-weight: 700;
+  font-size: 1rem;
+  color: #5b5fc7;
+}
+
+html[data-theme="dark"] .teams-preview__title {
+  color: #7b83eb;
+}
+
+.teams-preview__task {
+  padding: 0.5rem 0;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.15);
+}
+
+.teams-preview__actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.teams-btn {
+  background: #5b5fc7;
+  color: #ffffff;
+  border: none;
+  border-radius: 4px;
+  padding: 0.4rem 0.85rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.teams-btn:hover {
+  background: #4f52b2;
+}
+
+.teams-dialog__json-wrap {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 0.75rem;
+}
+
+.teams-dialog__json-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+/* ==========================================================================
+   EXECUTIVE 1-PAGE MEMO PRINT STYLESHEET (@media print)
+   ========================================================================== */
+
+@media print {
+  body {
+    background: #ffffff !important;
+    color: #000000 !important;
+  }
+
+  .topbar,
+  .panel--intake,
+  .toolbar-actions,
+  .view-switcher,
+  .filter-bar,
+  .board-footer,
+  .intake-actions,
+  .mode-nav,
+  #theme-toggle-btn,
+  #print-btn,
+  .btn,
+  dialog {
+    display: none !important;
+  }
+
+  .container {
+    max-width: 100% !important;
+    padding: 0 !important;
+  }
+
+  .workspace-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .panel--results {
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+  }
+
+  .kpi-grid {
+    grid-template-columns: repeat(4, 1fr) !important;
+    gap: 0.5rem !important;
+    margin-bottom: 1rem !important;
+  }
+
+  .kpi-card {
+    border: 1px solid #cccccc !important;
+    background: #fafafa !important;
+    color: #000000 !important;
+  }
+
+  .table-view th,
+  .table-view td,
+  .sp-table th,
+  .sp-table td {
+    border: 1px solid #dddddd !important;
+    color: #000000 !important;
+  }
+
+  .task-card {
+    border: 1px solid #cccccc !important;
+    background: #ffffff !important;
+    break-inside: avoid;
+    margin-bottom: 0.5rem !important;
+  }
+}

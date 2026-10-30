@@ -78,6 +78,16 @@
 
           <button
             type="button"
+            id="print-btn"
+            class="btn btn--ghost btn--sm"
+            aria-label="Imprimir informe ejecutivo o exportar a PDF"
+            title="Imprimir informe ejecutivo (Ctrl+P)"
+          >
+            Imprimir PDF
+          </button>
+
+          <button
+            type="button"
             id="theme-toggle-btn"
             class="btn btn--ghost btn--icon"
             aria-label="Cambiar entre tema oscuro y claro"
@@ -210,6 +220,9 @@
                 <button type="button" id="export-csv-btn" class="btn btn--ghost" title="Exportar CSV compatible con SharePoint Lists, Planner y Excel">
                   Exportar SharePoint CSV
                 </button>
+                <button type="button" id="export-teams-card-btn" class="btn btn--ghost" title="Visualizar y copiar Microsoft Teams Adaptive Card v1.5">
+                  Teams Adaptive Card
+                </button>
                 <button type="button" id="copy-slack-md-btn" class="btn btn--ghost" title="Copiar resumen estructurado para Slack o Teams">
                   Copiar Resumen Slack
                 </button>
@@ -274,6 +287,9 @@
                 </button>
                 <button type="button" id="view-mode-kanban" class="chip" aria-pressed="false">
                   Tablero Kanban
+                </button>
+                <button type="button" id="view-mode-sharepoint" class="chip" aria-pressed="false" title="Vista simulada interactiva de Microsoft SharePoint Online Modern List">
+                  Vista SharePoint List
                 </button>
               </div>
 
@@ -519,6 +535,33 @@
           <button type="submit" class="btn btn--primary">Guardar Tarea</button>
         </div>
       </form>
+    </dialog>
+
+    <!-- ================================================================ -->
+    <!-- MICROSOFT TEAMS ADAPTIVE CARD PREVIEW DIALOG                     -->
+    <!-- ================================================================ -->
+    <dialog id="teams-card-dialog" class="crud-dialog teams-dialog" closedby="any" aria-labelledby="teams-dialog-title">
+      <div class="crud-dialog__header">
+        <h2 id="teams-dialog-title" class="crud-dialog__title">Microsoft Teams · Vista Previa Adaptive Card v1.5</h2>
+        <button type="button" id="close-teams-dialog-btn" class="btn btn--ghost btn--sm" aria-label="Cerrar ventana">
+          ✕
+        </button>
+      </div>
+      <div class="teams-dialog__body">
+        <div id="teams-card-preview-container" class="teams-card-preview"></div>
+        <div class="teams-dialog__json-wrap">
+          <div class="teams-dialog__json-header">
+            <span class="eyebrow">Payload JSON de la Tarjeta (Listo para Power Automate / Webhooks)</span>
+            <button type="button" id="copy-teams-json-btn" class="btn btn--secondary btn--sm">
+              Copiar JSON Adaptive Card
+            </button>
+          </div>
+          <pre id="teams-card-json-pre" class="clarification-pre"></pre>
+        </div>
+      </div>
+      <div class="crud-dialog__actions">
+        <button type="button" id="dismiss-teams-dialog-btn" class="btn btn--ghost">Cerrar</button>
+      </div>
     </dialog>
 
     <div id="toast-notification" class="toast" role="status" aria-live="polite" hidden></div>

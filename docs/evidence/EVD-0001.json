@@ -4,15 +4,16 @@
   "epistemicState": "VERIFIED",
   "stagesPassed": "7/7",
   "exitCode": 0,
-  "artifactCount": 36,
-  "sbomMerkleRoot": "sha256:a868fe670973f39af69063cfaf170ffb0ee9155571703f1aee324f0204cc569e",
+  "artifactCount": 41,
+  "sbomMerkleRoot": "sha256:9d4615253ae4a84ef913dd0038c21c51016cfe406fe17d79f5dce3009d5bf5da",
   "budgets": {
-    "cssKilobytes": 20.8,
-    "uiJsKilobytes": 25.4,
+    "cssKilobytes": 25.9,
+    "uiJsKilobytes": 34.1,
     "runtimeDependencies": 0
   },
   "verifiedEndpoints": [
     "/api/health",
-    "/api/analyze"
+    "/api/analyze",
+    "/api/metrics"
   ]
 }

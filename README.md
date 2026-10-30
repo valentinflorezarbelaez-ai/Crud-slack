@@ -15,20 +15,26 @@ flowchart LR
   D --> F["Layer-0 Anti-Hallucination & Quote Grounding Verifier"]
   E --> F
   F --> G["Interactive CRUD Workspace (Cards · Table · Kanban)"]
-  G --> H["SharePoint Lists CSV · Slack Markdown · JSON Export"]
+  G --> H["SharePoint Lists CSV · Teams Adaptive Card · Slack MD · JSON"]
 ```
 
 - **Clean / Hexagonal Isolation (EOS Law V)**:
   - `src/domain/`: 100% pure Layer-0 domain entities, deterministic Spanish/English imperative & temporal parser, anti-hallucination quote/date grounding verifier, and immutable CRUD reducer.
   - `src/application/`: Pure use-case orchestration (`analyzeRequest.mjs`, `exportTasks.mjs`).
-  - `src/infrastructure/` & `api/`: Google Gemini (`gemini-3.8-flash` `/v1beta/interactions` Structured Outputs) REST adapter, `localStorage` persistence adapter, and Node.js 24 Fluid Compute Web API endpoints (`/api/analyze`, `/api/health`).
-  - `src/ui/` & `css/`: Zero-framework accessible SPA (`WCAG 2.1 AA`, `<dialog closedby="any">`, Dark/Light themes, mobile-first layout).
+  - `src/infrastructure/` & `api/`: Google Gemini (`gemini-3.8-flash` `/v1beta/interactions` Structured Outputs with multi-model cascade) REST adapter, `localStorage` persistence adapter, and Node.js 24 Fluid Compute Web API endpoints (`/api/analyze`, `/api/health`, `/api/metrics`).
+  - `src/ui/` & `css/`: Zero-framework accessible SPA (`WCAG 2.1 AA`, `<dialog closedby="any">`, Dark/Light themes, mobile-first layout, Modern SharePoint List simulation view, Microsoft Teams Adaptive Card preview modal).
+  - `sw.js`: Progressive Web App (PWA) Service Worker enabling 100% offline functionality.
+- **Microsoft 365 & SharePoint Online Integration Package (`docs/sharepoint/`)**:
+  - `Provision-TaskFlowSharePointList.ps1`: PnP.PowerShell script provisioning the custom list with typed columns, choices, and views.
+  - `power-automate-flow-blueprint.json`: Cloud Flow definition automating Outlook/Teams ingestion -> SharePoint List creation -> Teams Adaptive Card posting.
+  - `exportToTeamsAdaptiveCard`: Native v1.5 Adaptive Card generator for Microsoft Teams.
 - **Zero External Runtime Dependencies (`dependencies: {}`)**: Zero supply-chain CVE surface.
 - **Defense-in-Depth Security (EOS Law VI)**:
   - Server-only `GEMINI_API_KEY` handling; strict SAST zero-secrets gate.
   - Strict `Content-Security-Policy` without `'unsafe-inline'`, HSTS, `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`.
   - OWASP XSS entity escaping (`escapeHtml`) and OWASP CSV Formula Injection neutralization (`sanitizeCsvCell`).
   - Sliding-window IP rate limiting (`30 req/min`) and `4000`-character payload boundary enforcement.
+- **SRE Observability**: Standard Prometheus metrics endpoint at `GET /api/metrics` and health probe at `GET /api/health`.
 
 ---
 

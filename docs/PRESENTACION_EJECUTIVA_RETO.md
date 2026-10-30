@@ -41,14 +41,22 @@ Construimos **TaskFlow AI**, una solución web interactiva y omnicanal que recib
 
 ---
 
-## 5. Oportunidades de mejora
-1. **Conector directo con SharePoint Lists, Planner y Outlook (Microsoft Graph API + Power Automate):** Crear las tareas directamente en una lista corporativa de SharePoint al recibir un correo o mensaje en Teams.
-2. **Bot interactivo en Slack y Teams:** Reaccionar con un emoji a cualquier mensaje del canal para generar y asignar las tareas dentro del mismo hilo.
+## 5. Arquitectura de Integración Microsoft 365 & SharePoint (Suite Especializada)
+Para el ecosistema corporativo de Microsoft, entregamos tres artefactos de nivel Big Tech:
+1. **Script de Aprovisionamiento PnP.PowerShell (`docs/sharepoint/Provision-TaskFlowSharePointList.ps1`):** Aprovisiona la lista personalizada `TaskFlow_Actividades` en SharePoint Online con control de versiones, tipos de columna estrictos (`Prioridad`, `EstadoTarea`, `FechaLimite`, `EstadoFecha`, `DetalleFaltante`, `Responsable`, `CitaTextualFuente`) y vistas filtradas para tareas con información pendiente.
+2. **Plantilla de Microsoft Teams Adaptive Card v1.5 (`exportToTeamsAdaptiveCard`):** Genera payloads oficiales JSON de Adaptive Cards con facts estructurados, semáforo de prioridades y botones interactivos para abrir la aplicación o ver la lista de SharePoint.
+3. **Plano de Flujo de Power Automate (`docs/sharepoint/power-automate-flow-blueprint.json`):** Automatiza la ingesta: *Nuevo correo en Outlook o mensaje en Teams* ➔ *Llamada HTTP a /api/analyze* ➔ *Crear ítems en SharePoint List* ➔ *Notificar en canal de Teams con Adaptive Card* ➔ *Responder al correo con el borrador de aclaración si faltan fechas*.
+
+---
+
+## 6. Oportunidades de mejora (Roadmap)
+1. **Conector empaquetado como SharePoint Framework (SPFx) Web Part:** Incrustar el panel de triaje de TaskFlow AI directamente dentro de las páginas de SharePoint y Teams.
+2. **Bot interactivo en Slack y Teams con Webhooks firmados (HMAC):** Reaccionar con un emoji (⚡) a cualquier mensaje del canal para generar y asignar las tareas dentro del mismo hilo.
 3. **Autenticación SSO (Microsoft Entra ID) y tableros multiusuario en tiempo real.**
 
 ---
 
-## 6. Guía rápida para las 5 preguntas de conversación
+## 7. Guía rápida para las 5 preguntas de conversación
 - **¿Por qué elegiste esta idea y estas herramientas?** Porque une la comprensión natural de la IA generativa con la confiabilidad determinista y permite actuar de inmediato (editar fechas faltantes y exportar a SharePoint o Slack) sin fricción.
 - **¿Qué fue lo más difícil y cómo lo resolviste?** Evitar que la IA inventara fechas intermedias cuando solo existe una fecha ancla general (*"el viernes"*); lo resolví separando estados temporales (`CONFIRMED`, `PARTIAL_ANCHOR`, `MISSING_INFO`) y auditando el texto fuente.
 - **¿Cómo comprobarías que las tareas identificadas por la IA son correctas?** Mediante (1) verificación algorítmica de cita textual (`sourceQuote`), (2) guardia determinista anti-alucinación de fechas/responsables, (3) métricas de cobertura de cláusulas visibles en pantalla y (4) suite automatizada de pruebas BDD (`npm test`).
