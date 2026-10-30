@@ -8,6 +8,7 @@
 
 const GEMINI_INTERACTIONS_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/interactions";
 const DEFAULT_GEMINI_MODEL = "gemini-3.8-flash";
+const SECONDARY_GEMINI_MODEL = "gemini-3.5-flash-lite";
 
 const TRIAGE_RESPONSE_SCHEMA = Object.freeze({
   type: "object",
@@ -114,7 +115,8 @@ export function createGeminiInteractionsAdapter(config = {}) {
   const isHermetic = process.env.TASKFLOW_HERMETIC_TEST === "1";
   const apiKey = isHermetic ? "" : (config.apiKey ?? process.env.GEMINI_API_KEY ?? "").trim();
   const model = (config.model ?? process.env.GEMINI_MODEL ?? DEFAULT_GEMINI_MODEL).trim();
-  const timeoutMs = config.timeoutMs ?? 30000;
+  const timeoutMs = config.timeoutMs ?? 9500;
+  const candidateModels = model === SECONDARY_GEMINI_MODEL ? [model] : [model, SECONDARY_GEMINI_MODEL];
 
   return {
     isConfigured() {
@@ -134,49 +136,75 @@ export function createGeminiInteractionsAdapter(config = {}) {
         `</MENSAJE_USUARIO>`
       ].join("\n");
 
-      const response = await fetch(GEMINI_INTERACTIONS_ENDPOINT, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Api-Revision": "2026-05-20",
-          "x-goog-api-key": apiKey
-        },
-        body: JSON.stringify({
-          model,
-          store: false,
-          system_instruction: SYSTEM_INSTRUCTION,
-          input: userPrompt,
-          generation_config: {
-            thinking_level: "low"
-          },
-          response_format: {
-            type: "text",
-            mime_type: "application/json",
-            schema: TRIAGE_RESPONSE_SCHEMA
-          }
-        }),
-        signal: AbortSignal.timeout(timeoutMs)
-      });
+      let lastError = null;
 
-      if (!response.ok) {
-        let errDetail = "";
+      for (const targetModel of candidateModels) {
         try {
-          const errJson = await response.json();
-          const msg = errJson?.error?.message ?? "";
-          if (msg) errDetail = `: ${String(msg).slice(0, 140)}`;
-        } catch {
-          // ignore non-json error body
+          const response = await fetch(GEMINI_INTERACTIONS_ENDPOINT, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Api-Revision": "2026-05-20",
+              "x-goog-api-key": apiKey
+            },
+            body: JSON.stringify({
+              model: targetModel,
+              store: false,
+              system_instruction: SYSTEM_INSTRUCTION,
+              input: userPrompt,
+              generation_config: {
+                thinking_level: "low"
+              },
+              response_format: {
+                type: "text",
+                mime_type: "application/json",
+                schema: TRIAGE_RESPONSE_SCHEMA
+              }
+            }),
+            signal: AbortSignal.timeout(timeoutMs)
+          });
+
+          if (!response.ok) {
+            let errDetail = "";
+            try {
+              const errJson = await response.json();
+              const msg = errJson?.error?.message ?? "";
+              if (msg) errDetail = `: ${String(msg).slice(0, 140)}`;
+            } catch {
+              // ignore non-json error body
+            }
+            const httpErr = new Error(`GEMINI_HTTP_${response.status} (${targetModel})${errDetail}`);
+            if (response.status === 503 || response.status === 429 || response.status >= 500) {
+              lastError = httpErr;
+              continue;
+            }
+            throw httpErr;
+          }
+
+          const data = await response.json();
+          const rawJsonText = extractInteractionText(data);
+          if (!rawJsonText) {
+            lastError = new Error(`GEMINI_EMPTY_OUTPUT (${targetModel})`);
+            continue;
+          }
+
+          const parsed = JSON.parse(rawJsonText);
+          parsed._resolvedModel = targetModel;
+          return parsed;
+        } catch (err) {
+          lastError = err instanceof Error ? err : new Error(String(err));
+          const isTimeoutOrTransient =
+            lastError.name === "TimeoutError" ||
+            lastError.name === "AbortError" ||
+            /timeout|aborted|503|429|fetch failed/i.test(lastError.message);
+          if (isTimeoutOrTransient) {
+            continue;
+          }
+          throw lastError;
         }
-        throw new Error(`GEMINI_HTTP_${response.status}${errDetail}`);
       }
 
-      const data = await response.json();
-      const rawJsonText = extractInteractionText(data);
-      if (!rawJsonText) {
-        throw new Error("GEMINI_EMPTY_OUTPUT");
-      }
-
-      return JSON.parse(rawJsonText);
+      throw lastError ?? new Error("GEMINI_CASCADE_EXHAUSTED");
     }
   };
 }

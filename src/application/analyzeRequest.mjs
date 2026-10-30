@@ -59,6 +59,7 @@ export async function analyzeWorkplaceRequest(rawPayload, deps = {}) {
             data: {
               ...verifiedAi,
               engineMode: "GEMINI_3_8_FLASH_VERIFIED",
+              resolvedModel: aiCandidate._resolvedModel || "gemini-3.8-flash",
               fallbackReason: null,
               latencyMs
             }
