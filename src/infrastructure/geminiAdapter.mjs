@@ -114,7 +114,7 @@ export function createGeminiInteractionsAdapter(config = {}) {
   const isHermetic = process.env.TASKFLOW_HERMETIC_TEST === "1";
   const apiKey = isHermetic ? "" : (config.apiKey ?? process.env.GEMINI_API_KEY ?? "").trim();
   const model = (config.model ?? process.env.GEMINI_MODEL ?? DEFAULT_GEMINI_MODEL).trim();
-  const timeoutMs = config.timeoutMs ?? 15000;
+  const timeoutMs = config.timeoutMs ?? 22000;
 
   return {
     isConfigured() {
@@ -138,6 +138,7 @@ export function createGeminiInteractionsAdapter(config = {}) {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          "Api-Revision": "2026-05-20",
           "x-goog-api-key": apiKey
         },
         body: JSON.stringify({
@@ -146,8 +147,7 @@ export function createGeminiInteractionsAdapter(config = {}) {
           system_instruction: SYSTEM_INSTRUCTION,
           input: userPrompt,
           generation_config: {
-            temperature: 0.1,
-            thinking_level: "low"
+            thinking_level: "minimal"
           },
           response_format: {
             type: "text",
@@ -159,7 +159,15 @@ export function createGeminiInteractionsAdapter(config = {}) {
       });
 
       if (!response.ok) {
-        throw new Error(`GEMINI_HTTP_${response.status}`);
+        let errDetail = "";
+        try {
+          const errJson = await response.json();
+          const msg = errJson?.error?.message ?? "";
+          if (msg) errDetail = `: ${String(msg).slice(0, 140)}`;
+        } catch {
+          // ignore non-json error body
+        }
+        throw new Error(`GEMINI_HTTP_${response.status}${errDetail}`);
       }
 
       const data = await response.json();
