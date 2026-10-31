@@ -618,6 +618,26 @@ function setViewMode(mode) {
   renderWorkspace();
 }
 
+function updateSlackMessagePreview(preset) {
+  const avatar = document.getElementById("slack-avatar");
+  const sender = document.getElementById("slack-sender-name");
+  const channelBadge = document.getElementById("slack-channel-badge");
+  const text = document.getElementById("slack-msg-text");
+
+  if (avatar) {
+    const initials = (preset.sender || "LS")
+      .split(/\s+/)
+      .map((w) => w[0])
+      .slice(0, 2)
+      .join("")
+      .toUpperCase();
+    avatar.textContent = initials || "SL";
+  }
+  if (sender) sender.textContent = preset.sender || "Canal Slack";
+  if (channelBadge) channelBadge.textContent = `#${preset.id || "general"}`;
+  if (text) text.textContent = `"${preset.message}"`;
+}
+
 function initPresets(todayIso) {
   if (!el.presetContainer) return;
   el.presetContainer.innerHTML = WORKPLACE_PRESETS.map(
@@ -635,13 +655,75 @@ function initPresets(todayIso) {
     el.presetContainer.querySelectorAll(".chip").forEach((c) => c.classList.remove("is-active"));
     btn.classList.add("is-active");
 
+    document.querySelectorAll(".slack-channel-pill").forEach((p) => {
+      const match = p.getAttribute("data-preset") === presetId;
+      p.classList.toggle("is-active", match);
+      p.setAttribute("aria-selected", match ? "true" : "false");
+    });
+
     el.inputChannel.value = found.channel;
     el.inputMessage.value = found.message;
     updateCharCounter();
+    updateSlackMessagePreview(found);
     runAnalysisFlow({
       message: found.message,
       channel: found.channel,
       referenceDate: el.inputRefDate.value || todayIso
+    });
+  });
+
+  // Wire Slack Channel Pills
+  document.querySelectorAll(".slack-channel-pill").forEach((pill) => {
+    pill.addEventListener("click", () => {
+      const presetId = pill.getAttribute("data-preset");
+      const found = WORKPLACE_PRESETS.find((p) => p.id === presetId);
+      if (!found) return;
+
+      document.querySelectorAll(".slack-channel-pill").forEach((p) => {
+        p.classList.remove("is-active");
+        p.setAttribute("aria-selected", "false");
+      });
+      pill.classList.add("is-active");
+      pill.setAttribute("aria-selected", "true");
+
+      if (el.presetContainer) {
+        el.presetContainer.querySelectorAll(".chip").forEach((c) => {
+          c.classList.toggle("is-active", c.getAttribute("data-preset-id") === presetId);
+        });
+      }
+
+      el.inputChannel.value = found.channel;
+      el.inputMessage.value = found.message;
+      updateCharCounter();
+      updateSlackMessagePreview(found);
+
+      runAnalysisFlow({
+        message: found.message,
+        channel: found.channel,
+        referenceDate: el.inputRefDate.value || todayIso
+      });
+    });
+  });
+
+  // Wire Slack Inline Extract Button
+  const inlineExtractBtn = document.getElementById("slack-inline-extract-btn");
+  inlineExtractBtn?.addEventListener("click", () => {
+    runAnalysisFlow({
+      message: el.inputMessage.value,
+      channel: el.inputChannel.value,
+      referenceDate: el.inputRefDate.value || todayIso
+    });
+  });
+
+  // Wire Slack Reaction buttons
+  document.querySelectorAll(".slack-reaction-btn").forEach((rBtn) => {
+    rBtn.addEventListener("click", () => {
+      rBtn.classList.toggle("is-reacted");
+      const span = rBtn.querySelector("span");
+      if (span && !isNaN(Number(span.textContent))) {
+        const current = Number(span.textContent);
+        span.textContent = String(rBtn.classList.contains("is-reacted") ? current + 1 : Math.max(0, current - 1));
+      }
     });
   });
 }
@@ -687,6 +769,16 @@ async function bootstrap() {
   });
 
   el.inputMessage?.addEventListener("input", updateCharCounter);
+  el.inputMessage?.addEventListener("keydown", (ev) => {
+    if ((ev.ctrlKey || ev.metaKey) && ev.key === "Enter") {
+      ev.preventDefault();
+      runAnalysisFlow({
+        message: el.inputMessage.value,
+        channel: el.inputChannel.value,
+        referenceDate: el.inputRefDate.value || todayIso
+      });
+    }
+  });
 
   el.clearInputBtn?.addEventListener("click", () => {
     el.inputMessage.value = "";

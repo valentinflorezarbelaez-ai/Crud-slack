@@ -122,20 +122,69 @@
           </div>
         </div>
 
+        <!-- SLACK WORKSPACE CHANNELS BAR -->
+        <nav class="slack-bar" aria-label="Canales de Slack y Casos de Prueba">
+          <div class="slack-bar__head">
+            <span class="slack-hash">#</span>
+            <span class="slack-bar__title">Workspace: <strong>TaskFlow AI &amp; Slack Lists</strong></span>
+            <span class="badge badge--verified">Live Sync</span>
+          </div>
+          <div class="slack-bar__channels" role="tablist" aria-label="Canales interactivos">
+            <button type="button" class="slack-channel-pill is-active" data-preset="reto-oficial-viernes" role="tab" aria-selected="true">
+              <span class="slack-hash">#</span> general <span class="slack-pill-badge">Reunión Viernes</span>
+            </button>
+            <button type="button" class="slack-channel-pill" data-preset="incidente-slack-prod" role="tab" aria-selected="false">
+              <span class="slack-hash">#</span> incidentes-prod <span class="slack-pill-badge badge--crit">Urgente</span>
+            </button>
+            <button type="button" class="slack-channel-pill" data-preset="sharepoint-intranet" role="tab" aria-selected="false">
+              <span class="slack-hash">#</span> operaciones <span class="slack-pill-badge">SharePoint</span>
+            </button>
+            <button type="button" class="slack-channel-pill" data-preset="sin-fechas-antihalucinacion" role="tab" aria-selected="false">
+              <span class="slack-hash">#</span> legal-auditoria <span class="slack-pill-badge badge--warn">Anti-Alucinación</span>
+            </button>
+          </div>
+        </nav>
+
         <div class="workspace-grid">
           <!-- LEFT COLUMN: OMNICHANNEL MESSAGE INGESTION -->
           <section class="panel panel--intake" aria-labelledby="intake-heading">
             <div class="panel__header">
               <div>
                 <span class="eyebrow">Paso 1 · Ingesta Omnicanal</span>
-                <h2 id="intake-heading" class="panel__title">Solicitud recibida (Correo o Chat)</h2>
+                <h2 id="intake-heading" class="panel__title">Canal Slack &amp; Mensaje Recibido</h2>
               </div>
               <span class="char-counter" id="char-counter">0 / 4000</span>
             </div>
 
             <div class="preset-bar" aria-label="Ejemplos rápidos de prueba">
-              <span class="preset-bar__label">Casos de prueba:</span>
+              <span class="preset-bar__label">Casos rápidos:</span>
               <div class="preset-chips" id="preset-chips-container"></div>
+            </div>
+
+            <!-- SLACK INTERACTIVE MESSAGE FEED CARD -->
+            <div class="slack-message-card" id="slack-message-card">
+              <div class="slack-msg-header">
+                <div class="slack-avatar" id="slack-avatar">LS</div>
+                <div class="slack-msg-meta">
+                  <div class="slack-msg-sender-row">
+                    <strong class="slack-sender" id="slack-sender-name">Luis Soto (Coordinación)</strong>
+                    <span class="badge badge--accent" id="slack-channel-badge">#general</span>
+                    <time class="slack-time">hoy a las 09:41</time>
+                  </div>
+                  <div class="slack-msg-text" id="slack-msg-text">
+                    "Hola, necesitamos preparar la reunión del equipo para el viernes. Hay que revisar los resultados del mes, actualizar la presentación y enviar la agenda a los participantes antes de la reunión."
+                  </div>
+                  <div class="slack-reactions-bar">
+                    <button type="button" class="slack-reaction-btn is-reacted" title="Reaccionar con pulgar">👍 <span>4</span></button>
+                    <button type="button" class="slack-reaction-btn is-reacted" title="Reaccionar con cohete">🚀 <span>2</span></button>
+                    <button type="button" class="slack-reaction-btn" title="Reaccionar con ojos">👀 <span>1</span></button>
+                    <button type="button" class="slack-reaction-btn" title="Reaccionar con check">✅ <span>Listo</span></button>
+                  </div>
+                </div>
+              </div>
+              <button type="button" class="btn btn--primary btn--sm slack-action-extract-btn" id="slack-inline-extract-btn">
+                ⚡ Convertir este mensaje a Tareas en Slack Lists
+              </button>
             </div>
 
             <form id="analyze-form" class="intake-form" novalidate>
@@ -172,11 +221,14 @@
 
               <div class="intake-actions">
                 <button type="submit" id="analyze-submit-btn" class="btn btn--primary btn--full">
-                  Analizar y Organizar Tareas con IA
+                  ⚡ Enviar y Extraer Tareas con IA
                 </button>
-                <button type="button" id="clear-input-btn" class="btn btn--ghost">
-                  Limpiar texto
-                </button>
+                <div class="intake-actions__sub">
+                  <span class="slack-shortcut-tip">💡 Atajo: Presiona <strong>Ctrl + Enter</strong> para enviar</span>
+                  <button type="button" id="clear-input-btn" class="btn btn--ghost btn--sm">
+                    Limpiar
+                  </button>
+                </div>
               </div>
             </form>
 
@@ -280,16 +332,16 @@
             <div class="filter-bar">
               <div class="view-switcher" role="group" aria-label="Modo de visualización de tareas">
                 <button type="button" id="view-mode-cards" class="chip is-active" aria-pressed="true">
-                  Lista Visual
-                </button>
-                <button type="button" id="view-mode-table" class="chip" aria-pressed="false">
-                  Tabla Ejecutiva
+                  📋 Slack Lists
                 </button>
                 <button type="button" id="view-mode-kanban" class="chip" aria-pressed="false">
-                  Tablero Kanban
+                  📌 Tablero Kanban
+                </button>
+                <button type="button" id="view-mode-table" class="chip" aria-pressed="false">
+                  📊 Tabla Ejecutiva
                 </button>
                 <button type="button" id="view-mode-sharepoint" class="chip" aria-pressed="false" title="Vista simulada interactiva de Microsoft SharePoint Online Modern List">
-                  Vista SharePoint List
+                  📑 Vista SharePoint List
                 </button>
               </div>
 
