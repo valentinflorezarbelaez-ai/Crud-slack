@@ -616,6 +616,52 @@
       </div>
     </dialog>
 
+    <!-- ================================================================ -->
+    <!-- SLACK THREAD DETAILS & DERIVED TASK DIALOG                        -->
+    <!-- ================================================================ -->
+    <dialog id="slack-thread-dialog" class="crud-dialog slack-thread-dialog" closedby="any" aria-labelledby="slack-thread-title">
+      <div class="crud-dialog__header">
+        <div class="slack-thread-header-title">
+          <span class="slack-hash">#</span>
+          <span id="slack-thread-channel-name">general</span>
+          <span class="slack-thread-sep">›</span>
+          <h2 id="slack-thread-title" class="crud-dialog__title">Hilo de Discusión &amp; Sustento</h2>
+        </div>
+        <button type="button" id="close-thread-dialog-btn" class="btn btn--ghost btn--sm" aria-label="Cerrar hilo">
+          ✕
+        </button>
+      </div>
+      <div class="slack-thread-body">
+        <div class="slack-thread-parent-msg">
+          <div class="slack-avatar" id="slack-thread-avatar">LS</div>
+          <div class="slack-thread-parent-content">
+            <div class="slack-msg-sender-row">
+              <strong class="slack-sender" id="slack-thread-sender">Luis Soto (Coordinación)</strong>
+              <time class="slack-time" id="slack-thread-time">hoy a las 09:41</time>
+            </div>
+            <p class="slack-thread-parent-text" id="slack-thread-parent-quote"></p>
+          </div>
+        </div>
+
+        <div class="slack-thread-divider">
+          <span>Acción derivada para Slack Lists</span>
+        </div>
+
+        <div class="slack-thread-task-details" id="slack-thread-task-details"></div>
+
+        <div class="slack-thread-reply-box">
+          <label for="slack-thread-quick-reply" class="sr-only">Escribir una respuesta en el hilo</label>
+          <input type="text" id="slack-thread-quick-reply" class="field__control" placeholder="Responder en el hilo de Slack..." />
+          <button type="button" id="slack-thread-send-reply-btn" class="btn btn--primary btn--sm">
+            Enviar Respuesta
+          </button>
+        </div>
+      </div>
+      <div class="crud-dialog__actions">
+        <button type="button" id="dismiss-thread-dialog-btn" class="btn btn--ghost">Cerrar Hilo</button>
+      </div>
+    </dialog>
+
     <div id="toast-notification" class="toast" role="status" aria-live="polite" hidden></div>
 
     <script type="module" src="./src/ui/main.mjs"></script>

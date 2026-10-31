@@ -166,7 +166,8 @@ function renderTaskBadges(task) {
 }
 
 function renderTaskCardHtml(task) {
-  const completedClass = task.status === "COMPLETED" ? "is-completed" : "";
+  const isCompleted = task.status === "COMPLETED";
+  const completedClass = isCompleted ? "is-completed" : "";
   const toggleLabel =
     task.status === "PENDING"
       ? "Iniciar"
@@ -176,21 +177,31 @@ function renderTaskCardHtml(task) {
 
   const missingBlock =
     task.deadlineState !== DEADLINE_STATES.CONFIRMED && task.missingDetails
-      ? `<p class="task-card__missing">Dato faltante: ${escapeHtml(task.missingDetails)}</p>`
+      ? `<p class="task-card__missing">⚠️ Dato faltante: ${escapeHtml(task.missingDetails)}</p>`
       : "";
 
   const quoteBlock = task.sourceQuote
-    ? `<p class="task-card__quote">Sustento textual: "${escapeHtml(task.sourceQuote)}"</p>`
+    ? `<p class="task-card__quote">💬 Sustento textual: "${escapeHtml(task.sourceQuote)}"</p>`
     : "";
+
+  const checkMark = isCompleted ? "✓" : task.status === "IN_PROGRESS" ? "⚡" : "";
 
   return `
     <article class="task-card ${completedClass}" data-task-id="${escapeHtml(task.id)}">
       <div class="task-card__top">
-        <div class="task-card__title-group">
-          <span class="task-order">#${escapeHtml(task.order)}</span>
-          <h3 class="task-card__title">${escapeHtml(task.title)}</h3>
+        <div class="task-card__slack-row">
+          <button type="button" class="slack-check-circle ${isCompleted ? "is-checked" : ""}" data-action="cycle-status" data-id="${escapeHtml(task.id)}" title="Cambiar estado (${escapeHtml(task.status)})" aria-label="Cambiar estado de ${escapeHtml(task.title)}">
+            ${checkMark}
+          </button>
+          <div class="task-card__title-group">
+            <span class="task-order">#${escapeHtml(task.order)}</span>
+            <h3 class="task-card__title">${escapeHtml(task.title)}</h3>
+          </div>
         </div>
         <div class="task-card__actions">
+          <button type="button" class="btn btn--ghost btn--sm slack-thread-btn" data-action="open-thread" data-id="${escapeHtml(task.id)}" title="Ver hilo de discusión y sustento">
+            💬 Hilo
+          </button>
           <button type="button" class="btn btn--ghost btn--sm" data-action="cycle-status" data-id="${escapeHtml(task.id)}">
             ${toggleLabel}
           </button>
@@ -198,7 +209,7 @@ function renderTaskCardHtml(task) {
             Editar
           </button>
           <button type="button" class="btn btn--danger btn--sm" data-action="delete" data-id="${escapeHtml(task.id)}" aria-label="Eliminar tarea ${escapeHtml(task.title)}">
-            Eliminar
+            ✕
           </button>
         </div>
       </div>
@@ -571,6 +582,48 @@ function openCrudDialog(task = null) {
   el.crudTitle.focus();
 }
 
+function openThreadDialog(task) {
+  const dialog = /** @type {HTMLDialogElement} */ (document.getElementById("slack-thread-dialog"));
+  if (!dialog) return;
+
+  const channelEl = document.getElementById("slack-thread-channel-name");
+  const avatarEl = document.getElementById("slack-thread-avatar");
+  const senderEl = document.getElementById("slack-thread-sender");
+  const quoteEl = document.getElementById("slack-thread-parent-quote");
+  const detailsEl = document.getElementById("slack-thread-task-details");
+
+  const channelVal = el.inputChannel?.value === "slack" ? "general" : el.inputChannel?.value || "general";
+  if (channelEl) channelEl.textContent = channelVal;
+  if (avatarEl) avatarEl.textContent = "LS";
+  if (senderEl) senderEl.textContent = "Luis Soto (Coordinación)";
+  if (quoteEl) quoteEl.textContent = `"${el.inputMessage?.value || ""}"`;
+
+  const prioMeta = PRIORITIES[task.priority] || PRIORITIES.MEDIUM;
+  const statusMeta = TASK_STATUSES[task.status] || TASK_STATUSES.PENDING;
+  const isConfirmed = task.deadlineState === DEADLINE_STATES.CONFIRMED;
+
+  if (detailsEl) {
+    detailsEl.innerHTML = `
+      <div class="slack-msg-sender-row">
+        <strong>#${escapeHtml(task.order)} ${escapeHtml(task.title)}</strong>
+        <span class="prio-badge ${escapeHtml(prioMeta.badgeClass)}">${escapeHtml(prioMeta.labelEs)}</span>
+        <span class="meta-badge">${escapeHtml(statusMeta.labelEs)}</span>
+      </div>
+      <p class="task-card__reason">${escapeHtml(task.priorityReason)}</p>
+      ${task.sourceQuote ? `<p class="task-card__quote">💬 Sustento textual: "${escapeHtml(task.sourceQuote)}"</p>` : ""}
+      <div class="task-badges">
+        <span class="date-badge ${isConfirmed ? "date-confirmed" : "date-missing"}">
+          ${isConfirmed ? "📅 Fecha:" : "⚠️ Falta fecha:"} ${escapeHtml(task.deadlineLabel)}
+        </span>
+        <span class="meta-badge">👤 Asignado: ${escapeHtml(task.assignee)}</span>
+      </div>
+      ${!isConfirmed ? `<p class="task-card__missing">Alerta Anti-Alucinación: ${escapeHtml(task.missingDetails || "Fecha no especificada en el mensaje original.")}</p>` : ""}
+    `;
+  }
+
+  dialog.showModal();
+}
+
 function triggerDownload(filename, content, mimeType) {
   const blob = new Blob([content], { type: mimeType });
   const url = URL.createObjectURL(blob);
@@ -830,7 +883,9 @@ async function bootstrap() {
     const task = boardState.tasks.find((t) => t.id === taskId);
     if (!task) return;
 
-    if (action === "cycle-status") {
+    if (action === "open-thread") {
+      openThreadDialog(task);
+    } else if (action === "cycle-status") {
       const nextStatus = NEXT_STATUS_CYCLE[task.status] || "PENDING";
       dispatch({ type: "UPDATE_TASK", payload: { id: task.id, status: nextStatus } });
       showToast(`Estado actualizado: ${TASK_STATUSES[nextStatus].labelEs}`);
@@ -931,6 +986,18 @@ async function bootstrap() {
       channel: canonical.channel,
       referenceDate: el.inputRefDate.value || todayIso
     });
+  });
+
+  const threadDialog = /** @type {HTMLDialogElement} */ (document.getElementById("slack-thread-dialog"));
+  document.getElementById("close-thread-dialog-btn")?.addEventListener("click", () => threadDialog?.close());
+  document.getElementById("dismiss-thread-dialog-btn")?.addEventListener("click", () => threadDialog?.close());
+  document.getElementById("slack-thread-send-reply-btn")?.addEventListener("click", () => {
+    const replyInput = /** @type {HTMLInputElement} */ (document.getElementById("slack-thread-quick-reply"));
+    if (replyInput && replyInput.value.trim()) {
+      showToast("Mensaje registrado en el hilo de Slack.");
+      replyInput.value = "";
+      threadDialog?.close();
+    }
   });
 
   // Power-User Keyboard Shortcuts
