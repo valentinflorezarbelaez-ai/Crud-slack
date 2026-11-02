@@ -284,3 +284,81 @@ export function exportToJsonContract(boardState) {
     2
   );
 }
+
+/**
+ * Generates an RFC 5545 iCalendar (.ics) string for tasks with resolved dates.
+ * Compatible with Microsoft Outlook, Apple Calendar, and Google Calendar.
+ * @param {Array<Record<string, any>>} tasks
+ * @returns {string}
+ */
+export function exportToICalendar(tasks = []) {
+  const now = new Date();
+  const dtStamp = now.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "");
+  const events = [];
+
+  const datedTasks = (tasks || []).filter(
+    (t) => t && t.deadlineDate && /^\d{4}-\d{2}-\d{2}$/.test(String(t.deadlineDate))
+  );
+
+  for (const t of datedTasks) {
+    const compactDate = String(t.deadlineDate).replace(/-/g, "");
+    const uid = `taskflow-${t.id || t.order}-${compactDate}@taskflow.ai`;
+    const summary = `[TaskFlow] #${t.order}: ${t.title || "Tarea"}`.replace(/[,;]/g, "\\$&");
+    const description = `Prioridad: ${t.priority || "MEDIA"}\\nResponsable: ${t.assignee || "Por asignar"}\\nJustificación: ${t.priorityReason || ""}`.replace(/[,;]/g, "\\$&");
+
+    events.push(
+      [
+        "BEGIN:VEVENT",
+        `UID:${uid}`,
+        `DTSTAMP:${dtStamp}`,
+        `DTSTART;VALUE=DATE:${compactDate}`,
+        `DTEND;VALUE=DATE:${compactDate}`,
+        `SUMMARY:${summary}`,
+        `DESCRIPTION:${description}`,
+        "STATUS:CONFIRMED",
+        "BEGIN:VALARM",
+        "ACTION:DISPLAY",
+        "DESCRIPTION:Recordatorio de entrega TaskFlow AI",
+        "TRIGGER:-PT15M",
+        "END:VALARM",
+        "END:VEVENT"
+      ].join("\r\n")
+    );
+  }
+
+  return [
+    "BEGIN:VCALENDAR",
+    "VERSION:2.0",
+    "PRODID:-//TaskFlow AI//Slack Lists Edition//ES",
+    "CALSCALE:GREGORIAN",
+    "METHOD:PUBLISH",
+    ...events,
+    "END:VCALENDAR"
+  ].join("\r\n");
+}
+
+/**
+ * Generates an RFC 2368 mailto URI for requesting missing task clarification.
+ * @param {{
+ *   senderEmail?: string,
+ *   subject?: string,
+ *   clarificationDraft?: string,
+ *   missingTasks?: Array<Record<string, any>>
+ * }} params
+ * @returns {string}
+ */
+export function generateMailtoClarificationUrl({
+  senderEmail = "coordinacion@empresa.com",
+  subject = "TaskFlow AI · Aclaración de fechas y responsables de la solicitud",
+  clarificationDraft = "",
+  missingTasks = []
+} = {}) {
+  let body = clarificationDraft || "Hola,\n\nRevisando la solicitud, necesitamos confirmar los siguientes detalles:\n";
+  if (missingTasks && missingTasks.length > 0) {
+    body += "\n" + missingTasks.map((t) => `• Tarea #${t.order} "${t.title}": ${t.missingDetails || "Fecha u hora pendiente"}`).join("\n");
+  }
+  body += "\n\nQuedamos atentos para coordinar.\nSaludos cordiales,";
+
+  return `mailto:${encodeURIComponent(senderEmail)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+}
+

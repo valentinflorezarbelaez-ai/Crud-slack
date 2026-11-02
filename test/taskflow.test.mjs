@@ -23,9 +23,11 @@ import {
 } from "../src/domain/taskBoardStore.mjs";
 import { analyzeWorkplaceRequest } from "../src/application/analyzeRequest.mjs";
 import {
+  exportToICalendar,
   exportToSharePointCsv,
   exportToSlackMarkdown,
-  exportToTeamsAdaptiveCard
+  exportToTeamsAdaptiveCard,
+  generateMailtoClarificationUrl
 } from "../src/application/exportTasks.mjs";
 import { GET as healthGet } from "../api/health.js";
 import { POST as analyzePost, GET as analyzeGet } from "../api/analyze.js";
@@ -258,5 +260,29 @@ describe("SPEC-CRUD-SLACK-001: TaskFlow AI Domain, Anti-Hallucination & API Suit
     assert.ok(Array.isArray(card.actions));
     assert.equal(card.actions[0].type, "Action.OpenUrl");
     assert.ok(card.actions[0].url.includes("crud-slack.vercel.app"));
+  });
+
+  it("BDD-CS-007: exports tasks to RFC 5545 iCalendar (.ics) and generates RFC 2368 mailto clarification link", () => {
+    const tasks = [
+      { id: "task-1", order: 1, title: "Reunión de planificación", priority: "ALTA", deadlineDate: "2026-11-06", assignee: "Valentin" },
+      { id: "task-2", order: 2, title: "Tarea sin fecha", priority: "MEDIA", deadlineDate: null }
+    ];
+
+    const icsContent = exportToICalendar(tasks);
+    assert.ok(icsContent.includes("BEGIN:VCALENDAR"));
+    assert.ok(icsContent.includes("VERSION:2.0"));
+    assert.ok(icsContent.includes("SUMMARY:[TaskFlow] #1: Reunión de planificación"));
+    assert.ok(icsContent.includes("DTSTART;VALUE=DATE:20261106"));
+    assert.ok(icsContent.includes("END:VCALENDAR"));
+
+    const mailto = generateMailtoClarificationUrl({
+      senderEmail: "coordinacion@empresa.com",
+      clarificationDraft: "Necesitamos confirmar las fechas.",
+      missingTasks: [{ order: 2, title: "Tarea sin fecha", missingDetails: "Fecha no especificada" }]
+    });
+
+    assert.ok(mailto.startsWith("mailto:coordinacion%40empresa.com?"));
+    assert.ok(mailto.includes("subject="));
+    assert.ok(mailto.includes("body="));
   });
 });

@@ -5,7 +5,6 @@
  * Strictly uses escapeHtml() for all dynamic text rendering (Zero XSS)
  * and zero inline style mutations (Strict CSP compliance).
  */
-
 import {
   DEADLINE_STATES,
   PRIORITIES,
@@ -22,25 +21,31 @@ import {
   exportToJsonContract,
   exportToSharePointCsv,
   exportToSlackMarkdown,
-  exportToTeamsAdaptiveCard
+  exportToTeamsAdaptiveCard,
+  exportToICalendar,
+  generateMailtoClarificationUrl
 } from "../application/exportTasks.mjs";
+import { setupKanbanDragAndDrop } from "./kanbanDragDrop.mjs";
+import { setupVoiceDictation } from "./voiceDictation.mjs";
+import { setupCommandPalette } from "./commandPalette.mjs";
+import { fireConfettiCelebration } from "./confetti.mjs";
+import { renderTableView, renderSharePointListView, renderTeamsCardPreview } from "./taskViews.mjs";
+import { playTaskCompletedSound } from "./soundFx.mjs";
 import {
   loadPersistedBoardState,
   savePersistedBoardState
 } from "../infrastructure/storageAdapter.mjs";
 import { WORKPLACE_PRESETS } from "./presets.mjs";
 import { initVisualPreferences, nextFridayIso } from "./preferences.mjs";
-
 const NEXT_STATUS_CYCLE = Object.freeze({
   PENDING: "IN_PROGRESS",
   IN_PROGRESS: "COMPLETED",
   COMPLETED: "PENDING"
 });
-
 let boardState = createInitialBoardState();
 let currentViewMode = "cards"; // "cards" | "table" | "kanban"
 let toastTimerId = null;
-
+let lastCompletionPct = -1;
 // DOM References
 const el = {
   navWorkspace: document.getElementById("nav-btn-workspace"),
@@ -53,12 +58,12 @@ const el = {
   engineStatusText: document.getElementById("engine-status-text"),
   presetContainer: document.getElementById("preset-chips-container"),
   analyzeForm: document.getElementById("analyze-form"),
-  inputChannel: /** @type {HTMLSelectElement} */ (document.getElementById("input-channel")),
-  inputRefDate: /** @type {HTMLInputElement} */ (document.getElementById("input-ref-date")),
-  inputMessage: /** @type {HTMLTextAreaElement} */ (document.getElementById("input-message")),
+  inputChannel: (document.getElementById("input-channel")),
+  inputRefDate: (document.getElementById("input-ref-date")),
+  inputMessage: (document.getElementById("input-message")),
   charCounter: document.getElementById("char-counter"),
   formErrorBanner: document.getElementById("form-error-banner"),
-  analyzeSubmitBtn: /** @type {HTMLButtonElement} */ (document.getElementById("analyze-submit-btn")),
+  analyzeSubmitBtn: (document.getElementById("analyze-submit-btn")),
   clearInputBtn: document.getElementById("clear-input-btn"),
   verifConfidenceBadge: document.getElementById("verif-confidence-badge"),
   verifGroundingVal: document.getElementById("verif-grounding-val"),
@@ -69,7 +74,7 @@ const el = {
   kpiHigh: document.getElementById("kpi-high"),
   kpiMissing: document.getElementById("kpi-missing"),
   kpiProgress: document.getElementById("kpi-progress"),
-  progressBar: /** @type {HTMLProgressElement} */ (document.getElementById("board-progress-bar")),
+  progressBar: (document.getElementById("board-progress-bar")),
   missingInfoPanel: document.getElementById("missing-info-panel"),
   missingGapsList: document.getElementById("missing-gaps-list"),
   clarificationDraftBox: document.getElementById("clarification-draft-box"),
@@ -84,38 +89,44 @@ const el = {
   viewModeTable: document.getElementById("view-mode-table"),
   viewModeKanban: document.getElementById("view-mode-kanban"),
   viewModeSharepoint: document.getElementById("view-mode-sharepoint"),
-  filterPriority: /** @type {HTMLSelectElement} */ (document.getElementById("filter-priority")),
-  filterDeadline: /** @type {HTMLSelectElement} */ (document.getElementById("filter-deadline")),
-  filterSearch: /** @type {HTMLInputElement} */ (document.getElementById("filter-search")),
-  eyeCareSelect: /** @type {HTMLSelectElement} */ (document.getElementById("eye-care-select")),
+  filterPriority: (document.getElementById("filter-priority")),
+  filterDeadline: (document.getElementById("filter-deadline")),
+  filterSearch: (document.getElementById("filter-search")),
+  eyeCareSelect: (document.getElementById("eye-care-select")),
   scaleToggleBtn: document.getElementById("scale-toggle-btn"),
   layoutFocusBtn: document.getElementById("layout-focus-btn"),
   resolveAllMissingBtn: document.getElementById("resolve-all-missing-btn"),
   workspaceGrid: document.querySelector(".workspace-grid"),
   tasksRenderRoot: document.getElementById("tasks-render-root"),
   boardChecksumMeta: document.getElementById("board-checksum-meta"),
-  crudDialog: /** @type {HTMLDialogElement} */ (document.getElementById("task-crud-dialog")),
-  crudForm: /** @type {HTMLFormElement} */ (document.getElementById("task-crud-form")),
+  crudDialog: (document.getElementById("task-crud-dialog")),
+  crudForm: (document.getElementById("task-crud-form")),
   crudDialogTitle: document.getElementById("crud-dialog-title"),
-  crudTaskId: /** @type {HTMLInputElement} */ (document.getElementById("crud-task-id")),
-  crudTitle: /** @type {HTMLInputElement} */ (document.getElementById("crud-title")),
-  crudPriority: /** @type {HTMLSelectElement} */ (document.getElementById("crud-priority")),
-  crudStatus: /** @type {HTMLSelectElement} */ (document.getElementById("crud-status")),
-  crudDeadline: /** @type {HTMLInputElement} */ (document.getElementById("crud-deadline")),
-  crudAssignee: /** @type {HTMLInputElement} */ (document.getElementById("crud-assignee")),
-  crudReason: /** @type {HTMLTextAreaElement} */ (document.getElementById("crud-reason")),
+  crudTaskId: (document.getElementById("crud-task-id")),
+  crudTitle: (document.getElementById("crud-title")),
+  crudPriority: (document.getElementById("crud-priority")),
+  crudStatus: (document.getElementById("crud-status")),
+  crudDeadline: (document.getElementById("crud-deadline")),
+  crudAssignee: (document.getElementById("crud-assignee")),
+  crudReason: (document.getElementById("crud-reason")),
   closeDialogBtn: document.getElementById("close-dialog-btn"),
   cancelDialogBtn: document.getElementById("cancel-dialog-btn"),
-  teamsCardDialog: /** @type {HTMLDialogElement} */ (document.getElementById("teams-card-dialog")),
+  teamsCardDialog: (document.getElementById("teams-card-dialog")),
   teamsCardPreviewContainer: document.getElementById("teams-card-preview-container"),
   teamsCardJsonPre: document.getElementById("teams-card-json-pre"),
   copyTeamsJsonBtn: document.getElementById("copy-teams-json-btn"),
   closeTeamsDialogBtn: document.getElementById("close-teams-dialog-btn"),
   dismissTeamsDialogBtn: document.getElementById("dismiss-teams-dialog-btn"),
   printBtn: document.getElementById("print-btn"),
-  toast: document.getElementById("toast-notification")
+  toast: document.getElementById("toast-notification"),
+  micDictateBtn: document.getElementById("mic-dictate-btn"),
+  exportIcsBtn: document.getElementById("export-ics-btn"),
+  emailClarificationBtn: document.getElementById("email-clarification-btn"),
+  topbarSearchBtn: document.getElementById("topbar-search-btn"),
+  commandPaletteDialog: (document.getElementById("command-palette-dialog")),
+  cmdPaletteInput: (document.getElementById("cmd-palette-input")),
+  cmdPaletteResults: document.getElementById("cmd-palette-results")
 };
-
 function showToast(message) {
   if (!el.toast) return;
   el.toast.textContent = message;
@@ -126,23 +137,28 @@ function showToast(message) {
     el.toast.hidden = true;
   }, 3200);
 }
-
 function dispatch(action) {
+  const previousDone = (boardState.tasks || []).filter((t) => t.status === "COMPLETED").length;
   boardState = taskBoardReducer(boardState, action);
   savePersistedBoardState(boardState);
   renderWorkspace();
-}
 
+  const currentDone = (boardState.tasks || []).filter((t) => t.status === "COMPLETED").length;
+  if (currentDone > previousDone) {
+    playTaskCompletedSound();
+    if (boardState.tasks.length > 0 && currentDone === boardState.tasks.length) {
+      fireConfettiCelebration();
+    }
+  }
+}
 function updateCharCounter() {
   if (!el.charCounter || !el.inputMessage) return;
   el.charCounter.textContent = `${el.inputMessage.value.length} / 4000`;
 }
-
 function getFilteredTasks() {
   const prioFilter = el.filterPriority?.value || "ALL";
   const dateFilter = el.filterDeadline?.value || "ALL";
   const query = (el.filterSearch?.value || "").trim().toLowerCase();
-
   return boardState.tasks.filter((task) => {
     if (prioFilter !== "ALL" && task.priority !== prioFilter) return false;
     if (dateFilter === "MISSING" && task.deadlineState === DEADLINE_STATES.CONFIRMED) return false;
@@ -151,7 +167,6 @@ function getFilteredTasks() {
     return true;
   });
 }
-
 function renderQuickBar(task) {
   const id = escapeHtml(task.id);
   const isConfirmed = task.deadlineState === DEADLINE_STATES.CONFIRMED;
@@ -166,18 +181,15 @@ function renderQuickBar(task) {
     </div>
   `;
 }
-
 function renderTaskBadges(task) {
   const prioMeta = PRIORITIES[task.priority] || PRIORITIES.MEDIUM;
   const statusMeta = TASK_STATUSES[task.status] || TASK_STATUSES.PENDING;
   const isDateConfirmed = task.deadlineState === DEADLINE_STATES.CONFIRMED;
   const dateBadgeClass = isDateConfirmed ? "date-confirmed" : "date-missing";
   const datePrefix = isDateConfirmed ? "Fecha:" : "Fecha pendiente:";
-
   const depBadge = task.dependsOnOrder
     ? `<span class="meta-badge">Depende de #${escapeHtml(task.dependsOnOrder)}</span>`
     : "";
-
   return `
     <div class="task-badges">
       <span class="prio-badge ${escapeHtml(prioMeta.badgeClass)}">${escapeHtml(prioMeta.labelEs)}</span>
@@ -188,7 +200,6 @@ function renderTaskBadges(task) {
     </div>
   `;
 }
-
 function renderTaskCardHtml(task) {
   const isCompleted = task.status === "COMPLETED";
   const completedClass = isCompleted ? "is-completed" : "";
@@ -198,20 +209,16 @@ function renderTaskCardHtml(task) {
       : task.status === "IN_PROGRESS"
         ? "Completar"
         : "Reabrir";
-
   const missingBlock =
     task.deadlineState !== DEADLINE_STATES.CONFIRMED && task.missingDetails
       ? `<p class="task-card__missing">⚠️ Dato faltante: ${escapeHtml(task.missingDetails)}</p>`
       : "";
-
   const quoteBlock = task.sourceQuote
     ? `<p class="task-card__quote">💬 Sustento textual: "${escapeHtml(task.sourceQuote)}"</p>`
     : "";
-
   const checkMark = isCompleted ? "✓" : task.status === "IN_PROGRESS" ? "⚡" : "";
-
   return `
-    <article class="task-card ${completedClass}" data-task-id="${escapeHtml(task.id)}">
+    <article class="task-card ${completedClass}" data-task-id="${escapeHtml(task.id)}" data-id="${escapeHtml(task.id)}" draggable="true">
       <div class="task-card__top">
         <div class="task-card__slack-row">
           <button type="button" class="slack-check-circle ${isCompleted ? "is-checked" : ""}" data-action="cycle-status" data-id="${escapeHtml(task.id)}" title="Cambiar estado (${escapeHtml(task.status)})" aria-label="Cambiar estado de ${escapeHtml(task.title)}">
@@ -246,65 +253,12 @@ function renderTaskCardHtml(task) {
   `;
 }
 
-function renderTableView(tasks) {
-  const rows = tasks
-    .map((task) => {
-      const prioMeta = PRIORITIES[task.priority] || PRIORITIES.MEDIUM;
-      const statusMeta = TASK_STATUSES[task.status] || TASK_STATUSES.PENDING;
-      const isConfirmed = task.deadlineState === DEADLINE_STATES.CONFIRMED;
-      return `
-        <tr>
-          <td><strong>#${escapeHtml(task.order)}</strong></td>
-          <td>
-            <strong>${escapeHtml(task.title)}</strong>
-            <div class="task-card__quote">${escapeHtml(task.priorityReason)}</div>
-          </td>
-          <td><span class="prio-badge ${escapeHtml(prioMeta.badgeClass)}">${escapeHtml(prioMeta.labelEs)}</span></td>
-          <td>
-            <span class="date-badge ${isConfirmed ? "date-confirmed" : "date-missing"}">
-              ${escapeHtml(task.deadlineLabel)}
-            </span>
-          </td>
-          <td>${escapeHtml(task.assignee)}</td>
-          <td>${escapeHtml(statusMeta.labelEs)}</td>
-          <td>
-            <div class="task-card__actions">
-              <button type="button" class="btn btn--ghost btn--sm" data-action="edit" data-id="${escapeHtml(task.id)}">Editar</button>
-              <button type="button" class="btn btn--danger btn--sm" data-action="delete" data-id="${escapeHtml(task.id)}">✕</button>
-            </div>
-          </td>
-        </tr>
-      `;
-    })
-    .join("");
-
-  return `
-    <div class="table-wrap">
-      <table class="task-table">
-        <thead>
-          <tr>
-            <th>#</th>
-            <th>Actividad &amp; Criterio</th>
-            <th>Prioridad</th>
-            <th>Fecha Límite / Faltante</th>
-            <th>Responsable</th>
-            <th>Estado</th>
-            <th>Acciones</th>
-          </tr>
-        </thead>
-        <tbody>${rows}</tbody>
-      </table>
-    </div>
-  `;
-}
-
 function renderKanbanView(tasks) {
   const columns = [
     { code: "PENDING", title: "Pendientes" },
     { code: "IN_PROGRESS", title: "En Progreso" },
     { code: "COMPLETED", title: "Completadas" }
   ];
-
   const colsHtml = columns
     .map((col) => {
       const colTasks = tasks.filter((t) => t.status === col.code);
@@ -313,7 +267,7 @@ function renderKanbanView(tasks) {
           ? colTasks.map((t) => renderTaskCardHtml(t)).join("")
           : `<div class="empty-state">Sin tareas en esta columna</div>`;
       return `
-        <div class="kanban-col">
+        <div class="kanban-col" data-col-status="${escapeHtml(col.code)}">
           <h3 class="kanban-col__title">
             <span>${escapeHtml(col.title)}</span>
             <span>(${colTasks.length})</span>
@@ -323,125 +277,17 @@ function renderKanbanView(tasks) {
       `;
     })
     .join("");
-
   return `<div class="kanban-grid">${colsHtml}</div>`;
 }
 
-function renderSharePointListView(tasks) {
-  const rows = tasks
-    .map((task) => {
-      const isConfirmed = task.deadlineState === DEADLINE_STATES.CONFIRMED;
-      const prioMeta = PRIORITIES[task.priority] || PRIORITIES.MEDIUM;
-      const statusMeta = TASK_STATUSES[task.status] || TASK_STATUSES.PENDING;
-      const initials = (task.assignee && task.assignee !== "Por asignar" ? task.assignee : "PA")
-        .split(/\s+/)
-        .map((w) => w[0])
-        .slice(0, 2)
-        .join("")
-        .toUpperCase();
-
-      return `
-        <tr>
-          <td>
-            <input type="checkbox" data-action="cycle-status" data-id="${escapeHtml(task.id)}" ${task.status === "COMPLETED" ? "checked" : ""} aria-label="Marcar tarea #${task.order}" />
-          </td>
-          <td>
-            <strong>#${escapeHtml(task.order)} ${escapeHtml(task.title)}</strong>
-            ${task.sourceQuote ? `<div class="task-card__quote">Cita: "${escapeHtml(task.sourceQuote)}"</div>` : ""}
-          </td>
-          <td>
-            <span class="prio-badge ${escapeHtml(prioMeta.badgeClass)}">${escapeHtml(prioMeta.labelEs)}</span>
-          </td>
-          <td>
-            <span class="prio-badge badge--accent">${escapeHtml(statusMeta.labelEs)}</span>
-          </td>
-          <td>
-            ${task.deadlineDate ? `<code>${escapeHtml(task.deadlineDate)}</code>` : `<span class="date-badge date-missing">Sin fecha</span>`}
-          </td>
-          <td>
-            <span class="date-badge ${isConfirmed ? "date-confirmed" : "date-missing"}">
-              ${isConfirmed ? "Confirmada" : "Info Faltante"}
-            </span>
-          </td>
-          <td>
-            <div class="sp-avatar-chip">
-              <span class="sp-avatar-icon" aria-hidden="true">${escapeHtml(initials)}</span>
-              <span>${escapeHtml(task.assignee)}</span>
-            </div>
-          </td>
-          <td>
-            <button type="button" class="btn btn--ghost btn--sm" data-action="edit" data-id="${escapeHtml(task.id)}">Editar</button>
-          </td>
-        </tr>
-      `;
-    })
-    .join("");
-
-  return `
-    <div class="sp-list-container">
-      <div class="sp-command-bar" role="toolbar" aria-label="Barra de comandos estilo SharePoint Modern">
-        <button type="button" class="sp-command-btn sp-command-btn--primary" id="sp-new-btn">+ Nuevo ítem</button>
-        <button type="button" class="sp-command-btn" id="sp-export-csv-btn">Exportar a Excel / CSV</button>
-        <button type="button" class="sp-command-btn" id="sp-flow-btn">⚡ Flujo Power Automate</button>
-      </div>
-      <div class="sp-table-wrap">
-        <table class="sp-table">
-          <thead>
-            <tr>
-              <th scope="col">✓</th>
-              <th scope="col">Nombre de la Actividad</th>
-              <th scope="col">Prioridad</th>
-              <th scope="col">Estado</th>
-              <th scope="col">Vencimiento</th>
-              <th scope="col">Confianza Fecha</th>
-              <th scope="col">Asignado a</th>
-              <th scope="col">Acción</th>
-            </tr>
-          </thead>
-          <tbody>${rows}</tbody>
-        </table>
-      </div>
-    </div>
-  `;
+function renderTeamsCardPreviewHelper() {
+  renderTeamsCardPreview(
+    el.teamsCardPreviewContainer,
+    boardState.tasks,
+    boardState.lastAnalysis?.summary,
+    boardState.lastAnalysis?.clarificationDraft
+  );
 }
-
-function renderTeamsCardPreview() {
-  if (!el.teamsCardPreviewContainer) return;
-  const tasks = boardState.tasks;
-  const summary = boardState.lastAnalysis?.summary || "Plan de tareas organizado.";
-  const draft = boardState.lastAnalysis?.clarificationDraft || "";
-
-  const taskRows = tasks
-    .map((t) => {
-      const isMissing = t.deadlineState !== DEADLINE_STATES.CONFIRMED;
-      const dateText = isMissing
-        ? `⚠️ ${escapeHtml(t.deadlineLabel)} (${escapeHtml(t.missingDetails || "Falta confirmar fecha u hora")})`
-        : `📅 Vencimiento: ${escapeHtml(t.deadlineDate)} · Resp: ${escapeHtml(t.assignee)}`;
-      return `
-        <div class="teams-preview__task">
-          <div><strong>#${t.order} ${escapeHtml(t.title)}</strong></div>
-          <div class="task-card__quote">${escapeHtml(t.priority)} · ${escapeHtml(t.priorityReason || "")}</div>
-          <div><small>${dateText}</small></div>
-        </div>
-      `;
-    })
-    .join("");
-
-  el.teamsCardPreviewContainer.innerHTML = `
-    <div class="teams-preview__header">
-      <span class="teams-preview__title">⚡ TaskFlow AI · Plan de Tareas en Teams</span>
-      <span class="badge badge--accent">Adaptive Card v1.5</span>
-    </div>
-    <p>${escapeHtml(summary)}</p>
-    <div class="teams-preview__tasks-box">${taskRows}</div>
-    ${draft ? `<div class="teams-preview__draft"><strong>Borrador de aclaración:</strong><p>${escapeHtml(draft)}</p></div>` : ""}
-    <div class="teams-preview__actions">
-      <button type="button" class="teams-btn">Abrir en TaskFlow</button>
-      <button type="button" class="teams-btn">Ver en SharePoint</button>
-    </div>
-  `;
-}
-
 function renderWorkspace() {
   const metrics = computeBoardMetrics(boardState.tasks);
   if (el.kpiTotal) el.kpiTotal.textContent = String(metrics.total);
@@ -449,10 +295,14 @@ function renderWorkspace() {
   if (el.kpiMissing) el.kpiMissing.textContent = String(metrics.missingInfoCount);
   if (el.kpiProgress) el.kpiProgress.textContent = `${metrics.completionPct}%`;
   if (el.progressBar) el.progressBar.value = metrics.completionPct;
+  if (metrics.completionPct === 100 && metrics.total > 0 && lastCompletionPct < 100) {
+    fireConfettiCelebration();
+    playTaskCompletedSound();
+  }
+  lastCompletionPct = metrics.completionPct;
   if (el.boardChecksumMeta) {
     el.boardChecksumMeta.textContent = `Integridad CRUD: #${boardState.checksum} · ${metrics.total} tarea(s)`;
   }
-
   // Update verification telemetry box
   const analysis = boardState.lastAnalysis;
   if (analysis) {
@@ -461,7 +311,6 @@ function renderWorkspace() {
         ? `Gemini 3.8 Flash + Verificador L0 (${analysis.latencyMs} ms)`
         : `Motor Neuro-Simbólico Determinista L0 (${analysis.latencyMs} ms)`;
     if (el.engineStatusText) el.engineStatusText.textContent = engineLabel;
-
     const vr = analysis.verificationReport;
     if (vr) {
       if (el.verifGroundingVal) el.verifGroundingVal.textContent = `${vr.groundingRatePct}%`;
@@ -475,7 +324,6 @@ function renderWorkspace() {
       el.verifSummaryNote.textContent = analysis.summary;
     }
   }
-
   // Missing info panel
   const liveMissingTasks = boardState.tasks.filter((t) => t.deadlineState !== DEADLINE_STATES.CONFIRMED);
   if (el.missingInfoPanel && el.missingGapsList && el.clarificationDraftBox) {
@@ -501,16 +349,13 @@ function renderWorkspace() {
         "Por favor confirmar las fechas límite y responsables pendientes de las tareas listadas.";
     }
   }
-
   // Render tasks list/table/kanban
   const filtered = getFilteredTasks();
   if (!el.tasksRenderRoot) return;
-
   if (filtered.length === 0) {
     el.tasksRenderRoot.innerHTML = `<div class="empty-state">No hay tareas que coincidan con el filtro seleccionado. Usa "+ Nueva Tarea" o analiza una solicitud.</div>`;
     return;
   }
-
   if (currentViewMode === "table") {
     el.tasksRenderRoot.innerHTML = renderTableView(filtered);
   } else if (currentViewMode === "kanban") {
@@ -521,17 +366,14 @@ function renderWorkspace() {
     el.tasksRenderRoot.innerHTML = `<div class="task-stack">${filtered.map(renderTaskCardHtml).join("")}</div>`;
   }
 }
-
 async function runAnalysisFlow(payload) {
   if (el.formErrorBanner) el.formErrorBanner.hidden = true;
   if (el.analyzeSubmitBtn) {
     el.analyzeSubmitBtn.disabled = true;
     el.analyzeSubmitBtn.textContent = "Analizando actividades y fechas...";
   }
-
   try {
     let resultData = null;
-
     // Attempt server-side /api/analyze (Gemini 3.8 Flash + L0 Grounding Verifier)
     try {
       const res = await fetch("./api/analyze", {
@@ -559,13 +401,11 @@ async function runAnalysisFlow(payload) {
       if (!localRes.ok) throw new Error(localRes.error);
       resultData = localRes.data;
     }
-
     if (!resultData) {
       const localRes = await analyzeWorkplaceRequest(payload);
       if (!localRes.ok) throw new Error(localRes.error);
       resultData = localRes.data;
     }
-
     dispatch({ type: "LOAD_TRIAGE_RESULT", payload: resultData });
     showToast(`Se organizaron ${resultData.tasks.length} tareas con auditoría anti-alucinación.`);
   } catch (err) {
@@ -581,7 +421,6 @@ async function runAnalysisFlow(payload) {
     }
   }
 }
-
 function openCrudDialog(task = null) {
   if (!el.crudDialog) return;
   if (task) {
@@ -606,27 +445,22 @@ function openCrudDialog(task = null) {
   el.crudDialog.showModal();
   el.crudTitle.focus();
 }
-
 function openThreadDialog(task) {
-  const dialog = /** @type {HTMLDialogElement} */ (document.getElementById("slack-thread-dialog"));
+  const dialog = (document.getElementById("slack-thread-dialog"));
   if (!dialog) return;
-
   const channelEl = document.getElementById("slack-thread-channel-name");
   const avatarEl = document.getElementById("slack-thread-avatar");
   const senderEl = document.getElementById("slack-thread-sender");
   const quoteEl = document.getElementById("slack-thread-parent-quote");
   const detailsEl = document.getElementById("slack-thread-task-details");
-
   const channelVal = el.inputChannel?.value === "slack" ? "general" : el.inputChannel?.value || "general";
   if (channelEl) channelEl.textContent = channelVal;
   if (avatarEl) avatarEl.textContent = "LS";
   if (senderEl) senderEl.textContent = "Luis Soto (Coordinación)";
   if (quoteEl) quoteEl.textContent = `"${el.inputMessage?.value || ""}"`;
-
   const prioMeta = PRIORITIES[task.priority] || PRIORITIES.MEDIUM;
   const statusMeta = TASK_STATUSES[task.status] || TASK_STATUSES.PENDING;
   const isConfirmed = task.deadlineState === DEADLINE_STATES.CONFIRMED;
-
   if (detailsEl) {
     detailsEl.innerHTML = `
       <div class="slack-msg-sender-row">
@@ -645,10 +479,8 @@ function openThreadDialog(task) {
       ${!isConfirmed ? `<p class="task-card__missing">Alerta Anti-Alucinación: ${escapeHtml(task.missingDetails || "Fecha no especificada en el mensaje original.")}</p>` : ""}
     `;
   }
-
   dialog.showModal();
 }
-
 function triggerDownload(filename, content, mimeType) {
   const blob = new Blob([content], { type: mimeType });
   const url = URL.createObjectURL(blob);
@@ -660,7 +492,6 @@ function triggerDownload(filename, content, mimeType) {
   a.remove();
   URL.revokeObjectURL(url);
 }
-
 async function copyTextToClipboard(text, successMsg) {
   try {
     await navigator.clipboard.writeText(text);
@@ -669,7 +500,6 @@ async function copyTextToClipboard(text, successMsg) {
     showToast("No se pudo acceder al portapapeles automáticamente.");
   }
 }
-
 function setActiveTopSection(section) {
   const isPres = section === "presentation";
   if (el.viewWorkspace) el.viewWorkspace.hidden = isPres;
@@ -679,7 +509,6 @@ function setActiveTopSection(section) {
   el.navWorkspace?.setAttribute("aria-pressed", String(!isPres));
   el.navPresentation?.setAttribute("aria-pressed", String(isPres));
 }
-
 function setViewMode(mode) {
   currentViewMode = mode;
   const map = {
@@ -695,13 +524,11 @@ function setViewMode(mode) {
   }
   renderWorkspace();
 }
-
 function updateSlackMessagePreview(preset) {
   const avatar = document.getElementById("slack-avatar");
   const sender = document.getElementById("slack-sender-name");
   const channelBadge = document.getElementById("slack-channel-badge");
   const text = document.getElementById("slack-msg-text");
-
   if (avatar) {
     const initials = (preset.sender || "LS")
       .split(/\s+/)
@@ -715,30 +542,25 @@ function updateSlackMessagePreview(preset) {
   if (channelBadge) channelBadge.textContent = `#${preset.id || "general"}`;
   if (text) text.textContent = `"${preset.message}"`;
 }
-
 function initPresets(todayIso) {
   if (!el.presetContainer) return;
   el.presetContainer.innerHTML = WORKPLACE_PRESETS.map(
     (p, idx) =>
       `<button type="button" class="chip ${idx === 0 ? "is-active" : ""}" data-preset-id="${escapeHtml(p.id)}">${escapeHtml(p.label)}</button>`
   ).join("");
-
   el.presetContainer.addEventListener("click", (ev) => {
-    const btn = /** @type {HTMLElement} */ (ev.target).closest("[data-preset-id]");
+    const btn = (ev.target).closest("[data-preset-id]");
     if (!btn) return;
     const presetId = btn.getAttribute("data-preset-id");
     const found = WORKPLACE_PRESETS.find((p) => p.id === presetId);
     if (!found) return;
-
     el.presetContainer.querySelectorAll(".chip").forEach((c) => c.classList.remove("is-active"));
     btn.classList.add("is-active");
-
     document.querySelectorAll(".slack-channel-pill").forEach((p) => {
       const match = p.getAttribute("data-preset") === presetId;
       p.classList.toggle("is-active", match);
       p.setAttribute("aria-selected", match ? "true" : "false");
     });
-
     el.inputChannel.value = found.channel;
     el.inputMessage.value = found.message;
     updateCharCounter();
@@ -749,32 +571,27 @@ function initPresets(todayIso) {
       referenceDate: el.inputRefDate.value || todayIso
     });
   });
-
   // Wire Slack Channel Pills
   document.querySelectorAll(".slack-channel-pill").forEach((pill) => {
     pill.addEventListener("click", () => {
       const presetId = pill.getAttribute("data-preset");
       const found = WORKPLACE_PRESETS.find((p) => p.id === presetId);
       if (!found) return;
-
       document.querySelectorAll(".slack-channel-pill").forEach((p) => {
         p.classList.remove("is-active");
         p.setAttribute("aria-selected", "false");
       });
       pill.classList.add("is-active");
       pill.setAttribute("aria-selected", "true");
-
       if (el.presetContainer) {
         el.presetContainer.querySelectorAll(".chip").forEach((c) => {
           c.classList.toggle("is-active", c.getAttribute("data-preset-id") === presetId);
         });
       }
-
       el.inputChannel.value = found.channel;
       el.inputMessage.value = found.message;
       updateCharCounter();
       updateSlackMessagePreview(found);
-
       runAnalysisFlow({
         message: found.message,
         channel: found.channel,
@@ -782,7 +599,6 @@ function initPresets(todayIso) {
       });
     });
   });
-
   // Wire Slack Inline Extract Button
   const inlineExtractBtn = document.getElementById("slack-inline-extract-btn");
   inlineExtractBtn?.addEventListener("click", () => {
@@ -792,7 +608,6 @@ function initPresets(todayIso) {
       referenceDate: el.inputRefDate.value || todayIso
     });
   });
-
   // Wire Slack Reaction buttons
   document.querySelectorAll(".slack-reaction-btn").forEach((rBtn) => {
     rBtn.addEventListener("click", () => {
@@ -805,19 +620,15 @@ function initPresets(todayIso) {
     });
   });
 }
-
 async function bootstrap() {
   initVisualPreferences(el, showToast);
   const todayIso = new Date().toISOString().slice(0, 10);
   if (el.inputRefDate) el.inputRefDate.value = todayIso;
-
   initPresets(todayIso);
-
   const canonical = WORKPLACE_PRESETS[0];
   if (el.inputChannel) el.inputChannel.value = canonical.channel;
   if (el.inputMessage) el.inputMessage.value = canonical.message;
   updateCharCounter();
-
   // Restore saved state or auto-run canonical Friday meeting challenge case
   const persisted = loadPersistedBoardState();
   if (persisted && persisted.tasks.length > 0) {
@@ -833,13 +644,10 @@ async function bootstrap() {
       dispatch({ type: "LOAD_TRIAGE_RESULT", payload: initial.data });
     }
   }
-
   // Event Listeners
   el.navWorkspace?.addEventListener("click", () => setActiveTopSection("workspace"));
   el.navPresentation?.addEventListener("click", () => setActiveTopSection("presentation"));
-
   el.filterSearch?.addEventListener("input", renderWorkspace);
-
   el.resolveAllMissingBtn?.addEventListener("click", () => {
     const pending = boardState.tasks.filter((t) => t.deadlineState !== DEADLINE_STATES.CONFIRMED);
     if (pending.length === 0) {
@@ -861,16 +669,14 @@ async function bootstrap() {
     renderWorkspace();
     showToast(`${pending.length} tarea(s) con fecha ${friday} confirmada por el usuario.`);
   });
-
   // Inline quick date picker on each task card
   el.tasksRenderRoot?.addEventListener("change", (ev) => {
-    const input = /** @type {HTMLInputElement} */ (ev.target);
+    const input = (ev.target);
     if (input.getAttribute("data-action") !== "quick-date") return;
     const taskId = input.getAttribute("data-id");
     dispatch({ type: "UPDATE_TASK", payload: { id: taskId, deadlineDate: input.value || null } });
     showToast(input.value ? `Fecha confirmada: ${input.value}` : "Fecha eliminada; la tarea vuelve a info faltante.");
   });
-
   el.inputMessage?.addEventListener("input", updateCharCounter);
   el.inputMessage?.addEventListener("keydown", (ev) => {
     if ((ev.ctrlKey || ev.metaKey) && ev.key === "Enter") {
@@ -882,13 +688,11 @@ async function bootstrap() {
       });
     }
   });
-
   el.clearInputBtn?.addEventListener("click", () => {
     el.inputMessage.value = "";
     updateCharCounter();
     el.inputMessage.focus();
   });
-
   el.analyzeForm?.addEventListener("submit", (ev) => {
     ev.preventDefault();
     runAnalysisFlow({
@@ -897,18 +701,15 @@ async function bootstrap() {
       referenceDate: el.inputRefDate.value || todayIso
     });
   });
-
   el.viewModeCards?.addEventListener("click", () => setViewMode("cards"));
   el.viewModeTable?.addEventListener("click", () => setViewMode("table"));
   el.viewModeKanban?.addEventListener("click", () => setViewMode("kanban"));
   el.viewModeSharepoint?.addEventListener("click", () => setViewMode("sharepoint"));
   el.filterPriority?.addEventListener("change", renderWorkspace);
   el.filterDeadline?.addEventListener("change", renderWorkspace);
-
   // Delegated Task CRUD actions
   el.tasksRenderRoot?.addEventListener("click", (ev) => {
-    const target = /** @type {HTMLElement} */ (ev.target);
-
+    const target = (ev.target);
     // SharePoint toolbar buttons
     if (target.id === "sp-new-btn") {
       openCrudDialog(null);
@@ -925,14 +726,12 @@ async function bootstrap() {
       showToast("Navegando a la arquitectura de integración Microsoft 365 & Power Automate.");
       return;
     }
-
     const btn = target.closest("[data-action]");
     if (!btn) return;
     const action = btn.getAttribute("data-action");
     const taskId = btn.getAttribute("data-id");
     const task = boardState.tasks.find((t) => t.id === taskId);
     if (!task) return;
-
     if (action === "open-thread") {
       openThreadDialog(task);
     } else if (action === "quick-friday") {
@@ -953,17 +752,14 @@ async function bootstrap() {
       showToast(`Tarea eliminada: "${task.title}"`);
     }
   });
-
   el.addTaskBtn?.addEventListener("click", () => openCrudDialog(null));
   el.closeDialogBtn?.addEventListener("click", () => el.crudDialog?.close());
   el.cancelDialogBtn?.addEventListener("click", () => el.crudDialog?.close());
-
   el.crudForm?.addEventListener("submit", (ev) => {
     ev.preventDefault();
     const id = el.crudTaskId.value.trim();
     const title = el.crudTitle.value.trim();
     if (!title) return;
-
     const payload = {
       title,
       priority: el.crudPriority.value,
@@ -972,7 +768,6 @@ async function bootstrap() {
       assignee: el.crudAssignee.value.trim() || "Por asignar",
       priorityReason: el.crudReason.value.trim() || "Prioridad definida por el usuario."
     };
-
     if (id) {
       dispatch({ type: "UPDATE_TASK", payload: { id, ...payload } });
       showToast("Tarea actualizada correctamente.");
@@ -982,13 +777,11 @@ async function bootstrap() {
     }
     el.crudDialog?.close();
   });
-
   el.exportCsvBtn?.addEventListener("click", () => {
     const csv = exportToSharePointCsv(boardState.tasks);
     triggerDownload(`taskflow-sharepoint-${todayIso}.csv`, csv, "text/csv;charset=utf-8");
     showToast("CSV exportado (compatible con SharePoint Lists, Planner y Excel).");
   });
-
   el.exportTeamsCardBtn?.addEventListener("click", () => {
     const card = exportToTeamsAdaptiveCard({
       tasks: boardState.tasks,
@@ -1000,20 +793,16 @@ async function bootstrap() {
     if (el.teamsCardJsonPre) {
       el.teamsCardJsonPre.textContent = JSON.stringify(card, null, 2);
     }
-    renderTeamsCardPreview();
+    renderTeamsCardPreviewHelper();
     el.teamsCardDialog?.showModal();
   });
-
   el.closeTeamsDialogBtn?.addEventListener("click", () => el.teamsCardDialog?.close());
   el.dismissTeamsDialogBtn?.addEventListener("click", () => el.teamsCardDialog?.close());
-
   el.copyTeamsJsonBtn?.addEventListener("click", () => {
     const text = el.teamsCardJsonPre?.textContent || "";
     copyTextToClipboard(text, "Payload JSON de Adaptive Card copiado al portapapeles.");
   });
-
   el.printBtn?.addEventListener("click", () => window.print());
-
   el.copySlackMdBtn?.addEventListener("click", () => {
     const md = exportToSlackMarkdown({
       tasks: boardState.tasks,
@@ -1022,18 +811,75 @@ async function bootstrap() {
     });
     copyTextToClipboard(md, "Resumen Markdown copiado para Slack / Teams.");
   });
-
   el.copyClarificationBtn?.addEventListener("click", () => {
     const draft = el.clarificationDraftBox?.textContent || "";
     copyTextToClipboard(draft, "Mensaje de solicitud de aclaración copiado.");
   });
-
   el.exportJsonBtn?.addEventListener("click", () => {
     const json = exportToJsonContract(boardState);
     triggerDownload(`taskflow-plan-${todayIso}.json`, json, "application/json;charset=utf-8");
     showToast("Contrato JSON descargado.");
   });
 
+  // RFC 5545 iCalendar Export for Outlook / Apple / Google Calendar
+  document.getElementById("export-ics-btn")?.addEventListener("click", () => {
+    const ics = exportToICalendar(boardState.tasks);
+    triggerDownload(`taskflow-calendar-${todayIso}.ics`, ics, "text/calendar;charset=utf-8");
+    showToast("📅 Archivo iCalendar (.ics) generado para Outlook y Apple Calendar.");
+  });
+
+  // RFC 2368 Mailto Clarification Link
+  document.getElementById("send-clarification-email-btn")?.addEventListener("click", () => {
+    const missingTasks = boardState.tasks.filter((t) => t.deadlineState !== DEADLINE_STATES.CONFIRMED);
+    const draftText = el.clarificationDraftBox?.textContent || "";
+    const mailto = generateMailtoClarificationUrl({
+      senderEmail: "coordinacion@empresa.com",
+      subject: "TaskFlow AI · Aclaración de fechas de entrega requeridas",
+      clarificationDraft: draftText,
+      missingTasks
+    });
+    window.location.href = mailto;
+    showToast("Abriendo cliente de correo corporativo para enviar aclaración...");
+  });
+
+  // Native Kanban Drag & Drop
+  setupKanbanDragAndDrop(el.tasksRenderRoot, (taskId, targetStatus) => {
+    dispatch({ type: "UPDATE_TASK", payload: { id: taskId, status: targetStatus } });
+    showToast(`Tarea movida a: ${TASK_STATUSES[targetStatus]?.labelEs || targetStatus}`);
+  });
+
+  // Voice Dictation (Web Speech API)
+  const micBtn = document.getElementById("mic-dictation-btn");
+  if (micBtn) {
+    setupVoiceDictation({
+      micBtn,
+      inputMessage: el.inputMessage,
+      onTranscriptChange: updateCharCounter,
+      showToast
+    });
+  }
+
+  // Command Palette (Ctrl+K / Cmd+K)
+  setupCommandPalette({
+    dialog: document.getElementById("cmd-palette-dialog"),
+    searchInput: document.getElementById("cmd-palette-input"),
+    resultsList: document.getElementById("cmd-palette-results"),
+    getTasks: () => boardState.tasks,
+    onSelectAction: (actionId) => {
+      if (actionId === "export-ics") {
+        document.getElementById("export-ics-btn")?.click();
+      } else if (actionId === "export-csv") {
+        el.exportCsvBtn?.click();
+      } else if (actionId === "export-slack") {
+        el.copySlackMdBtn?.click();
+      } else if (actionId === "export-teams") {
+        el.exportTeamsCardBtn?.click();
+      }
+    },
+    openCrudDialog,
+    setViewMode,
+    showToast
+  });
   el.resetDemoBtn?.addEventListener("click", () => {
     el.inputChannel.value = canonical.channel;
     el.inputMessage.value = canonical.message;
@@ -1044,19 +890,17 @@ async function bootstrap() {
       referenceDate: el.inputRefDate.value || todayIso
     });
   });
-
-  const threadDialog = /** @type {HTMLDialogElement} */ (document.getElementById("slack-thread-dialog"));
+  const threadDialog = (document.getElementById("slack-thread-dialog"));
   document.getElementById("close-thread-dialog-btn")?.addEventListener("click", () => threadDialog?.close());
   document.getElementById("dismiss-thread-dialog-btn")?.addEventListener("click", () => threadDialog?.close());
   document.getElementById("slack-thread-send-reply-btn")?.addEventListener("click", () => {
-    const replyInput = /** @type {HTMLInputElement} */ (document.getElementById("slack-thread-quick-reply"));
+    const replyInput = (document.getElementById("slack-thread-quick-reply"));
     if (replyInput && replyInput.value.trim()) {
       showToast("Mensaje registrado en el hilo de Slack.");
       replyInput.value = "";
       threadDialog?.close();
     }
   });
-
   // Power-User Keyboard Shortcuts
   window.addEventListener("keydown", (ev) => {
     // Ctrl/Cmd + Enter: Trigger analysis
@@ -1071,21 +915,18 @@ async function bootstrap() {
       }
       return;
     }
-
     // Alt + N: New task modal
     if (ev.altKey && (ev.key === "n" || ev.key === "N")) {
       ev.preventDefault();
       openCrudDialog(null);
       return;
     }
-
     // Alt + P: Print executive memo
     if (ev.altKey && (ev.key === "p" || ev.key === "P")) {
       ev.preventDefault();
       window.print();
       return;
     }
-
     // View Switching 1-4 when not typing in text fields
     const tag = (document.activeElement?.tagName || "").toLowerCase();
     const isTyping = tag === "input" || tag === "textarea" || tag === "select";
@@ -1096,7 +937,6 @@ async function bootstrap() {
       else if (ev.key === "4") setViewMode("sharepoint");
     }
   });
-
   // Progressive Web App (PWA) Offline Service Worker Registration
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
@@ -1104,5 +944,4 @@ async function bootstrap() {
     });
   }
 }
-
 bootstrap();
