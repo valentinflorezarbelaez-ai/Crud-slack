@@ -58,7 +58,7 @@ export function initVisualPreferences(refs, notify) {
     const safe = scale === "xl" ? "xl" : "lg";
     root.setAttribute("data-scale", safe);
     if (refs.scaleToggleBtn) {
-      refs.scaleToggleBtn.textContent = safe === "xl" ? "🔍 Tamaño: XL" : "🔍 Tamaño";
+      refs.scaleToggleBtn.textContent = safe === "xl" ? "🔍 Tamaño: XL" : "🔍 Tamaño: Normal";
     }
     writePref("taskflow.scale", safe);
   };
