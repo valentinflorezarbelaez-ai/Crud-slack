@@ -34,27 +34,27 @@ html[data-theme="dark"] {
 }
 
 html[data-theme="light"] {
-  --bg-canvas: #f2f6f9;
+  --bg-canvas: #edf2f7;
   --bg-surface: #ffffff;
-  --bg-elevated: #f8fafc;
+  --bg-elevated: #ffffff;
   --bg-input: #ffffff;
-  --border-subtle: rgba(15, 23, 42, 0.14);
-  --border-strong: rgba(15, 23, 42, 0.28);
-  --text-primary: #0f172a;
+  --border-subtle: rgba(15, 23, 42, 0.16);
+  --border-strong: rgba(15, 23, 42, 0.36);
+  --text-primary: #090d16;
   --text-secondary: #1e293b;
-  --text-muted: #475569;
+  --text-muted: #334155;
   --accent: #0284c7;
   --accent-strong: #0369a1;
   --accent-contrast: #ffffff;
   --ok: #047857;
-  --ok-bg: rgba(4, 120, 87, 0.12);
+  --ok-bg: rgba(4, 120, 87, 0.13);
   --warn: #b45309;
-  --warn-bg: rgba(180, 83, 9, 0.12);
+  --warn-bg: rgba(245, 158, 11, 0.14);
   --high: #c2410c;
-  --high-bg: rgba(194, 65, 12, 0.12);
+  --high-bg: rgba(234, 88, 12, 0.13);
   --crit: #b91c1c;
-  --crit-bg: rgba(185, 28, 28, 0.12);
-  --shadow-lg: 0 16px 38px -14px rgba(15, 23, 42, 0.1);
+  --crit-bg: rgba(220, 38, 38, 0.13);
+  --shadow-lg: 0 18px 40px -12px rgba(15, 23, 42, 0.12), 0 4px 14px -2px rgba(15, 23, 42, 0.06);
 }
 
 html[data-theme="warm"] {
@@ -92,16 +92,20 @@ html[data-theme="warm"] {
 }
 
 html {
-  font-size: 17px;
+  font-size: 18px;
   scroll-behavior: smooth;
 }
 
+html[data-scale="lg"] {
+  font-size: 19.8px;
+}
+
 html[data-scale="xl"] {
-  font-size: 18.8px;
+  font-size: 21.8px;
 }
 
 html[data-scale="md"] {
-  font-size: 15.5px;
+  font-size: 16.8px;
 }
 
 body {
@@ -644,22 +648,26 @@ summary {
   background: var(--bg-elevated);
   border: 1.5px solid var(--border-subtle);
   border-radius: var(--radius-md);
-  padding: 0.95rem 1.1rem;
+  padding: 1.15rem 1.25rem;
+  box-shadow: 0 4px 16px -4px rgba(15, 23, 42, 0.07);
 }
 
 .kpi-card__label {
   display: block;
-  font-size: 0.86rem;
-  font-weight: 700;
+  font-size: 0.88rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
   color: var(--text-secondary);
 }
 
 .kpi-card__value {
   display: block;
   font-family: var(--font-mono);
-  font-size: 1.9rem;
-  font-weight: 800;
-  margin-top: 0.2rem;
+  font-size: 2.25rem;
+  font-weight: 900;
+  margin-top: 0.25rem;
+  line-height: 1.15;
 }
 
 .kpi-card--high .kpi-card__value {
@@ -810,16 +818,29 @@ summary {
 .task-card {
   background: var(--bg-elevated);
   border: 1.5px solid var(--border-subtle);
+  border-left: 6px solid var(--accent);
   border-radius: var(--radius-md);
-  padding: 1.25rem 1.4rem;
-  transition: border-color 0.15s ease, transform 0.12s ease;
+  padding: 1.35rem 1.55rem;
+  box-shadow: 0 4px 18px -4px rgba(15, 23, 42, 0.08);
+  transition: border-color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
   content-visibility: auto;
   contain-intrinsic-size: 160px;
 }
 
 .task-card:hover {
   border-color: var(--border-strong);
+  transform: translateY(-2px);
+  box-shadow: 0 12px 30px -8px rgba(15, 23, 42, 0.15);
 }
+
+.task-card:has(.prio-critical),
+.task-card--critical { border-left-color: #ef4444 !important; }
+.task-card:has(.prio-high),
+.task-card--high { border-left-color: #f97316 !important; }
+.task-card:has(.prio-medium),
+.task-card--medium { border-left-color: #0284c7 !important; }
+.task-card:has(.prio-low),
+.task-card--low { border-left-color: #10b981 !important; }
 
 .task-card.is-completed {
   opacity: 0.72;
@@ -845,9 +866,9 @@ summary {
 
 .task-order {
   font-family: var(--font-mono);
-  font-size: 0.88rem;
+  font-size: 0.95rem;
   font-weight: 800;
-  padding: 0.2rem 0.58rem;
+  padding: 0.25rem 0.65rem;
   border-radius: 8px;
   background: var(--bg-surface);
   border: 1.5px solid var(--border-subtle);
@@ -856,9 +877,10 @@ summary {
 
 .task-card__title {
   margin: 0;
-  font-size: 1.18rem;
+  font-size: 1.26rem;
   font-weight: 800;
   line-height: 1.35;
+  color: var(--text-primary);
 }
 
 .task-badges {
@@ -873,10 +895,10 @@ summary {
 .meta-badge {
   display: inline-flex;
   align-items: center;
-  padding: 0.28rem 0.72rem;
+  padding: 0.32rem 0.82rem;
   border-radius: 8px;
-  font-size: 0.85rem;
-  font-weight: 700;
+  font-size: 0.88rem;
+  font-weight: 800;
 }
 
 .prio-critical {
