@@ -3,14 +3,16 @@
  * Cache-first for local static assets; Network-first with offline fallback for API requests.
  */
 
-const CACHE_NAME = "taskflow-ai-v2.1.0";
+const CACHE_NAME = "taskflow-ai-v2.2.0";
 const STATIC_ASSETS = [
   "./",
   "./index.html",
   "./css/styles.css",
+  "./css/slack-shell.css",
   "./favicon.svg",
   "./manifest.webmanifest",
   "./src/ui/main.mjs",
+  "./src/ui/slackShell.mjs",
   "./src/ui/presets.mjs",
   "./src/ui/preferences.mjs",
   "./src/domain/taskEntities.mjs",

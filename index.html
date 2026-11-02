@@ -25,6 +25,7 @@
       rel="stylesheet"
     />
     <link rel="stylesheet" href="./css/styles.css?v=2.2" />
+    <link rel="stylesheet" href="./css/slack-shell.css?v=1.0" />
     <script type="application/ld+json">
       {
         "@context": "https://schema.org",
@@ -43,44 +44,55 @@
   <body>
     <a class="skip-link" href="#main-content">Saltar al contenido principal</a>
 
+    <svg class="sr-only" width="0" height="0" aria-hidden="true" focusable="false">
+      <defs>
+        <symbol id="i-home" viewBox="0 0 20 20"><path fill="currentColor" d="M10 2.5 2.5 9v8.5h5v-5h5v5h5V9L10 2.5Z" /></symbol>
+        <symbol id="i-doc" viewBox="0 0 20 20"><path fill="currentColor" d="M5 2h7l4 4v11a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1Zm6 1.5V7h3.5L11 3.5ZM6.5 10h7v1.3h-7V10Zm0 3h7v1.3h-7V13Z" /></symbol>
+        <symbol id="i-search" viewBox="0 0 20 20"><path fill="currentColor" d="M8.5 2a6.5 6.5 0 0 1 5.2 10.4l4.1 4.1-1.3 1.3-4.1-4.1A6.5 6.5 0 1 1 8.5 2Zm0 1.8a4.7 4.7 0 1 0 0 9.4 4.7 4.7 0 0 0 0-9.4Z" /></symbol>
+        <symbol id="i-plus" viewBox="0 0 20 20"><path fill="currentColor" d="M9.1 3h1.8v6.1H17v1.8h-6.1V17H9.1v-6.1H3V9.1h6.1V3Z" /></symbol>
+        <symbol id="i-chevron" viewBox="0 0 20 20"><path fill="currentColor" d="m6 7.5 4 4 4-4 1.2 1.2L10 13.9 4.8 8.7 6 7.5Z" /></symbol>
+        <symbol id="i-menu" viewBox="0 0 20 20"><path fill="currentColor" d="M3 5h14v1.8H3V5Zm0 4.1h14v1.8H3V9.1Zm0 4.1h14V15H3v-1.8Z" /></symbol>
+        <symbol id="i-moon" viewBox="0 0 20 20"><path fill="currentColor" d="M16.5 12.5A7 7 0 0 1 7.5 3.5a7 7 0 1 0 9 9Z" /></symbol>
+        <symbol id="i-smile" viewBox="0 0 20 20"><path fill="currentColor" d="M10 2a8 8 0 1 1 0 16 8 8 0 0 1 0-16Zm0 1.7a6.3 6.3 0 1 0 0 12.6 6.3 6.3 0 0 0 0-12.6ZM7.2 8a1 1 0 1 1 0 2 1 1 0 0 1 0-2Zm5.6 0a1 1 0 1 1 0 2 1 1 0 0 1 0-2ZM6.4 12h7.2a3.6 3.6 0 0 1-7.2 0Z" /></symbol>
+        <symbol id="i-at" viewBox="0 0 20 20"><path fill="currentColor" d="M10 2a8 8 0 0 0 0 16c1.6 0 3-.5 4.2-1.3l-.9-1.5A6 6 0 1 1 16 10v.8c0 .6-.4 1-.9 1s-.9-.4-.9-1V6.5h-1.6v.6A3.4 3.4 0 0 0 10 6.2a3.5 3.5 0 1 0 2.6 5.8c.4.7 1.3 1.1 2.2 1.1 1.4 0 2.6-1 2.6-2.5V10a7.4 7.4 0 0 0-7.4-8Zm0 8.9a1.9 1.9 0 1 1 0-3.8 1.9 1.9 0 0 1 0 3.8Z" /></symbol>
+        <symbol id="i-link" viewBox="0 0 20 20"><path fill="currentColor" d="M8.6 12.6a3 3 0 0 0 4.2 0l3-3a3 3 0 0 0-4.2-4.2l-.8.8 1.1 1.1.8-.8a1.4 1.4 0 0 1 2 2l-3 3a1.4 1.4 0 0 1-2 0l-1.1 1.1Zm2.8-5.2a3 3 0 0 0-4.2 0l-3 3a3 3 0 0 0 4.2 4.2l.8-.8-1.1-1.1-.8.8a1.4 1.4 0 0 1-2-2l3-3a1.4 1.4 0 0 1 2 0l1.1-1.1Z" /></symbol>
+        <symbol id="i-list" viewBox="0 0 20 20"><path fill="currentColor" d="M3 5.2a1.2 1.2 0 1 1 2.4 0A1.2 1.2 0 0 1 3 5.2Zm4 0h10v1.6H7V5.2Zm-4 4.8a1.2 1.2 0 1 1 2.4 0 1.2 1.2 0 0 1-2.4 0Zm4 0h10v1.6H7V10Zm-4 4.8a1.2 1.2 0 1 1 2.4 0 1.2 1.2 0 0 1-2.4 0Zm4 0h10v1.6H7v-1.6Z" /></symbol>
+        <symbol id="i-send" viewBox="0 0 20 20"><path fill="currentColor" d="M2.5 3 17.5 10 2.5 17l1.6-5.6L11 10 4.1 8.6 2.5 3Z" /></symbol>
+        <symbol id="i-table" viewBox="0 0 20 20"><path fill="currentColor" d="M3 4h14a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1Zm.8 1.8v2.3h4.4V5.8H3.8Zm6 0v2.3h6.4V5.8H9.8Zm-6 4v2.1h4.4V9.8H3.8Zm6 0v2.1h6.4V9.8H9.8Zm-6 3.8v.6h4.4v-.6H3.8Zm6 0v.6h6.4v-.6H9.8Z" /></symbol>
+      </defs>
+    </svg>
+
     <header class="topbar" role="banner">
-      <div class="container topbar__inner">
+      <div class="topbar__inner">
         <div class="brand">
+          <button
+            type="button"
+            id="sidebar-toggle-btn"
+            class="topbar-icon-btn topbar-icon-btn--menu"
+            aria-label="Abrir barra lateral"
+            aria-controls="slack-sidebar"
+            aria-expanded="false"
+          >
+            <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#i-menu" /></svg>
+          </button>
           <img src="./favicon.svg" alt="Emblema de Slack y TaskFlow AI" width="30" height="30" class="brand__logo" />
-          <div class="brand__copy">
-            <div class="brand__title-row">
-              <span class="brand__name">TaskFlow · Slack Lists</span>
-              <span class="badge badge--accent">#general</span>
-            </div>
-            <p class="brand__subtitle">Workspace TaskFlow AI ➔ Slack Lists · Anti-Alucinación · CRUD</p>
-          </div>
+          <span class="brand__name">TaskFlow AI</span>
         </div>
 
-        <div class="slack-search-bar" role="search" title="Buscar en #canales y listas de Slack">
-          <span aria-hidden="true">🔍</span>
-          <span>Buscar en TaskFlow AI · Slack Lists (Ctrl+K)</span>
-        </div>
+        <button
+          type="button"
+          id="cmdk-open-btn"
+          class="slack-search-bar"
+          aria-haspopup="dialog"
+          aria-keyshortcuts="Control+K Meta+K"
+          title="Buscar canales, tareas y acciones (Ctrl+K)"
+        >
+          <svg class="icon" width="15" height="15" aria-hidden="true"><use href="#i-search" /></svg>
+          <span class="slack-search-bar__label">Buscar en TaskFlow AI</span>
+          <kbd class="kbd">Ctrl K</kbd>
+        </button>
 
         <div class="topbar__actions">
-          <nav class="mode-nav" aria-label="Secciones principales">
-            <button
-              type="button"
-              id="nav-btn-workspace"
-              class="mode-nav__btn is-active"
-              aria-pressed="true"
-            >
-              ⚡ Slack Lists
-            </button>
-            <button
-              type="button"
-              id="nav-btn-presentation"
-              class="mode-nav__btn"
-              aria-pressed="false"
-            >
-              📘 Docs
-            </button>
-          </nav>
-
           <div class="topbar__utilities">
             <button
               type="button"
@@ -138,55 +150,182 @@
       </div>
     </header>
 
-    <main id="main-content" class="container main-shell">
+    <div class="app-shell" id="app-shell">
+      <nav class="slack-rail" aria-label="Navegación principal">
+        <span class="rail-workspace" aria-hidden="true">TF</span>
+        <button type="button" class="rail-btn is-active" data-proxy="nav-btn-workspace" aria-label="Inicio">
+          <svg class="icon" width="20" height="20" aria-hidden="true"><use href="#i-home" /></svg>
+          <span>Inicio</span>
+        </button>
+        <button type="button" class="rail-btn" data-proxy="nav-btn-presentation" aria-label="Documentación">
+          <svg class="icon" width="20" height="20" aria-hidden="true"><use href="#i-doc" /></svg>
+          <span>Docs</span>
+        </button>
+        <button type="button" class="rail-btn" id="rail-search-btn" aria-label="Buscar">
+          <svg class="icon" width="20" height="20" aria-hidden="true"><use href="#i-search" /></svg>
+          <span>Buscar</span>
+        </button>
+        <button type="button" class="rail-btn rail-btn--end" data-proxy="theme-toggle-btn" aria-label="Cambiar tema">
+          <svg class="icon" width="20" height="20" aria-hidden="true"><use href="#i-moon" /></svg>
+          <span>Tema</span>
+        </button>
+      </nav>
+
+      <aside class="slack-sidebar" id="slack-sidebar" aria-label="Barra lateral del workspace">
+        <div class="sidebar-head">
+          <div class="sidebar-workspace">
+            <span class="sidebar-workspace__name">TaskFlow AI</span>
+            <svg class="icon" width="14" height="14" aria-hidden="true"><use href="#i-chevron" /></svg>
+          </div>
+          <button type="button" class="sidebar-compose" data-proxy="add-task-btn" aria-label="Nueva tarea" title="Nueva tarea (Alt+N)">
+            <svg class="icon" width="16" height="16" aria-hidden="true"><use href="#i-plus" /></svg>
+          </button>
+        </div>
+
+        <div class="sidebar-scroll">
+          <div class="sidebar-group">
+            <button type="button" id="nav-btn-workspace" class="sidebar-item is-active" aria-pressed="true">
+              <svg class="icon" width="16" height="16" aria-hidden="true"><use href="#i-table" /></svg>
+              <span class="sidebar-item__name">Slack Lists</span>
+            </button>
+            <button type="button" id="nav-btn-presentation" class="sidebar-item" aria-pressed="false">
+              <svg class="icon" width="16" height="16" aria-hidden="true"><use href="#i-doc" /></svg>
+              <span class="sidebar-item__name">Docs del reto</span>
+            </button>
+          </div>
+
+          <section class="sidebar-section">
+            <h2 class="sidebar-section__title">
+              <button type="button" class="sidebar-section__toggle" aria-expanded="true" aria-controls="sidebar-channels">
+                <svg class="icon" width="12" height="12" aria-hidden="true"><use href="#i-chevron" /></svg>
+                Canales
+              </button>
+            </h2>
+            <ul class="sidebar-list" id="sidebar-channels" role="listbox" aria-label="Canales">
+              <li role="presentation">
+                <button type="button" class="slack-channel-pill sidebar-item is-active" data-preset="reto-oficial-viernes" data-channel-name="general" data-topic="Reunión del viernes · plan accionable sin inventar fechas" role="option" aria-selected="true">
+                  <span class="sidebar-item__hash" aria-hidden="true">#</span>
+                  <span class="sidebar-item__name">general</span>
+                </button>
+              </li>
+              <li role="presentation">
+                <button type="button" class="slack-channel-pill sidebar-item is-unread" data-preset="incidente-slack-prod" data-channel-name="incidentes-prod" data-topic="Alertas urgentes de producción · asignación y notificación a soporte" role="option" aria-selected="false">
+                  <span class="sidebar-item__hash" aria-hidden="true">#</span>
+                  <span class="sidebar-item__name">incidentes-prod</span>
+                  <span class="sidebar-item__badge">3</span>
+                </button>
+              </li>
+              <li role="presentation">
+                <button type="button" class="slack-channel-pill sidebar-item is-unread" data-preset="sharepoint-intranet" data-channel-name="operaciones" data-topic="SharePoint, permisos y entregables de Operaciones" role="option" aria-selected="false">
+                  <span class="sidebar-item__hash" aria-hidden="true">#</span>
+                  <span class="sidebar-item__name">operaciones</span>
+                  <span class="sidebar-item__badge">1</span>
+                </button>
+              </li>
+              <li role="presentation">
+                <button type="button" class="slack-channel-pill sidebar-item" data-preset="sin-fechas-antihalucinacion" data-channel-name="legal-auditoria" data-topic="Mensajes sin fechas · prueba de guardia anti-alucinación" role="option" aria-selected="false">
+                  <span class="sidebar-item__hash" aria-hidden="true">#</span>
+                  <span class="sidebar-item__name">legal-auditoria</span>
+                </button>
+              </li>
+            </ul>
+          </section>
+
+          <section class="sidebar-section">
+            <h2 class="sidebar-section__title">
+              <button type="button" class="sidebar-section__toggle" aria-expanded="true" aria-controls="sidebar-dms">
+                <svg class="icon" width="12" height="12" aria-hidden="true"><use href="#i-chevron" /></svg>
+                Mensajes directos
+              </button>
+            </h2>
+            <ul class="sidebar-list" id="sidebar-dms">
+              <li>
+                <button type="button" class="sidebar-item" data-mention="@Luis">
+                  <span class="presence presence--on" aria-hidden="true"></span>
+                  <span class="sidebar-item__name">Luis Soto</span>
+                  <span class="sr-only">activo. Mencionar en el mensaje</span>
+                </button>
+              </li>
+              <li>
+                <button type="button" class="sidebar-item" data-mention="@Carlos">
+                  <span class="presence presence--away" aria-hidden="true"></span>
+                  <span class="sidebar-item__name">Carlos Ruiz</span>
+                  <span class="sr-only">ausente. Mencionar en el mensaje</span>
+                </button>
+              </li>
+              <li>
+                <button type="button" class="sidebar-item" data-mention="@Legal">
+                  <span class="presence" aria-hidden="true"></span>
+                  <span class="sidebar-item__name">Equipo Legal</span>
+                  <span class="sr-only">desconectado. Mencionar en el mensaje</span>
+                </button>
+              </li>
+            </ul>
+          </section>
+
+          <section class="sidebar-section">
+            <h2 class="sidebar-section__title">
+              <button type="button" class="sidebar-section__toggle" aria-expanded="true" aria-controls="sidebar-apps">
+                <svg class="icon" width="12" height="12" aria-hidden="true"><use href="#i-chevron" /></svg>
+                Apps
+              </button>
+            </h2>
+            <ul class="sidebar-list" id="sidebar-apps">
+              <li>
+                <button type="button" class="sidebar-item" data-proxy="export-csv-btn">
+                  <span class="sidebar-item__hash" aria-hidden="true">↓</span>
+                  <span class="sidebar-item__name">Exportar a SharePoint (CSV)</span>
+                </button>
+              </li>
+              <li>
+                <button type="button" class="sidebar-item" data-proxy="export-teams-card-btn">
+                  <span class="sidebar-item__hash" aria-hidden="true">↓</span>
+                  <span class="sidebar-item__name">Tarjeta de Teams</span>
+                </button>
+              </li>
+              <li>
+                <button type="button" class="sidebar-item" data-proxy="copy-slack-md-btn">
+                  <span class="sidebar-item__hash" aria-hidden="true">⧉</span>
+                  <span class="sidebar-item__name">Copiar resumen Slack</span>
+                </button>
+              </li>
+            </ul>
+          </section>
+        </div>
+
+        <div class="sidebar-user">
+          <span class="sidebar-user__avatar" aria-hidden="true">VF<span class="presence presence--on"></span></span>
+          <span class="sidebar-user__text"><strong>Valentín F.</strong><small>Activo</small></span>
+        </div>
+      </aside>
+      <div class="sidebar-backdrop" id="sidebar-backdrop" hidden></div>
+
+    <main id="main-content" class="main-shell">
       <div id="live-announcer" class="sr-only" aria-live="polite" aria-atomic="true"></div>
 
       <!-- ================================================================ -->
       <!-- VIEW 1: AI TASK TRIAGE & FULL CRUD WORKSPACE                      -->
       <!-- ================================================================ -->
       <section id="view-workspace" aria-labelledby="workspace-heading">
-        <div class="hero-strip">
-          <div class="hero-strip__text">
-            <div class="hero-strip__badge-row">
-              <span class="hero-strip__kicker">⚡ TASKFLOW INTELLIGENCE SUITE · VERIFICADO</span>
-              <span class="hero-strip__sla">Reto Práctico 100% Sin Alucinación</span>
-            </div>
-            <h1 id="workspace-heading" class="hero-strip__title">
-              Transforma cualquier correo o mensaje en un <span class="hero-strip__highlight">plan accionable</span>
+        <header class="channel-header">
+          <div class="channel-header__main">
+            <h1 id="workspace-heading" class="channel-header__title">
+              <span class="channel-header__hash" aria-hidden="true">#</span><span id="channel-header-name">general</span>
             </h1>
-            <p class="hero-strip__lead">
-              Identifica actividades, sugiere prioridades por dependencia lógica y detecta fechas límite reales
-              <strong>señalando explícitamente la información faltante en lugar de inventarla</strong>.
+            <p class="channel-header__topic" id="channel-header-topic">
+              Reunión del viernes · plan accionable sin inventar fechas
             </p>
           </div>
-          <div class="engine-pill" id="engine-status-pill" aria-live="polite">
-            <span class="engine-pill__dot" aria-hidden="true"></span>
-            <span id="engine-status-text">Motor Neuro-Simbólico Verificado · Listo</span>
+          <div class="channel-header__side">
+            <div class="avatar-stack" role="img" aria-label="7 miembros en el canal">
+              <span>LS</span><span>CR</span><span>EL</span><span class="avatar-stack__more">+4</span>
+            </div>
+            <div class="engine-pill" id="engine-status-pill" aria-live="polite">
+              <span class="engine-pill__dot" aria-hidden="true"></span>
+              <span id="engine-status-text">Motor Neuro-Simbólico Verificado · Listo</span>
+            </div>
           </div>
-        </div>
-
-        <!-- SLACK WORKSPACE CHANNELS BAR -->
-        <nav class="slack-bar" aria-label="Canales de Slack y Casos de Prueba">
-          <div class="slack-bar__head">
-            <span class="slack-hash">#</span>
-            <span class="slack-bar__title">Workspace: <strong>TaskFlow AI &amp; Slack Lists</strong></span>
-            <span class="badge badge--verified">Live Sync</span>
-          </div>
-          <div class="slack-bar__channels" role="tablist" aria-label="Canales interactivos">
-            <button type="button" class="slack-channel-pill is-active" data-preset="reto-oficial-viernes" role="tab" aria-selected="true">
-              <span class="slack-hash">#</span> general <span class="slack-pill-badge">Reunión Viernes</span>
-            </button>
-            <button type="button" class="slack-channel-pill" data-preset="incidente-slack-prod" role="tab" aria-selected="false">
-              <span class="slack-hash">#</span> incidentes-prod <span class="slack-pill-badge badge--crit">Urgente</span>
-            </button>
-            <button type="button" class="slack-channel-pill" data-preset="sharepoint-intranet" role="tab" aria-selected="false">
-              <span class="slack-hash">#</span> operaciones <span class="slack-pill-badge">SharePoint</span>
-            </button>
-            <button type="button" class="slack-channel-pill" data-preset="sin-fechas-antihalucinacion" role="tab" aria-selected="false">
-              <span class="slack-hash">#</span> legal-auditoria <span class="slack-pill-badge badge--warn">Anti-Alucinación</span>
-            </button>
-          </div>
-        </nav>
+        </header>
 
         <div class="workspace-grid">
           <!-- LEFT COLUMN: OMNICHANNEL MESSAGE INGESTION -->
@@ -205,6 +344,7 @@
             </div>
 
             <!-- SLACK INTERACTIVE MESSAGE FEED CARD -->
+            <div class="day-divider" role="separator"><span>Hoy</span></div>
             <div class="slack-message-card" id="slack-message-card">
               <div class="slack-msg-header">
                 <div class="slack-avatar" id="slack-avatar">LS</div>
@@ -258,19 +398,29 @@
                   placeholder="Enviar un mensaje a #general o pegar una solicitud..."
                   required
                 ></textarea>
-                <div class="slack-composer-toolbar" aria-hidden="true">
+                <div class="slack-composer-toolbar" role="toolbar" aria-label="Formato del mensaje">
                   <div class="slack-fmt-group">
-                    <span class="slack-fmt-icon" title="Negrita"><b>B</b></span>
-                    <span class="slack-fmt-icon" title="Cursiva"><i>I</i></span>
-                    <span class="slack-fmt-icon" title="Tachado"><s>S</s></span>
-                    <span class="slack-fmt-icon" title="Enlace">🔗</span>
-                    <span class="slack-fmt-icon" title="Lista">≡</span>
-                    <span class="slack-fmt-icon" title="Código">&lt;/&gt;</span>
+                    <button type="button" class="slack-fmt-icon" data-fmt="bold" title="Negrita (Ctrl+B)" aria-label="Negrita"><b>B</b></button>
+                    <button type="button" class="slack-fmt-icon" data-fmt="italic" title="Cursiva (Ctrl+I)" aria-label="Cursiva"><i>I</i></button>
+                    <button type="button" class="slack-fmt-icon" data-fmt="strike" title="Tachado" aria-label="Tachado"><s>S</s></button>
+                    <button type="button" class="slack-fmt-icon" data-fmt="link" title="Enlace" aria-label="Enlace"><svg class="icon" width="15" height="15" aria-hidden="true"><use href="#i-link" /></svg></button>
+                    <button type="button" class="slack-fmt-icon" data-fmt="list" title="Lista" aria-label="Lista"><svg class="icon" width="15" height="15" aria-hidden="true"><use href="#i-list" /></svg></button>
+                    <button type="button" class="slack-fmt-icon" data-fmt="code" title="Código" aria-label="Código">&lt;/&gt;</button>
                   </div>
                   <div class="slack-fmt-group">
-                    <span class="slack-fmt-icon" title="Emoji">😊</span>
-                    <span class="slack-fmt-icon" title="Mención">@</span>
+                    <button type="button" class="slack-fmt-icon" data-fmt="emoji" title="Emoji" aria-label="Insertar emoji" aria-haspopup="true" aria-expanded="false" aria-controls="emoji-pop"><svg class="icon" width="15" height="15" aria-hidden="true"><use href="#i-smile" /></svg></button>
+                    <button type="button" class="slack-fmt-icon" data-fmt="mention" title="Mención" aria-label="Mencionar a alguien"><svg class="icon" width="15" height="15" aria-hidden="true"><use href="#i-at" /></svg></button>
                   </div>
+                </div>
+                <div class="emoji-pop" id="emoji-pop" role="group" aria-label="Emojis" hidden>
+                  <button type="button" data-emoji="👍" aria-label="Pulgar arriba">👍</button>
+                  <button type="button" data-emoji="🚀" aria-label="Cohete">🚀</button>
+                  <button type="button" data-emoji="👀" aria-label="Ojos">👀</button>
+                  <button type="button" data-emoji="✅" aria-label="Check">✅</button>
+                  <button type="button" data-emoji="🙏" aria-label="Gracias">🙏</button>
+                  <button type="button" data-emoji="🔥" aria-label="Fuego">🔥</button>
+                  <button type="button" data-emoji="📅" aria-label="Calendario">📅</button>
+                  <button type="button" data-emoji="⚠️" aria-label="Advertencia">⚠️</button>
                 </div>
               </div>
 
@@ -594,6 +744,32 @@
         </section>
       </section>
     </main>
+    </div>
+
+    <dialog id="cmdk-dialog" class="cmdk" closedby="any" aria-label="Buscar y ejecutar comandos">
+      <div class="cmdk__search">
+        <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#i-search" /></svg>
+        <input
+          id="cmdk-input"
+          type="text"
+          role="combobox"
+          aria-expanded="true"
+          aria-controls="cmdk-list"
+          aria-autocomplete="list"
+          placeholder="Buscar canales, tareas y acciones…"
+          autocomplete="off"
+          spellcheck="false"
+        />
+        <kbd class="kbd">Esc</kbd>
+      </div>
+      <ul id="cmdk-list" class="cmdk__list" role="listbox" aria-label="Resultados"></ul>
+      <p id="cmdk-empty" class="cmdk__empty" hidden>Sin resultados para tu búsqueda.</p>
+      <div class="cmdk__foot" aria-hidden="true">
+        <span><kbd class="kbd">↑↓</kbd> navegar</span>
+        <span><kbd class="kbd">↵</kbd> abrir</span>
+        <span><kbd class="kbd">Esc</kbd> cerrar</span>
+      </div>
+    </dialog>
 
     <!-- ================================================================ -->
     <!-- ACCESSIBLE CRUD MODAL DIALOG (<dialog closedby="any">)           -->
@@ -735,5 +911,6 @@
     <div id="toast-notification" class="toast" role="status" aria-live="polite" hidden></div>
 
     <script type="module" src="./src/ui/main.mjs?v=2.1"></script>
+    <script type="module" src="./src/ui/slackShell.mjs?v=1.0"></script>
   </body>
 </html>
