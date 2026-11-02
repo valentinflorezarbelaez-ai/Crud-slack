@@ -54,7 +54,7 @@ function initSidebar() {
     const name = $("channel-header-name");
     const topic = $("channel-header-topic");
     if (name) name.textContent = active.dataset.channelName || "general";
-    if (topic) topic.textContent = active.dataset.topic || "";
+    if (topic) topic.textContent = active.dataset.topic || "Sin descripción · usa «Editar canal» para añadir una";
     active.classList.remove("is-unread");
     active.querySelector(".sidebar-item__badge")?.remove();
   };
@@ -62,6 +62,7 @@ function initSidebar() {
     new MutationObserver(syncChannel).observe(channels, {
       attributes: true,
       attributeFilter: ["class"],
+      childList: true,
       subtree: true
     });
     channels.addEventListener("click", () => setSidebarOpen(false));

@@ -745,3 +745,99 @@ background: linear-gradient(135deg, #36c5f0, #9b6bff 55%, #e01e5a);
 display: none;
 }
 }
+
+/* ---------- Channels: create / edit / empty state ---------- */
+.slack-sidebar .sidebar-item--add {
+color: var(--sidebar-text);
+opacity: 0.85;
+}
+.slack-sidebar .sidebar-item--add:hover {
+opacity: 1;
+}
+.channel-dialog {
+width: min(480px, calc(100vw - 2rem));
+}
+.channel-dialog__intro {
+margin: 0 0 1rem;
+color: var(--text-secondary);
+font-size: 0.9rem;
+line-height: 1.45;
+}
+.channel-name-field {
+display: flex;
+align-items: center;
+gap: 0.5rem;
+}
+.channel-name-field__hash {
+color: var(--text-muted);
+font-weight: 700;
+}
+.channel-name-field__input {
+flex: 1;
+}
+.field__hint {
+margin: 0.35rem 0 0;
+color: var(--text-muted);
+font-size: 0.8rem;
+}
+.field__error {
+margin: 0.35rem 0 0;
+color: #e01e5a;
+font-size: 0.82rem;
+font-weight: 600;
+}
+.field__error[hidden] {
+display: none;
+}
+.channel-visibility {
+border: 0;
+padding: 0;
+margin: 1rem 0 0;
+display: flex;
+flex-direction: column;
+gap: 0.5rem;
+}
+.channel-visibility__option {
+display: flex;
+align-items: flex-start;
+gap: 0.6rem;
+padding: 0.6rem 0.75rem;
+border: 1px solid var(--border-subtle);
+border-radius: var(--radius-sm);
+color: var(--text-secondary);
+font-size: 0.88rem;
+cursor: pointer;
+}
+.channel-visibility__option:has(input:checked) {
+border-color: var(--accent);
+background: var(--bg-elevated);
+}
+.channel-dialog__delete {
+margin-right: auto;
+}
+.channel-welcome {
+margin: 0 0 1rem;
+padding: 1.1rem 1.25rem;
+border: 1px dashed var(--border-strong);
+border-radius: var(--radius-md);
+background: var(--bg-elevated);
+}
+.channel-welcome[hidden] {
+display: none;
+}
+.channel-welcome__title {
+margin: 0 0 0.35rem;
+font-size: 1.1rem;
+color: var(--text-primary);
+}
+.channel-welcome__text {
+margin: 0 0 0.75rem;
+color: var(--text-secondary);
+font-size: 0.9rem;
+line-height: 1.45;
+}
+.channel-welcome__examples {
+display: flex;
+flex-wrap: wrap;
+gap: 0.5rem;
+}

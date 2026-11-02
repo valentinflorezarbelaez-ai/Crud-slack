@@ -1,10 +1,4 @@
-/**
- * UI PRESENTATION CONTROLLER — TASKFLOW AI WORKSPACE
- * Governed by SPEC-CRUD-SLACK-001 (FR-CS-006..009).
- *
- * Strictly uses escapeHtml() for all dynamic text rendering (Zero XSS)
- * and zero inline style mutations (Strict CSP compliance).
- */
+/** UI controller (SPEC-CRUD-SLACK-001): escapeHtml() for dynamic text, no inline styles. */
 
 import {
   DEADLINE_STATES,
@@ -26,9 +20,11 @@ import {
 } from "../application/exportTasks.mjs";
 import {
   loadPersistedBoardState,
+  removePersistedBoardState,
   savePersistedBoardState
 } from "../infrastructure/storageAdapter.mjs";
 import { WORKPLACE_PRESETS } from "./presets.mjs";
+import { initChannels, syncChannelPanels } from "./channels.mjs";
 import { initVisualPreferences, nextFridayIso } from "./preferences.mjs";
 
 const NEXT_STATUS_CYCLE = Object.freeze({
@@ -40,6 +36,8 @@ const NEXT_STATUS_CYCLE = Object.freeze({
 let boardState = createInitialBoardState();
 let currentViewMode = "cards"; // "cards" | "table" | "kanban"
 let toastTimerId = null;
+let activeChannel = { id: "general", kind: "preset", name: "general", presetId: WORKPLACE_PRESETS[0].id };
+let channelsCtrl = null;
 
 // DOM References
 const el = {
@@ -129,7 +127,7 @@ function showToast(message) {
 
 function dispatch(action) {
   boardState = taskBoardReducer(boardState, action);
-  savePersistedBoardState(boardState);
+  savePersistedBoardState(boardState, activeChannel.id);
   renderWorkspace();
 }
 
@@ -442,7 +440,40 @@ function renderTeamsCardPreview() {
   `;
 }
 
+async function applyChannel(channel, opts = {}, todayIso = new Date().toISOString().slice(0, 10)) {
+  activeChannel = channel;
+  const saved = opts.rerun ? null : loadPersistedBoardState(channel.id);
+  boardState = saved ?? createInitialBoardState();
+
+  if (channel.kind === "custom") {
+    el.inputMessage.value = "";
+    updateCharCounter();
+    renderWorkspace();
+    if (!opts.initial) el.inputMessage.focus();
+    return;
+  }
+
+  const preset = WORKPLACE_PRESETS.find((p) => p.id === channel.presetId) || WORKPLACE_PRESETS[0];
+  el.inputChannel.value = preset.channel;
+  el.inputMessage.value = preset.message;
+  updateCharCounter();
+  updateSlackMessagePreview(preset);
+  el.presetContainer?.querySelectorAll(".chip").forEach((c) => {
+    c.classList.toggle("is-active", c.getAttribute("data-preset-id") === preset.id);
+  });
+
+  renderWorkspace();
+  if (boardState.tasks.length > 0) return;
+  const request = { message: preset.message, channel: preset.channel, referenceDate: el.inputRefDate?.value || todayIso };
+  if (opts.rerun) return runAnalysisFlow(request);
+  const result = await analyzeWorkplaceRequest(request);
+  if (result.ok && activeChannel.id === channel.id) {
+    dispatch({ type: "LOAD_TRIAGE_RESULT", payload: result.data });
+  }
+}
+
 function renderWorkspace() {
+  syncChannelPanels(activeChannel, boardState.tasks.length === 0);
   const metrics = computeBoardMetrics(boardState.tasks);
   if (el.kpiTotal) el.kpiTotal.textContent = String(metrics.total);
   if (el.kpiHigh) el.kpiHigh.textContent = String(metrics.highOrCritical);
@@ -523,6 +554,7 @@ function renderWorkspace() {
 }
 
 async function runAnalysisFlow(payload) {
+  const originChannelId = activeChannel.id;
   if (el.formErrorBanner) el.formErrorBanner.hidden = true;
   if (el.analyzeSubmitBtn) {
     el.analyzeSubmitBtn.disabled = true;
@@ -566,6 +598,15 @@ async function runAnalysisFlow(payload) {
       resultData = localRes.data;
     }
 
+    if (originChannelId !== activeChannel.id) {
+      // The user switched channels while the analysis was running: keep the result in its own channel
+      const originBoard = loadPersistedBoardState(originChannelId) ?? createInitialBoardState();
+      savePersistedBoardState(
+        taskBoardReducer(originBoard, { type: "LOAD_TRIAGE_RESULT", payload: resultData }),
+        originChannelId
+      );
+      return;
+    }
     dispatch({ type: "LOAD_TRIAGE_RESULT", payload: resultData });
     showToast(`Se organizaron ${resultData.tasks.length} tareas con auditoría anti-alucinación.`);
   } catch (err) {
@@ -729,58 +770,18 @@ function initPresets(todayIso) {
     const presetId = btn.getAttribute("data-preset-id");
     const found = WORKPLACE_PRESETS.find((p) => p.id === presetId);
     if (!found) return;
-
-    el.presetContainer.querySelectorAll(".chip").forEach((c) => c.classList.remove("is-active"));
-    btn.classList.add("is-active");
-
-    document.querySelectorAll(".slack-channel-pill").forEach((p) => {
-      const match = p.getAttribute("data-preset") === presetId;
-      p.classList.toggle("is-active", match);
-      p.setAttribute("aria-selected", match ? "true" : "false");
-    });
-
-    el.inputChannel.value = found.channel;
-    el.inputMessage.value = found.message;
-    updateCharCounter();
-    updateSlackMessagePreview(found);
-    runAnalysisFlow({
-      message: found.message,
-      channel: found.channel,
-      referenceDate: el.inputRefDate.value || todayIso
-    });
+    // Each quick case lives in its own channel; re-run it fresh like before
+    const target = channelsCtrl?.findByPresetId(found.id);
+    if (target) channelsCtrl.activate(target.id, { rerun: true });
   });
 
-  // Wire Slack Channel Pills
-  document.querySelectorAll(".slack-channel-pill").forEach((pill) => {
-    pill.addEventListener("click", () => {
-      const presetId = pill.getAttribute("data-preset");
-      const found = WORKPLACE_PRESETS.find((p) => p.id === presetId);
-      if (!found) return;
-
-      document.querySelectorAll(".slack-channel-pill").forEach((p) => {
-        p.classList.remove("is-active");
-        p.setAttribute("aria-selected", "false");
-      });
-      pill.classList.add("is-active");
-      pill.setAttribute("aria-selected", "true");
-
-      if (el.presetContainer) {
-        el.presetContainer.querySelectorAll(".chip").forEach((c) => {
-          c.classList.toggle("is-active", c.getAttribute("data-preset-id") === presetId);
-        });
-      }
-
-      el.inputChannel.value = found.channel;
-      el.inputMessage.value = found.message;
-      updateCharCounter();
-      updateSlackMessagePreview(found);
-
-      runAnalysisFlow({
-        message: found.message,
-        channel: found.channel,
-        referenceDate: el.inputRefDate.value || todayIso
-      });
-    });
+  // Example messages offered in an empty custom channel
+  document.getElementById("channel-welcome")?.addEventListener("click", (ev) => {
+    const btn = /** @type {HTMLElement} */ (ev.target).closest("[data-example]");
+    if (!btn) return;
+    el.inputMessage.value = btn.getAttribute("data-example") || "";
+    updateCharCounter();
+    el.inputMessage.focus();
   });
 
   // Wire Slack Inline Extract Button
@@ -811,28 +812,17 @@ async function bootstrap() {
   const todayIso = new Date().toISOString().slice(0, 10);
   if (el.inputRefDate) el.inputRefDate.value = todayIso;
 
+  const canonical = WORKPLACE_PRESETS[0];
+
+  channelsCtrl = initChannels({
+    onActivate: (channel, opts) => applyChannel(channel, opts, todayIso),
+    onRemoved: (channel) => removePersistedBoardState(channel.id),
+    showToast
+  });
   initPresets(todayIso);
 
-  const canonical = WORKPLACE_PRESETS[0];
-  if (el.inputChannel) el.inputChannel.value = canonical.channel;
-  if (el.inputMessage) el.inputMessage.value = canonical.message;
-  updateCharCounter();
-
-  // Restore saved state or auto-run canonical Friday meeting challenge case
-  const persisted = loadPersistedBoardState();
-  if (persisted && persisted.tasks.length > 0) {
-    boardState = persisted;
-    renderWorkspace();
-  } else {
-    const initial = await analyzeWorkplaceRequest({
-      message: canonical.message,
-      channel: canonical.channel,
-      referenceDate: todayIso
-    });
-    if (initial.ok) {
-      dispatch({ type: "LOAD_TRIAGE_RESULT", payload: initial.data });
-    }
-  }
+  // Restore the active channel (and its saved board) or seed the canonical Friday meeting case
+  await applyChannel(channelsCtrl.getActive(), { initial: true }, todayIso);
 
   // Event Listeners
   el.navWorkspace?.addEventListener("click", () => setActiveTopSection("workspace"));
@@ -857,7 +847,7 @@ async function bootstrap() {
         payload: { id: t.id, deadlineDate: friday }
       });
     }
-    savePersistedBoardState(boardState);
+    savePersistedBoardState(boardState, activeChannel.id);
     renderWorkspace();
     showToast(`${pending.length} tarea(s) con fecha ${friday} confirmada por el usuario.`);
   });
@@ -1035,12 +1025,23 @@ async function bootstrap() {
   });
 
   el.resetDemoBtn?.addEventListener("click", () => {
-    el.inputChannel.value = canonical.channel;
-    el.inputMessage.value = canonical.message;
+    if (activeChannel.kind === "custom") {
+      if (boardState.tasks.length === 0) {
+        showToast("La lista de este canal ya está vacía.");
+        return;
+      }
+      if (!window.confirm(`¿Vaciar todas las tareas de #${activeChannel.name}?`)) return;
+      dispatch({ type: "CLEAR_BOARD" });
+      showToast(`Lista de #${activeChannel.name} vaciada.`);
+      return;
+    }
+    const preset = WORKPLACE_PRESETS.find((p) => p.id === activeChannel.presetId) || canonical;
+    el.inputChannel.value = preset.channel;
+    el.inputMessage.value = preset.message;
     updateCharCounter();
     runAnalysisFlow({
-      message: canonical.message,
-      channel: canonical.channel,
+      message: preset.message,
+      channel: preset.channel,
       referenceDate: el.inputRefDate.value || todayIso
     });
   });
@@ -1057,36 +1058,24 @@ async function bootstrap() {
     }
   });
 
-  // Power-User Keyboard Shortcuts
   window.addEventListener("keydown", (ev) => {
-    // Ctrl/Cmd + Enter: Trigger analysis
     if ((ev.ctrlKey || ev.metaKey) && ev.key === "Enter") {
       ev.preventDefault();
       if (el.inputMessage && el.inputMessage.value.trim().length >= 4) {
-        runAnalysisFlow({
-          message: el.inputMessage.value,
-          channel: el.inputChannel.value,
-          referenceDate: el.inputRefDate.value || todayIso
-        });
+        runAnalysisFlow({ message: el.inputMessage.value, channel: el.inputChannel.value, referenceDate: el.inputRefDate.value || todayIso });
       }
       return;
     }
-
-    // Alt + N: New task modal
     if (ev.altKey && (ev.key === "n" || ev.key === "N")) {
       ev.preventDefault();
       openCrudDialog(null);
       return;
     }
-
-    // Alt + P: Print executive memo
     if (ev.altKey && (ev.key === "p" || ev.key === "P")) {
       ev.preventDefault();
       window.print();
       return;
     }
-
-    // View Switching 1-4 when not typing in text fields
     const tag = (document.activeElement?.tagName || "").toLowerCase();
     const isTyping = tag === "input" || tag === "textarea" || tag === "select";
     if (!isTyping && !ev.ctrlKey && !ev.altKey && !ev.metaKey) {

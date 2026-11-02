@@ -50,6 +50,7 @@
         <symbol id="i-doc" viewBox="0 0 20 20"><path fill="currentColor" d="M5 2h7l4 4v11a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1Zm6 1.5V7h3.5L11 3.5ZM6.5 10h7v1.3h-7V10Zm0 3h7v1.3h-7V13Z" /></symbol>
         <symbol id="i-sparkle" viewBox="0 0 20 20"><path fill="currentColor" d="M8 2l1.7 4.8L14.5 8.5 9.7 10.2 8 15l-1.7-4.8L1.5 8.5l4.8-1.7L8 2Zm7.2 8 .9 2.5 2.5.9-2.5.9-.9 2.5-.9-2.5-2.5-.9 2.5-.9.9-2.5Z" /></symbol>
       <symbol id="i-search" viewBox="0 0 20 20"><path fill="currentColor" d="M8.5 2a6.5 6.5 0 0 1 5.2 10.4l4.1 4.1-1.3 1.3-4.1-4.1A6.5 6.5 0 1 1 8.5 2Zm0 1.8a4.7 4.7 0 1 0 0 9.4 4.7 4.7 0 0 0 0-9.4Z" /></symbol>
+        <symbol id="i-lock" viewBox="0 0 20 20"><path fill="currentColor" d="M10 2a4 4 0 0 0-4 4v2H5a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V9a1 1 0 0 0-1-1h-1V6a4 4 0 0 0-4-4Zm-2.2 6V6a2.2 2.2 0 1 1 4.4 0v2H7.8Z" /></symbol>
         <symbol id="i-plus" viewBox="0 0 20 20"><path fill="currentColor" d="M9.1 3h1.8v6.1H17v1.8h-6.1V17H9.1v-6.1H3V9.1h6.1V3Z" /></symbol>
         <symbol id="i-chevron" viewBox="0 0 20 20"><path fill="currentColor" d="m6 7.5 4 4 4-4 1.2 1.2L10 13.9 4.8 8.7 6 7.5Z" /></symbol>
         <symbol id="i-menu" viewBox="0 0 20 20"><path fill="currentColor" d="M3 5h14v1.8H3V5Zm0 4.1h14v1.8H3V9.1Zm0 4.1h14V15H3v-1.8Z" /></symbol>
@@ -207,33 +208,13 @@
               </button>
             </h2>
             <ul class="sidebar-list" id="sidebar-channels" role="listbox" aria-label="Canales">
-              <li role="presentation">
-                <button type="button" class="slack-channel-pill sidebar-item is-active" data-preset="reto-oficial-viernes" data-channel-name="general" data-topic="Reunión del viernes · plan accionable sin inventar fechas" role="option" aria-selected="true">
-                  <span class="sidebar-item__hash" aria-hidden="true">#</span>
-                  <span class="sidebar-item__name">general</span>
-                </button>
-              </li>
-              <li role="presentation">
-                <button type="button" class="slack-channel-pill sidebar-item is-unread" data-preset="incidente-slack-prod" data-channel-name="incidentes-prod" data-topic="Alertas urgentes de producción · asignación y notificación a soporte" role="option" aria-selected="false">
-                  <span class="sidebar-item__hash" aria-hidden="true">#</span>
-                  <span class="sidebar-item__name">incidentes-prod</span>
-                  <span class="sidebar-item__badge">3</span>
-                </button>
-              </li>
-              <li role="presentation">
-                <button type="button" class="slack-channel-pill sidebar-item is-unread" data-preset="sharepoint-intranet" data-channel-name="operaciones" data-topic="SharePoint, permisos y entregables de Operaciones" role="option" aria-selected="false">
-                  <span class="sidebar-item__hash" aria-hidden="true">#</span>
-                  <span class="sidebar-item__name">operaciones</span>
-                  <span class="sidebar-item__badge">1</span>
-                </button>
-              </li>
-              <li role="presentation">
-                <button type="button" class="slack-channel-pill sidebar-item" data-preset="sin-fechas-antihalucinacion" data-channel-name="legal-auditoria" data-topic="Mensajes sin fechas · prueba de guardia anti-alucinación" role="option" aria-selected="false">
-                  <span class="sidebar-item__hash" aria-hidden="true">#</span>
-                  <span class="sidebar-item__name">legal-auditoria</span>
-                </button>
-              </li>
             </ul>
+            <button type="button" id="add-channel-btn" class="sidebar-item sidebar-item--add" aria-haspopup="dialog">
+              <span class="sidebar-item__hash sidebar-item__hash--add" aria-hidden="true">
+                <svg class="icon" width="12" height="12" aria-hidden="true"><use href="#i-plus" /></svg>
+              </span>
+              <span class="sidebar-item__name">Añadir canales</span>
+            </button>
           </section>
 
           <section class="sidebar-section">
@@ -322,6 +303,9 @@
             </p>
           </div>
           <div class="channel-header__side">
+            <button type="button" id="channel-settings-btn" class="btn btn--ghost btn--sm" hidden>
+              Editar canal
+            </button>
             <div class="avatar-stack" role="img" aria-label="7 miembros en el canal">
               <span>LS</span><span>CR</span><span>EL</span><span class="avatar-stack__more">+4</span>
             </div>
@@ -349,7 +333,20 @@
             </div>
 
             <!-- SLACK INTERACTIVE MESSAGE FEED CARD -->
-            <div class="day-divider" role="separator"><span>Hoy</span></div>
+            <section id="channel-welcome" class="channel-welcome" aria-labelledby="channel-welcome-title" hidden>
+              <h3 id="channel-welcome-title" class="channel-welcome__title">
+                Este es el comienzo del canal <span id="channel-welcome-name">#canal</span>
+              </h3>
+              <p class="channel-welcome__text" id="channel-welcome-text">
+                Pega o escribe un mensaje abajo y la IA lo convertirá en tareas para este canal. Cada canal tiene su propia lista.
+              </p>
+              <div class="channel-welcome__examples" role="group" aria-label="Mensajes de ejemplo">
+                <button type="button" class="preset-chip" data-example="Hay que comprar el regalo de cumpleaños de mamá, reservar la mesa del restaurante y avisar a todos los invitados antes del sábado.">Cumpleaños familiar</button>
+                <button type="button" class="preset-chip" data-example="Necesitamos pagar la factura de la luz, llamar al plomero y organizar las compras de la semana. Lo de la luz es urgente, vence mañana.">Tareas del hogar</button>
+                <button type="button" class="preset-chip" data-example="Para el proyecto hay que escribir el informe final, revisar las diapositivas con Ana y enviar el borrador al profesor el jueves.">Proyecto de estudio</button>
+              </div>
+            </section>
+            <div class="day-divider" id="intake-day-divider" role="separator"><span>Hoy</span></div>
             <div class="slack-message-card" id="slack-message-card">
               <div class="slack-msg-header">
                 <div class="slack-avatar" id="slack-avatar">LS</div>
@@ -779,6 +776,70 @@
     <!-- ================================================================ -->
     <!-- ACCESSIBLE CRUD MODAL DIALOG (<dialog closedby="any">)           -->
     <!-- ================================================================ -->
+    <dialog id="channel-dialog" class="crud-dialog channel-dialog" closedby="any" aria-labelledby="channel-dialog-title">
+      <form id="channel-form" method="dialog" class="crud-form" novalidate>
+        <div class="crud-dialog__header">
+          <h2 id="channel-dialog-title" class="crud-dialog__title">Crear un canal</h2>
+          <button type="button" id="channel-close-btn" class="btn btn--ghost btn--sm" aria-label="Cerrar ventana">
+            ✕
+          </button>
+        </div>
+        <p class="channel-dialog__intro">
+          Los canales son el lugar donde se organiza cada tema: familia, trabajo, estudios, viajes…
+        </p>
+
+        <div class="field">
+          <label for="channel-name-input" class="field__label">Nombre</label>
+          <div class="channel-name-field">
+            <span class="channel-name-field__hash" aria-hidden="true">#</span>
+            <input
+              type="text"
+              id="channel-name-input"
+              class="field__control channel-name-field__input"
+              maxlength="40"
+              autocomplete="off"
+              placeholder="p. ej. familia"
+              aria-describedby="channel-name-hint channel-name-error"
+            />
+          </div>
+          <p id="channel-name-hint" class="field__hint">Minúsculas, sin espacios: se usarán guiones.</p>
+          <p id="channel-name-error" class="field__error" role="alert" hidden></p>
+        </div>
+
+        <div class="field">
+          <label for="channel-topic-input" class="field__label">Descripción (opcional)</label>
+          <input
+            type="text"
+            id="channel-topic-input"
+            class="field__control"
+            maxlength="120"
+            autocomplete="off"
+            placeholder="¿De qué trata este canal?"
+          />
+        </div>
+
+        <fieldset class="field channel-visibility">
+          <legend class="field__label">Visibilidad</legend>
+          <label class="channel-visibility__option">
+            <input type="radio" name="channel-visibility" value="public" checked />
+            <span><strong>Público</strong> · cualquiera en el espacio puede verlo</span>
+          </label>
+          <label class="channel-visibility__option">
+            <input type="radio" name="channel-visibility" value="private" />
+            <span><strong>Privado</strong> · solo para las personas que invites</span>
+          </label>
+        </fieldset>
+
+        <div class="crud-dialog__actions">
+          <button type="button" id="channel-delete-btn" class="btn btn--danger btn--sm channel-dialog__delete" hidden>
+            Eliminar canal
+          </button>
+          <button type="button" id="channel-cancel-btn" class="btn btn--ghost">Cancelar</button>
+          <button type="submit" id="channel-submit-btn" class="btn btn--primary">Crear canal</button>
+        </div>
+      </form>
+    </dialog>
+
     <dialog id="task-crud-dialog" class="crud-dialog" closedby="any" aria-labelledby="crud-dialog-title">
       <form id="task-crud-form" method="dialog" class="crud-form">
         <div class="crud-dialog__header">
