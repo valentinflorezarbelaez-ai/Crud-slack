@@ -8,118 +8,168 @@ import { escapeHtml } from "../domain/taskEntities.mjs";
 
 const GOOGLE_CLIENT_ID = "600439007156-q6ku9a6fnm3dcmbkakgv5fi9b57enm89.apps.googleusercontent.com";
 
+const makeAvatarSvg = (initials, bg, fg = "#ffffff") =>
+  `data:image/svg+xml;utf8,${encodeURIComponent(
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48"><rect width="48" height="48" rx="10" fill="${bg}"/><text x="50%" y="54%" dominant-baseline="middle" text-anchor="middle" fill="${fg}" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif" font-size="18" font-weight="700">${initials}</text></svg>`
+  )}`;
+
+export const TEAM_PROFILES = Object.freeze({
+  usr_valentin: {
+    id: "usr_valentin",
+    full_name: "Valentín Flórez",
+    email: "valentin.florez@crud-slack.internal",
+    avatar_url: makeAvatarSvg("VF", "#4A154B", "#FFFFFF"),
+    status_text: "Coordinador General · Activo"
+  },
+  usr_ana: {
+    id: "usr_ana",
+    full_name: "Ana Gómez",
+    email: "ana.gomez@crud-slack.internal",
+    avatar_url: makeAvatarSvg("AG", "#007A5A", "#FFFFFF"),
+    status_text: "Diseño UX/UI · Activa"
+  },
+  usr_carlos: {
+    id: "usr_carlos",
+    full_name: "Carlos Restrepo",
+    email: "carlos.restrepo@crud-slack.internal",
+    avatar_url: makeAvatarSvg("CR", "#1264A3", "#FFFFFF"),
+    status_text: "Ingeniero Backend · Activo"
+  },
+  usr_elena: {
+    id: "usr_elena",
+    full_name: "Elena Morales",
+    email: "elena.morales@crud-slack.internal",
+    avatar_url: makeAvatarSvg("EM", "#ECB22E", "#1D1C1D"),
+    status_text: "QA & Testing · Activa"
+  }
+});
+
 export function initRealtimeSlack({
   onExtractTasksFromMessage,
   onUserChanged,
   showToast
 }) {
   let currentUser = null;
-  let activeChannelId = "c_general";
+  let activeChannelId = "general";
   let activeChannelName = "general";
-  let channels = [];
   let pollIntervalId = null;
 
   // DOM Elements
   const authGate = document.getElementById("slack-auth-gate");
+  const authCloseBtn = document.getElementById("slack-auth-close-btn");
+  const authGuestBtn = document.getElementById("slack-auth-guest-btn");
   const teamUsersGrid = document.getElementById("team-users-grid");
   const userSlot = document.getElementById("slack-user-slot");
-  const channelsList = document.getElementById("sidebar-channels") || document.getElementById("slack-channels-list");
-  const newChannelBtn = document.getElementById("slack-new-channel-btn");
-  const addChannelBtn = document.getElementById("add-channel-btn");
   const channelHeading = document.getElementById("slack-channel-badge");
   const activeChannelTitle = document.getElementById("slack-active-channel-title");
   const activeChannelDesc = document.getElementById("slack-active-channel-desc");
   const messageFeed = document.getElementById("slack-message-feed");
-  const newChannelDialog = /** @type {HTMLDialogElement} */ (document.getElementById("new-channel-dialog"));
-  const newChannelForm = /** @type {HTMLFormElement} */ (document.getElementById("new-channel-form"));
-  const newChannelInput = /** @type {HTMLInputElement} */ (document.getElementById("new-channel-name-input"));
-  const newChannelDescInput = /** @type {HTMLInputElement} */ (document.getElementById("new-channel-desc-input"));
 
   // 1. AUTHENTICATION & TEAM AUTH GATEWAY
+  function renderTeamUsersGrid() {
+    if (!teamUsersGrid) return;
+    teamUsersGrid.innerHTML = Object.values(TEAM_PROFILES)
+      .map(
+        (u) => `
+        <button type="button" class="team-user-card" data-user-id="${escapeHtml(u.id)}" role="listitem">
+          <img src="${escapeHtml(u.avatar_url)}" alt="${escapeHtml(u.full_name)}" class="team-user-avatar" width="44" height="44" />
+          <div class="team-user-info">
+            <strong class="team-user-name">${escapeHtml(u.full_name)}</strong>
+            <span class="team-user-role">${escapeHtml(u.status_text)}</span>
+          </div>
+        </button>
+      `
+      )
+      .join("");
+  }
+
   async function checkAuthSession() {
     try {
       const res = await fetch("./api/auth/me");
       const json = await res.json();
       if (json.ok && json.user) {
         currentUser = json.user;
-        hideAuthGate();
+        try {
+          localStorage.setItem("taskflow_slack_user", JSON.stringify(currentUser));
+        } catch {}
         renderUserStatus();
         onUserChanged?.(currentUser);
-      } else {
-        currentUser = null;
-        showAuthGate();
-        renderGoogleSignInPrompt();
-        onUserChanged?.(null);
       }
     } catch {
-      currentUser = null;
-      showAuthGate();
-      renderGoogleSignInPrompt();
-      onUserChanged?.(null);
+      // Gracefully silent: user already has instant local profile active
     }
   }
 
-  async function showAuthGate() {
+  function showAuthGate() {
     if (authGate) authGate.hidden = false;
+    renderTeamUsersGrid();
     loadGoogleScriptAndRender();
-    await fetchAndRenderTeamProfiles();
   }
 
   function hideAuthGate() {
     if (authGate) authGate.hidden = true;
   }
 
-  async function fetchAndRenderTeamProfiles() {
-    if (!teamUsersGrid) return;
+  function loginAsUser(user) {
+    if (!user) return;
+    currentUser = user;
     try {
-      const res = await fetch("./api/auth/team");
-      const json = await res.json();
-      if (json.ok && Array.isArray(json.users)) {
-        teamUsersGrid.innerHTML = json.users
-          .map(
-            (u) => `
-          <button type="button" class="team-user-card" data-user-id="${escapeHtml(u.id)}" title="Ingresar como ${escapeHtml(u.full_name)}">
-            <img src="${escapeHtml(u.avatar_url)}" alt="${escapeHtml(u.full_name)}" class="team-user-avatar" />
-            <div class="team-user-info">
-              <strong class="team-user-name">${escapeHtml(u.full_name)}</strong>
-              <span class="team-user-role">${escapeHtml(u.status_text || u.email)}</span>
-            </div>
-          </button>
-        `
-          )
-          .join("");
-      }
-    } catch {
-      // Fallback
-    }
+      localStorage.setItem("taskflow_slack_user", JSON.stringify(user));
+    } catch {}
+    hideAuthGate();
+    renderUserStatus();
+    onUserChanged?.(currentUser);
+    showToast(`¡Bienvenido a Slack, ${currentUser.full_name}!`);
+    fetchMessages();
+
+    // Persist session cookie in background
+    fetch("./api/auth/team", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId: user.id })
+    }).catch(() => {});
   }
 
-  teamUsersGrid?.addEventListener("click", async (ev) => {
+  // Click on any team user profile card
+  teamUsersGrid?.addEventListener("click", (ev) => {
     const card = /** @type {HTMLElement} */ (ev.target)?.closest(".team-user-card");
     if (!card) return;
     const userId = card.getAttribute("data-user-id");
     if (!userId) return;
 
-    showToast("Ingresando al espacio de trabajo...");
-    try {
-      const res = await fetch("./api/auth/team", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId })
-      });
-      const json = await res.json();
-      if (!res.ok || !json.ok) {
-        throw new Error(json.error || "No se pudo iniciar sesión.");
-      }
+    const profile = TEAM_PROFILES[userId] || {
+      id: userId,
+      full_name: card.querySelector(".team-user-name")?.textContent || "Usuario",
+      avatar_url: card.querySelector(".team-user-avatar")?.getAttribute("src") || "",
+      status_text: card.querySelector(".team-user-role")?.textContent || "Miembro del equipo"
+    };
 
-      currentUser = json.user;
-      hideAuthGate();
-      renderUserStatus();
-      onUserChanged?.(currentUser);
-      showToast(`¡Bienvenido, ${currentUser.full_name}!`);
-      fetchMessages();
-    } catch (err) {
-      showToast(`Error: ${err.message}`);
+    loginAsUser(profile);
+  });
+
+  // Direct bypass button
+  authGuestBtn?.addEventListener("click", () => {
+    loginAsUser(TEAM_PROFILES.usr_valentin);
+  });
+
+  // Close modal button
+  authCloseBtn?.addEventListener("click", () => {
+    if (!currentUser) loginAsUser(TEAM_PROFILES.usr_valentin);
+    else hideAuthGate();
+  });
+
+  // Backdrop click or Escape key
+  authGate?.addEventListener("click", (ev) => {
+    if (ev.target === authGate) {
+      if (!currentUser) loginAsUser(TEAM_PROFILES.usr_valentin);
+      else hideAuthGate();
+    }
+  });
+
+  document.addEventListener("keydown", (ev) => {
+    if (ev.key === "Escape" && authGate && !authGate.hidden) {
+      if (!currentUser) loginAsUser(TEAM_PROFILES.usr_valentin);
+      else hideAuthGate();
     }
   });
 
@@ -135,7 +185,7 @@ export function initRealtimeSlack({
       : `<span class="slack-user-avatar-placeholder">${escapeHtml((currentUser.full_name || "U")[0].toUpperCase())}</span>`;
 
     userSlot.innerHTML = `
-      <div class="slack-user-profile" title="${escapeHtml(currentUser.email)}">
+      <div class="slack-user-profile" title="${escapeHtml(currentUser.email || currentUser.full_name)}">
         <div class="slack-user-avatar-wrap">
           ${avatarHtml}
           <span class="slack-presence-dot" aria-label="En línea"></span>
@@ -144,12 +194,12 @@ export function initRealtimeSlack({
           <strong class="slack-user-name">${escapeHtml(currentUser.full_name)}</strong>
           <span class="slack-user-status">${escapeHtml(currentUser.status_text || "En línea")}</span>
         </div>
-        <button type="button" id="slack-switch-user-btn" class="slack-switch-user-btn" title="Cambiar a otro de los 4 usuarios del equipo">Cambiar</button>
+        <button type="button" id="slack-switch-user-btn" class="slack-switch-user-btn" title="Cambiar entre los 4 usuarios del equipo">Cambiar</button>
         <button type="button" id="slack-logout-btn" class="btn btn--ghost btn--sm" title="Cerrar sesión">Salir</button>
       </div>
     `;
 
-    document.getElementById("slack-switch-user-btn")?.addEventListener("click", handleLogout);
+    document.getElementById("slack-switch-user-btn")?.addEventListener("click", () => showAuthGate());
     document.getElementById("slack-logout-btn")?.addEventListener("click", handleLogout);
   }
 
@@ -238,10 +288,6 @@ export function initRealtimeSlack({
           width: 210
         });
       }
-
-      try {
-        window.google.accounts.id.prompt();
-      } catch {}
     } catch (err) {
       console.warn("GIS initialization warning:", err);
     }
@@ -276,80 +322,29 @@ export function initRealtimeSlack({
 
   async function handleLogout() {
     try {
+      localStorage.removeItem("taskflow_slack_user");
       await fetch("./api/auth/logout", { method: "POST" });
-      currentUser = null;
-      renderUserStatus();
-      showAuthGate();
-      onUserChanged?.(null);
-      showToast("Sesión cerrada. Selecciona tu perfil de usuario.");
-      fetchMessages();
-    } catch {
-      showToast("Error al cerrar sesión.");
-    }
+    } catch {}
+    currentUser = null;
+    renderUserStatus();
+    showAuthGate();
+    onUserChanged?.(null);
+    showToast("Sesión cerrada. Selecciona tu perfil de usuario.");
   }
 
-  // 2. CHANNELS MANAGEMENT
-  async function fetchChannels() {
-    try {
-      const res = await fetch("./api/channels");
-      const json = await res.json();
-      if (json.ok && Array.isArray(json.channels)) {
-        channels = json.channels;
-        renderChannelsList();
-      }
-    } catch {
-      // Fallback
-    }
-  }
-
-  function renderChannelsList() {
-    if (!channelsList) return;
-
-    channelsList.innerHTML = channels
-      .map((c) => {
-        const isActive = c.id === activeChannelId;
-        return `
-          <button
-            type="button"
-            class="slack-channel-item ${isActive ? "is-active" : ""}"
-            data-channel-id="${escapeHtml(c.id)}"
-            data-channel-name="${escapeHtml(c.name)}"
-            aria-selected="${isActive ? "true" : "false"}"
-          >
-            <span class="slack-hash">#</span>
-            <span class="slack-channel-label">${escapeHtml(c.name)}</span>
-            ${c.message_count > 0 ? `<span class="slack-count-badge">${c.message_count}</span>` : ""}
-          </button>
-        `;
-      })
-      .join("");
-  }
-
-  function selectChannel(channelId, channelName) {
+  // 2. ACTIVE CHANNEL SWITCHING
+  function setActiveChannel(channelId, channelName, channelTopic = "") {
     activeChannelId = channelId;
     activeChannelName = channelName;
-    renderChannelsList();
 
     if (channelHeading) channelHeading.textContent = `#${channelName}`;
     if (activeChannelTitle) activeChannelTitle.textContent = `#${channelName}`;
-
-    const currentChan = channels.find((c) => c.id === channelId);
-    if (activeChannelDesc && currentChan) {
-      activeChannelDesc.textContent = currentChan.description || "Canal de discusión y tareas en tiempo real.";
+    if (activeChannelDesc) {
+      activeChannelDesc.textContent = channelTopic || "Canal de discusión y tareas en tiempo real.";
     }
 
     fetchMessages();
   }
-
-  channelsList?.addEventListener("click", (ev) => {
-    const btn = /** @type {HTMLElement} */ (ev.target)?.closest(".slack-channel-item");
-    if (!btn) return;
-    const id = btn.getAttribute("data-channel-id");
-    const name = btn.getAttribute("data-channel-name");
-    if (id && name) selectChannel(id, name);
-  });
-
-// Channel dialog handled cleanly by channels.mjs
 
   // 3. MESSAGES FEED & REAL-TIME POLLING
   async function fetchMessages() {
@@ -458,11 +453,7 @@ export function initRealtimeSlack({
     }
 
     if (action === "toggle-reaction" || action === "quick-react") {
-      if (!currentUser) {
-        showToast("Inicia sesión para reaccionar.");
-        showAuthGate();
-        return;
-      }
+      const activeUser = currentUser || TEAM_PROFILES.usr_valentin;
       const msgId = btn.getAttribute("data-msg-id");
       const emoji = btn.getAttribute("data-emoji");
       if (!msgId || !emoji) return;
@@ -471,7 +462,7 @@ export function initRealtimeSlack({
         const res = await fetch("./api/reactions", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ messageId: msgId, emoji })
+          body: JSON.stringify({ messageId: msgId, emoji, userId: activeUser.id })
         });
         const json = await res.json();
         if (json.ok) {
@@ -485,11 +476,7 @@ export function initRealtimeSlack({
 
   // Sending Real Message from Slack Composer
   async function sendMessage(text) {
-    if (!currentUser) {
-      showToast("Debes iniciar sesión para enviar mensajes.");
-      showAuthGate();
-      return false;
-    }
+    const activeUser = currentUser || TEAM_PROFILES.usr_valentin;
 
     try {
       const res = await fetch("./api/messages", {
@@ -497,7 +484,8 @@ export function initRealtimeSlack({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           channelId: activeChannelId,
-          text
+          text,
+          userId: activeUser.id
         })
       });
 
@@ -515,15 +503,25 @@ export function initRealtimeSlack({
     }
   }
 
-  // Start polling & check initial session
+  // Fast-path instant restore from localStorage or default
+  let storedUser = null;
+  try {
+    const raw = localStorage.getItem("taskflow_slack_user");
+    if (raw) storedUser = JSON.parse(raw);
+  } catch {}
+  currentUser = storedUser || TEAM_PROFILES.usr_valentin;
+  renderUserStatus();
+  onUserChanged?.(currentUser);
+
+  // Background non-blocking session check
   checkAuthSession();
-  fetchChannels();
   fetchMessages();
   pollIntervalId = setInterval(fetchMessages, 3500);
 
   return {
     getCurrentUser: () => currentUser,
     getActiveChannel: () => ({ id: activeChannelId, name: activeChannelName }),
+    setActiveChannel,
     sendMessage,
     refreshMessages: fetchMessages,
     showAuthGate,

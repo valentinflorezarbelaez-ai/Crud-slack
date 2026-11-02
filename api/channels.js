@@ -31,8 +31,31 @@ export async function GET() {
 
 export async function POST(req) {
   try {
-    const user = await getAuthenticatedUser(req);
-    const body = await req.json().catch(() => ({}));
+    let body = {};
+    try {
+      if (typeof req.json === "function") body = await req.json();
+    } catch {}
+    if (!body || typeof body !== "object" || !body.name) {
+      try {
+        if (typeof req.text === "function") {
+          const text = await req.text();
+          body = JSON.parse(text);
+        }
+      } catch {}
+    }
+    if (!body || typeof body !== "object") {
+      body = req.body || {};
+    }
+
+    let user = await getAuthenticatedUser(req);
+    if (!user && body.userId) {
+      const rows = await sql(
+        "SELECT id, google_id, email, full_name, avatar_url, status_text FROM users WHERE id = $1 LIMIT 1",
+        [body.userId]
+      );
+      if (rows.length > 0) user = rows[0];
+    }
+
     let rawName = String(body.name || "").trim().toLowerCase();
     const description = String(body.description || "").trim();
 

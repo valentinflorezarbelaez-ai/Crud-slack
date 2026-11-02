@@ -37,7 +37,21 @@ export async function GET() {
 
 export async function POST(req) {
   try {
-    const body = await req.json().catch(() => ({}));
+    let body = {};
+    try {
+      if (typeof req.json === "function") body = await req.json();
+    } catch {}
+    if (!body || typeof body !== "object" || !body.userId) {
+      try {
+        if (typeof req.text === "function") {
+          const text = await req.text();
+          body = JSON.parse(text);
+        }
+      } catch {}
+    }
+    if (!body || typeof body !== "object") {
+      body = req.body || {};
+    }
     const userId = String(body.userId || "").trim();
 
     if (!userId) {

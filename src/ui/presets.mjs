@@ -37,3 +37,150 @@ export const WORKPLACE_PRESETS = Object.freeze([
       "Buenos días, por favor revisar el contrato del nuevo proveedor, validar las cláusulas de confidencialidad con legal y compartir los comentarios con compras."
   }
 ]);
+
+export function getInitialRoleTasks(userId, refDateIso) {
+  const roleMap = {
+    usr_valentin: [
+      {
+        id: "t-valentin-1",
+        title: "Consolidar entregables del equipo para la reunión del viernes",
+        priority: "CRITICAL",
+        status: "PENDING",
+        deadlineDate: refDateIso,
+        deadlineState: "CONFIRMED",
+        assignee: "Valentín Flórez",
+        sourceQuote: "reunión del equipo para el viernes",
+        priorityReason: "Coordinación general de compromisos del equipo."
+      },
+      {
+        id: "t-valentin-2",
+        title: "Revisar informe de resultados mensuales y métricas operativas",
+        priority: "HIGH",
+        status: "IN_PROGRESS",
+        deadlineDate: null,
+        deadlineState: "MISSING",
+        assignee: "Valentín Flórez",
+        sourceQuote: "revisar los resultados del mes",
+        priorityReason: "Reporte de avance para la dirección."
+      },
+      {
+        id: "t-valentin-3",
+        title: "Enviar agenda y objetivos de trabajo a todos los participantes",
+        priority: "MEDIUM",
+        status: "PENDING",
+        deadlineDate: refDateIso,
+        deadlineState: "CONFIRMED",
+        assignee: "Valentín Flórez",
+        sourceQuote: "enviar la agenda a los participantes",
+        priorityReason: "Alineación de participantes antes de la sesión."
+      }
+    ],
+    usr_ana: [
+      {
+        id: "t-ana-1",
+        title: "Diseñar componentes del sistema de diseño para Slack Lists",
+        priority: "HIGH",
+        status: "IN_PROGRESS",
+        deadlineDate: refDateIso,
+        deadlineState: "CONFIRMED",
+        assignee: "Ana Gómez",
+        sourceQuote: "sistema de diseño y componentes UX",
+        priorityReason: "Consistencia visual y tokens de accesibilidad."
+      },
+      {
+        id: "t-ana-2",
+        title: "Auditoría de contraste y legibilidad tipográfica WCAG 2.1 AA",
+        priority: "CRITICAL",
+        status: "PENDING",
+        deadlineDate: null,
+        deadlineState: "MISSING",
+        assignee: "Ana Gómez",
+        sourceQuote: "auditoría de accesibilidad visual",
+        priorityReason: "Cumplimiento normativo y ergonomía visual."
+      },
+      {
+        id: "t-ana-3",
+        title: "Preparar especificación de micro-interacciones y estados hover",
+        priority: "MEDIUM",
+        status: "COMPLETED",
+        deadlineDate: refDateIso,
+        deadlineState: "CONFIRMED",
+        assignee: "Ana Gómez",
+        sourceQuote: "estados interactivos",
+        priorityReason: "Claridad en feedback táctil y teclado."
+      }
+    ],
+    usr_carlos: [
+      {
+        id: "t-carlos-1",
+        title: "Optimizar pool de conexiones y latencia en Neon PostgreSQL",
+        priority: "CRITICAL",
+        status: "IN_PROGRESS",
+        deadlineDate: refDateIso,
+        deadlineState: "CONFIRMED",
+        assignee: "Carlos Restrepo",
+        sourceQuote: "conexiones PostgreSQL serverless",
+        priorityReason: "Estabilidad de persistencia en tiempo real."
+      },
+      {
+        id: "t-carlos-2",
+        title: "Implementar validación estricta de payloads y firma HMAC",
+        priority: "HIGH",
+        status: "COMPLETED",
+        deadlineDate: refDateIso,
+        deadlineState: "CONFIRMED",
+        assignee: "Carlos Restrepo",
+        sourceQuote: "seguridad de sesiones y cookies",
+        priorityReason: "Protección contra inyección y manipulación de tokens."
+      },
+      {
+        id: "t-carlos-3",
+        title: "Monitorear endpoints de mensajería y eventos en tiempo real",
+        priority: "MEDIUM",
+        status: "PENDING",
+        deadlineDate: null,
+        deadlineState: "MISSING",
+        assignee: "Carlos Restrepo",
+        sourceQuote: "observabilidad de endpoints",
+        priorityReason: "Diagnóstico proactivo de latencia."
+      }
+    ],
+    usr_elena: [
+      {
+        id: "t-elena-1",
+        title: "Ejecutar suite de pruebas de regresión y cobertura BDD",
+        priority: "CRITICAL",
+        status: "IN_PROGRESS",
+        deadlineDate: refDateIso,
+        deadlineState: "CONFIRMED",
+        assignee: "Elena Morales",
+        sourceQuote: "suite de pruebas automatizadas",
+        priorityReason: "Garantía de calidad 7-gate SecDevOps."
+      },
+      {
+        id: "t-elena-2",
+        title: "Verificar aislamiento de almacenamiento por usuario en localStorage",
+        priority: "HIGH",
+        status: "COMPLETED",
+        deadlineDate: refDateIso,
+        deadlineState: "CONFIRMED",
+        assignee: "Elena Morales",
+        sourceQuote: "aislamiento de estado multi-usuario",
+        priorityReason: "Verificación de independencia de historiales."
+      },
+      {
+        id: "t-elena-3",
+        title: "Validar flujo de creación y eliminación de canales en vivo",
+        priority: "MEDIUM",
+        status: "PENDING",
+        deadlineDate: null,
+        deadlineState: "MISSING",
+        assignee: "Elena Morales",
+        sourceQuote: "pruebas de canales dinámicos",
+        priorityReason: "Comprobación de sincronización con base de datos."
+      }
+    ]
+  };
+
+  return roleMap[userId] || roleMap.usr_valentin;
+}

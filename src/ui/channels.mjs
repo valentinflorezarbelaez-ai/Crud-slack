@@ -180,7 +180,6 @@ export function initChannels({ onActivate, onRemoved, showToast }) {
   nameInput?.addEventListener("input", () => {
     const typed = nameInput.value;
     const slug = slugifyChannelName(typed);
-    // Keep a trailing hyphen while the user is still typing a multi-word name
     nameInput.value = /[\s_-]$/.test(typed) && slug ? `${slug}-` : slug;
     if (errorBox && !errorBox.hidden) setError(validateName(slug));
   });
@@ -212,15 +211,8 @@ export function initChannels({ onActivate, onRemoved, showToast }) {
         showToast(`Canal #${slug} actualizado.`);
       }
     } else {
-      // Persist to Neon PostgreSQL in real-time
-      fetch("./api/channels", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: slug, description: topic })
-      }).catch(() => {});
-
       const created = {
-        id: `c-${Date.now().toString(36)}`,
+        id: slug,
         name: slug,
         topic,
         kind: "custom",
@@ -233,6 +225,13 @@ export function initChannels({ onActivate, onRemoved, showToast }) {
       dialog?.close();
       activate(created.id, { created: true });
       showToast(`Canal #${slug} creado en PostgreSQL. Ya puedes chatear y organizar tareas.`);
+
+      // Persist to Neon PostgreSQL in background
+      fetch("./api/channels", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: slug, description: topic })
+      }).catch(() => {});
       return;
     }
     dialog?.close();
@@ -272,6 +271,34 @@ export function initChannels({ onActivate, onRemoved, showToast }) {
     const active = getActive();
     if (active.kind === "custom") openDialog(active);
   });
+
+  // Fetch channels from Neon PostgreSQL and merge remote ones
+  fetch("./api/channels")
+    .then((r) => r.json())
+    .then((json) => {
+      if (json.ok && Array.isArray(json.channels)) {
+        let added = false;
+        for (const rem of json.channels) {
+          if (!channels.some((c) => c.name === rem.name)) {
+            channels.push({
+              id: rem.name,
+              name: rem.name,
+              topic: rem.description || "",
+              kind: "custom",
+              presetId: null,
+              isPrivate: Boolean(rem.is_private),
+              unread: 0
+            });
+            added = true;
+          }
+        }
+        if (added) {
+          persist();
+          render();
+        }
+      }
+    })
+    .catch(() => {});
 
   render();
   syncSettingsButton();

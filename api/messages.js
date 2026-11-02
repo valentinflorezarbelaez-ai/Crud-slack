@@ -74,19 +74,42 @@ export async function GET(req) {
 
 export async function POST(req) {
   try {
-    const user = await getAuthenticatedUser(req);
+    let body = {};
+    try {
+      if (typeof req.json === "function") body = await req.json();
+    } catch {}
+    if (!body || typeof body !== "object" || !body.text) {
+      try {
+        if (typeof req.text === "function") {
+          const text = await req.text();
+          body = JSON.parse(text);
+        }
+      } catch {}
+    }
+    if (!body || typeof body !== "object") {
+      body = req.body || {};
+    }
+
+    let user = await getAuthenticatedUser(req);
+    if (!user && body.userId) {
+      const rows = await sql(
+        "SELECT id, google_id, email, full_name, avatar_url, status_text FROM users WHERE id = $1 LIMIT 1",
+        [body.userId]
+      );
+      if (rows.length > 0) user = rows[0];
+    }
+
     if (!user) {
       return new Response(
         JSON.stringify({
           ok: false,
-          error: "Debes iniciar sesión con Google para enviar mensajes."
+          error: "Debes seleccionar tu perfil de usuario para enviar mensajes."
         }),
         { status: 401, headers: { "Content-Type": "application/json" } }
       );
     }
 
-    const body = await req.json().catch(() => ({}));
-    const channelId = String(body.channelId || "c_general").trim();
+    const channelId = String(body.channelId || "general").trim();
     const text = String(body.text || "").trim();
     const parentId = body.parentId ? String(body.parentId) : null;
 

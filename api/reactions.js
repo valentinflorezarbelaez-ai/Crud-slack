@@ -8,7 +8,31 @@ import { getAuthenticatedUser } from "./_auth.js";
 
 export async function POST(req) {
   try {
-    const user = await getAuthenticatedUser(req);
+    let body = {};
+    try {
+      if (typeof req.json === "function") body = await req.json();
+    } catch {}
+    if (!body || typeof body !== "object" || !body.messageId) {
+      try {
+        if (typeof req.text === "function") {
+          const text = await req.text();
+          body = JSON.parse(text);
+        }
+      } catch {}
+    }
+    if (!body || typeof body !== "object") {
+      body = req.body || {};
+    }
+
+    let user = await getAuthenticatedUser(req);
+    if (!user && body.userId) {
+      const rows = await sql(
+        "SELECT id, google_id, email, full_name, avatar_url, status_text FROM users WHERE id = $1 LIMIT 1",
+        [body.userId]
+      );
+      if (rows.length > 0) user = rows[0];
+    }
+
     if (!user) {
       return new Response(
         JSON.stringify({ ok: false, error: "Debes iniciar sesión para reaccionar." }),
@@ -16,7 +40,6 @@ export async function POST(req) {
       );
     }
 
-    const body = await req.json().catch(() => ({}));
     const messageId = String(body.messageId || "").trim();
     const emoji = String(body.emoji || "").trim();
 
