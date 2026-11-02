@@ -29,6 +29,7 @@ import {
   savePersistedBoardState
 } from "../infrastructure/storageAdapter.mjs";
 import { WORKPLACE_PRESETS } from "./presets.mjs";
+import { initVisualPreferences, nextFridayIso } from "./preferences.mjs";
 
 const NEXT_STATUS_CYCLE = Object.freeze({
   PENDING: "IN_PROGRESS",
@@ -85,6 +86,12 @@ const el = {
   viewModeSharepoint: document.getElementById("view-mode-sharepoint"),
   filterPriority: /** @type {HTMLSelectElement} */ (document.getElementById("filter-priority")),
   filterDeadline: /** @type {HTMLSelectElement} */ (document.getElementById("filter-deadline")),
+  filterSearch: /** @type {HTMLInputElement} */ (document.getElementById("filter-search")),
+  eyeCareSelect: /** @type {HTMLSelectElement} */ (document.getElementById("eye-care-select")),
+  scaleToggleBtn: document.getElementById("scale-toggle-btn"),
+  layoutFocusBtn: document.getElementById("layout-focus-btn"),
+  resolveAllMissingBtn: document.getElementById("resolve-all-missing-btn"),
+  workspaceGrid: document.querySelector(".workspace-grid"),
   tasksRenderRoot: document.getElementById("tasks-render-root"),
   boardChecksumMeta: document.getElementById("board-checksum-meta"),
   crudDialog: /** @type {HTMLDialogElement} */ (document.getElementById("task-crud-dialog")),
@@ -134,13 +141,30 @@ function updateCharCounter() {
 function getFilteredTasks() {
   const prioFilter = el.filterPriority?.value || "ALL";
   const dateFilter = el.filterDeadline?.value || "ALL";
+  const query = (el.filterSearch?.value || "").trim().toLowerCase();
 
   return boardState.tasks.filter((task) => {
     if (prioFilter !== "ALL" && task.priority !== prioFilter) return false;
     if (dateFilter === "MISSING" && task.deadlineState === DEADLINE_STATES.CONFIRMED) return false;
     if (dateFilter === "CONFIRMED" && task.deadlineState !== DEADLINE_STATES.CONFIRMED) return false;
+    if (query && !`${task.title} ${task.assignee} ${task.priorityReason}`.toLowerCase().includes(query)) return false;
     return true;
   });
+}
+
+function renderQuickBar(task) {
+  const id = escapeHtml(task.id);
+  const isConfirmed = task.deadlineState === DEADLINE_STATES.CONFIRMED;
+  const isDone = task.status === "COMPLETED";
+  return `
+    <div class="task-quick-bar">
+      <span class="task-quick-bar__label">Acciones rápidas:</span>
+      <label class="sr-only" for="qd-${id}">Fecha límite de ${escapeHtml(task.title)}</label>
+      <input type="date" id="qd-${id}" class="field__control field__control--sm quick-date" data-action="quick-date" data-id="${id}" value="${escapeHtml(task.deadlineDate || "")}" />
+      ${isConfirmed ? "" : `<button type="button" class="btn btn--ghost btn--sm" data-action="quick-friday" data-id="${id}">📅 Próximo viernes</button>`}
+      ${isDone ? "" : `<button type="button" class="btn btn--secondary btn--sm" data-action="quick-complete" data-id="${id}">✅ Completar</button>`}
+    </div>
+  `;
 }
 
 function renderTaskBadges(task) {
@@ -217,6 +241,7 @@ function renderTaskCardHtml(task) {
       <p class="task-card__reason">${escapeHtml(task.priorityReason)}</p>
       ${missingBlock}
       ${quoteBlock}
+      ${renderQuickBar(task)}
     </article>
   `;
 }
@@ -552,7 +577,7 @@ async function runAnalysisFlow(payload) {
   } finally {
     if (el.analyzeSubmitBtn) {
       el.analyzeSubmitBtn.disabled = false;
-      el.analyzeSubmitBtn.textContent = "Analizar y Organizar Tareas con IA";
+      el.analyzeSubmitBtn.textContent = "⚡ Enviar y Extraer Tareas con IA";
     }
   }
 }
@@ -782,6 +807,7 @@ function initPresets(todayIso) {
 }
 
 async function bootstrap() {
+  initVisualPreferences(el, showToast);
   const todayIso = new Date().toISOString().slice(0, 10);
   if (el.inputRefDate) el.inputRefDate.value = todayIso;
 
@@ -812,13 +838,37 @@ async function bootstrap() {
   el.navWorkspace?.addEventListener("click", () => setActiveTopSection("workspace"));
   el.navPresentation?.addEventListener("click", () => setActiveTopSection("presentation"));
 
-  el.themeToggleBtn?.addEventListener("click", () => {
-    const root = document.documentElement;
-    const next = root.getAttribute("data-theme") === "dark" ? "light" : "dark";
-    root.setAttribute("data-theme", next);
-    if (el.themeToggleLabel) {
-      el.themeToggleLabel.textContent = next === "dark" ? "Claro" : "Oscuro";
+  el.filterSearch?.addEventListener("input", renderWorkspace);
+
+  el.resolveAllMissingBtn?.addEventListener("click", () => {
+    const pending = boardState.tasks.filter((t) => t.deadlineState !== DEADLINE_STATES.CONFIRMED);
+    if (pending.length === 0) {
+      showToast("No hay tareas con fecha pendiente.");
+      return;
     }
+    const friday = nextFridayIso(el.inputRefDate?.value || todayIso);
+    const ok = window.confirm(
+      `¿Asignar la fecha ${friday} (próximo viernes) a ${pending.length} tarea(s) sin fecha?\n\nEs una decisión humana: la IA no inventa fechas. Puedes ajustarlas luego en cada tarjeta.`
+    );
+    if (!ok) return;
+    for (const t of pending) {
+      boardState = taskBoardReducer(boardState, {
+        type: "UPDATE_TASK",
+        payload: { id: t.id, deadlineDate: friday }
+      });
+    }
+    savePersistedBoardState(boardState);
+    renderWorkspace();
+    showToast(`${pending.length} tarea(s) con fecha ${friday} confirmada por el usuario.`);
+  });
+
+  // Inline quick date picker on each task card
+  el.tasksRenderRoot?.addEventListener("change", (ev) => {
+    const input = /** @type {HTMLInputElement} */ (ev.target);
+    if (input.getAttribute("data-action") !== "quick-date") return;
+    const taskId = input.getAttribute("data-id");
+    dispatch({ type: "UPDATE_TASK", payload: { id: taskId, deadlineDate: input.value || null } });
+    showToast(input.value ? `Fecha confirmada: ${input.value}` : "Fecha eliminada; la tarea vuelve a info faltante.");
   });
 
   el.inputMessage?.addEventListener("input", updateCharCounter);
@@ -885,6 +935,13 @@ async function bootstrap() {
 
     if (action === "open-thread") {
       openThreadDialog(task);
+    } else if (action === "quick-friday") {
+      const friday = nextFridayIso(el.inputRefDate?.value || todayIso);
+      dispatch({ type: "UPDATE_TASK", payload: { id: task.id, deadlineDate: friday } });
+      showToast(`Fecha confirmada (próximo viernes): ${friday}`);
+    } else if (action === "quick-complete") {
+      dispatch({ type: "UPDATE_TASK", payload: { id: task.id, status: "COMPLETED" } });
+      showToast(`Tarea completada: "${task.title}"`);
     } else if (action === "cycle-status") {
       const nextStatus = NEXT_STATUS_CYCLE[task.status] || "PENDING";
       dispatch({ type: "UPDATE_TASK", payload: { id: task.id, status: nextStatus } });

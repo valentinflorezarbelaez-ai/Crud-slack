@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="es" data-theme="dark">
+<html lang="es" data-theme="light" data-scale="lg">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
@@ -9,7 +9,7 @@
       content="Solución de productividad con IA que transforma solicitudes de correo, Slack o Microsoft Teams en listas de tareas priorizadas, con detección anti-alucinación de datos faltantes, CRUD completo y exportación a SharePoint Lists."
     />
     <meta name="application-name" content="TaskFlow AI" />
-    <meta name="theme-color" content="#0B1120" />
+    <meta name="theme-color" content="#f2f6f9" />
     <meta property="og:type" content="website" />
     <meta property="og:title" content="TaskFlow AI · Organiza Tareas con IA (Sin Alucinaciones)" />
     <meta
@@ -24,7 +24,7 @@
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="./css/styles.css" />
+    <link rel="stylesheet" href="./css/styles.css?v=2.1" />
     <script type="application/ld+json">
       {
         "@context": "https://schema.org",
@@ -64,7 +64,7 @@
               class="mode-nav__btn is-active"
               aria-pressed="true"
             >
-              Espacio IA &amp; CRUD
+              ⚡ Espacio IA &amp; CRUD
             </button>
             <button
               type="button"
@@ -72,9 +72,41 @@
               class="mode-nav__btn"
               aria-pressed="false"
             >
-              Informe &amp; Sustentación
+              📘 Informe &amp; Sustentación
             </button>
           </nav>
+
+          <button
+            type="button"
+            id="scale-toggle-btn"
+            class="btn btn--ghost btn--sm"
+            aria-label="Cambiar tamaño de letra y controles"
+            title="Alternar tamaño visual: Grande (110%) / Extra Grande (120%)"
+          >
+            🔍 Tamaño: Grande
+          </button>
+
+          <button
+            type="button"
+            id="layout-focus-btn"
+            class="btn btn--ghost btn--sm"
+            aria-label="Alternar vista de pantalla completa del tablero"
+            title="Expandir el tablero de tareas a pantalla completa o vista dividida"
+          >
+            📐 Vista: 2 Columnas
+          </button>
+
+          <label for="eye-care-select" class="sr-only">Perfil de confort visual</label>
+          <select
+            id="eye-care-select"
+            class="eye-care-select"
+            aria-label="Seleccionar perfil de confort visual (Anti-fatiga ocular)"
+            title="Perfiles de color ergonómicos sin fatiga visual"
+          >
+            <option value="light" selected>🌿 Claro Confort (Alabastro)</option>
+            <option value="warm">☀️ Papel Cálido (Cero Luz Azul)</option>
+            <option value="dark">🌙 Noche OLED (Alto Contraste)</option>
+          </select>
 
           <button
             type="button"
@@ -83,17 +115,17 @@
             aria-label="Imprimir informe ejecutivo o exportar a PDF"
             title="Imprimir informe ejecutivo (Ctrl+P)"
           >
-            Imprimir PDF
+            🖨️ Imprimir PDF
           </button>
 
           <button
             type="button"
             id="theme-toggle-btn"
-            class="btn btn--ghost btn--icon"
-            aria-label="Cambiar entre tema oscuro y claro"
+            class="btn btn--ghost btn--sm"
+            aria-label="Cambiar entre tema claro, cálido y oscuro"
             title="Cambiar tema visual"
           >
-            <span id="theme-toggle-label">Claro</span>
+            <span id="theme-toggle-label">🎨 Tema</span>
           </button>
         </div>
       </div>
@@ -311,15 +343,20 @@
               <div class="missing-panel__top">
                 <div>
                   <h3 id="missing-panel-title" class="missing-panel__title">
-                    Información Faltante Detectada (No Inventada por la IA)
+                    ⚠️ Información Faltante Detectada (No Inventada por la IA)
                   </h3>
                   <p class="missing-panel__sub">
-                    Datos ausentes o ambiguos en la solicitud original que conviene confirmar o editar en cada tarea:
+                    Datos ausentes o ambiguos en la solicitud original que conviene confirmar o resolver en 1 clic:
                   </p>
                 </div>
-                <button type="button" id="copy-clarification-btn" class="btn btn--ghost btn--sm">
-                  Copiar mensaje de aclaración
-                </button>
+                <div class="missing-panel__actions">
+                  <button type="button" id="resolve-all-missing-btn" class="btn btn--secondary btn--sm" title="Asigna el próximo viernes (desde la fecha de referencia) a las tareas sin fecha, previa confirmación">
+                    📅 Asignar próximo viernes a pendientes
+                  </button>
+                  <button type="button" id="copy-clarification-btn" class="btn btn--ghost btn--sm">
+                    📋 Copiar mensaje de aclaración
+                  </button>
+                </div>
               </div>
               <ul class="missing-list" id="missing-gaps-list"></ul>
               <details class="clarification-details">
@@ -346,6 +383,14 @@
               </div>
 
               <div class="filter-controls">
+                <label for="filter-search" class="sr-only">Buscar tarea o responsable</label>
+                <input
+                  type="search"
+                  id="filter-search"
+                  class="field__control field__control--sm search-input"
+                  placeholder="🔎 Buscar tarea o responsable..."
+                />
+
                 <label for="filter-priority" class="sr-only">Filtrar por prioridad</label>
                 <select id="filter-priority" class="field__control field__control--sm">
                   <option value="ALL">Todas las prioridades</option>
@@ -664,6 +709,6 @@
 
     <div id="toast-notification" class="toast" role="status" aria-live="polite" hidden></div>
 
-    <script type="module" src="./src/ui/main.mjs"></script>
+    <script type="module" src="./src/ui/main.mjs?v=2.1"></script>
   </body>
 </html>

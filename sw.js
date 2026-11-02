@@ -3,7 +3,7 @@
  * Cache-first for local static assets; Network-first with offline fallback for API requests.
  */
 
-const CACHE_NAME = "taskflow-ai-v1.0.0";
+const CACHE_NAME = "taskflow-ai-v2.1.0";
 const STATIC_ASSETS = [
   "./",
   "./index.html",
@@ -12,6 +12,7 @@ const STATIC_ASSETS = [
   "./manifest.webmanifest",
   "./src/ui/main.mjs",
   "./src/ui/presets.mjs",
+  "./src/ui/preferences.mjs",
   "./src/domain/taskEntities.mjs",
   "./src/domain/deterministicNlp.mjs",
   "./src/domain/groundingVerifier.mjs",
