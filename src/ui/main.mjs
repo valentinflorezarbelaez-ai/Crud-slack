@@ -979,15 +979,19 @@ async function bootstrap() {
   });
   // Progressive Web App (PWA) Offline Service Worker Registration
   if ("serviceWorker" in navigator) {
-    window.addEventListener("load", () => {
-      // Purge any legacy cached workers
+    const registerWorker = () => {
       navigator.serviceWorker.getRegistrations().then((regs) => {
         for (const reg of regs) {
-          reg.update();
+          reg.update().catch(() => {});
         }
       }).catch(() => {});
-      navigator.serviceWorker.register("./sw.js").catch(() => {});
-    });
+      navigator.serviceWorker.register("./sw.js?v=4.2.0").catch(() => {});
+    };
+    if (document.readyState === "complete" || document.readyState === "interactive") {
+      registerWorker();
+    } else {
+      window.addEventListener("load", registerWorker);
+    }
   }
 }
 bootstrap();
