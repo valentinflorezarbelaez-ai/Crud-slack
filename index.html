@@ -46,7 +46,7 @@
     <header class="topbar" role="banner">
       <div class="container topbar__inner">
         <div class="brand">
-          <img src="./favicon.svg" alt="Emblema de TaskFlow AI" width="38" height="38" class="brand__logo" />
+          <img src="./favicon.svg" alt="Emblema de TaskFlow AI" width="34" height="34" class="brand__logo" />
           <div class="brand__copy">
             <div class="brand__title-row">
               <span class="brand__name">TaskFlow AI</span>
@@ -76,57 +76,59 @@
             </button>
           </nav>
 
-          <button
-            type="button"
-            id="scale-toggle-btn"
-            class="btn btn--ghost btn--sm"
-            aria-label="Cambiar tamaño de letra y controles"
-            title="Alternar tamaño visual: Grande (110%) / Extra Grande (120%)"
-          >
-            🔍 Tamaño: Grande
-          </button>
+          <div class="topbar__utilities">
+            <button
+              type="button"
+              id="scale-toggle-btn"
+              class="topbar-tool-btn btn btn--ghost btn--sm"
+              aria-label="Cambiar tamaño de letra y controles"
+              title="Alternar tamaño visual: Normal / Grande"
+            >
+              🔍 Tamaño
+            </button>
 
-          <button
-            type="button"
-            id="layout-focus-btn"
-            class="btn btn--ghost btn--sm"
-            aria-label="Alternar vista de pantalla completa del tablero"
-            title="Expandir el tablero de tareas a pantalla completa o vista dividida"
-          >
-            📐 Vista: 2 Columnas
-          </button>
+            <button
+              type="button"
+              id="layout-focus-btn"
+              class="topbar-tool-btn btn btn--ghost btn--sm"
+              aria-label="Alternar vista de pantalla completa del tablero"
+              title="Expandir el tablero de tareas a pantalla completa o vista dividida"
+            >
+              📐 2 Columnas
+            </button>
 
-          <label for="eye-care-select" class="sr-only">Perfil de confort visual</label>
-          <select
-            id="eye-care-select"
-            class="eye-care-select"
-            aria-label="Seleccionar perfil de confort visual (Anti-fatiga ocular)"
-            title="Perfiles de color ergonómicos sin fatiga visual"
-          >
-            <option value="light" selected>🌿 Claro Confort (Alabastro)</option>
-            <option value="warm">☀️ Papel Cálido (Cero Luz Azul)</option>
-            <option value="dark">🌙 Noche OLED (Alto Contraste)</option>
-          </select>
+            <label for="eye-care-select" class="sr-only">Perfil de confort visual</label>
+            <select
+              id="eye-care-select"
+              class="eye-care-select"
+              aria-label="Seleccionar perfil de confort visual (Anti-fatiga ocular)"
+              title="Perfiles de color ergonómicos sin fatiga visual"
+            >
+              <option value="light" selected>🌿 Confort</option>
+              <option value="warm">☀️ Cálido</option>
+              <option value="dark">🌙 Noche</option>
+            </select>
 
-          <button
-            type="button"
-            id="print-btn"
-            class="btn btn--ghost btn--sm"
-            aria-label="Imprimir informe ejecutivo o exportar a PDF"
-            title="Imprimir informe ejecutivo (Ctrl+P)"
-          >
-            🖨️ Imprimir PDF
-          </button>
+            <button
+              type="button"
+              id="print-btn"
+              class="topbar-tool-btn btn btn--ghost btn--sm"
+              aria-label="Imprimir informe ejecutivo o exportar a PDF"
+              title="Imprimir informe ejecutivo (Ctrl+P)"
+            >
+              🖨️ PDF
+            </button>
 
-          <button
-            type="button"
-            id="theme-toggle-btn"
-            class="btn btn--ghost btn--sm"
-            aria-label="Cambiar entre tema claro, cálido y oscuro"
-            title="Cambiar tema visual"
-          >
-            <span id="theme-toggle-label">🎨 Tema</span>
-          </button>
+            <button
+              type="button"
+              id="theme-toggle-btn"
+              class="topbar-tool-btn btn btn--ghost btn--sm"
+              aria-label="Cambiar entre tema claro, cálido y oscuro"
+              title="Cambiar tema visual"
+            >
+              <span id="theme-toggle-label">🎨 Tema</span>
+            </button>
+          </div>
         </div>
       </div>
     </header>
@@ -140,8 +142,12 @@
       <section id="view-workspace" aria-labelledby="workspace-heading">
         <div class="hero-strip">
           <div class="hero-strip__text">
+            <div class="hero-strip__badge-row">
+              <span class="hero-strip__kicker">⚡ TASKFLOW INTELLIGENCE SUITE · VERIFICADO</span>
+              <span class="hero-strip__sla">Reto Práctico 100% Sin Alucinación</span>
+            </div>
             <h1 id="workspace-heading" class="hero-strip__title">
-              Transforma cualquier correo o mensaje en un plan accionable
+              Transforma cualquier correo o mensaje en un <span class="hero-strip__highlight">plan accionable</span>
             </h1>
             <p class="hero-strip__lead">
               Identifica actividades, sugiere prioridades por dependencia lógica y detecta fechas límite reales

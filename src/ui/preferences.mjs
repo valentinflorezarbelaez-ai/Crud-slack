@@ -58,7 +58,7 @@ export function initVisualPreferences(refs, notify) {
     const safe = scale === "xl" ? "xl" : "lg";
     root.setAttribute("data-scale", safe);
     if (refs.scaleToggleBtn) {
-      refs.scaleToggleBtn.textContent = safe === "xl" ? "🔍 Tamaño: Extra Grande" : "🔍 Tamaño: Grande";
+      refs.scaleToggleBtn.textContent = safe === "xl" ? "🔍 Tamaño: XL" : "🔍 Tamaño";
     }
     writePref("taskflow.scale", safe);
   };
@@ -67,7 +67,7 @@ export function initVisualPreferences(refs, notify) {
     const focus = layout === "focus";
     refs.workspaceGrid?.classList.toggle("is-focus-board", focus);
     if (refs.layoutFocusBtn) {
-      refs.layoutFocusBtn.textContent = focus ? "📐 Vista: Tablero Completo" : "📐 Vista: 2 Columnas";
+      refs.layoutFocusBtn.textContent = focus ? "📐 1 Columna" : "📐 2 Columnas";
     }
     writePref("taskflow.layout", focus ? "focus" : "split");
   };
