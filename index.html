@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="es" data-theme="light" data-scale="lg">
+<html lang="es" data-theme="light" data-scale="md">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
@@ -46,14 +46,19 @@
     <header class="topbar" role="banner">
       <div class="container topbar__inner">
         <div class="brand">
-          <img src="./favicon.svg" alt="Emblema de TaskFlow AI" width="34" height="34" class="brand__logo" />
+          <img src="./favicon.svg" alt="Emblema de Slack y TaskFlow AI" width="30" height="30" class="brand__logo" />
           <div class="brand__copy">
             <div class="brand__title-row">
-              <span class="brand__name">TaskFlow AI</span>
-              <span class="badge badge--accent">Reto Práctico Final</span>
+              <span class="brand__name">TaskFlow · Slack Lists</span>
+              <span class="badge badge--accent">#general</span>
             </div>
-            <p class="brand__subtitle">Solicitudes de Correo &amp; Chat ➔ Tareas Priorizadas · Anti-Alucinación · CRUD</p>
+            <p class="brand__subtitle">Workspace TaskFlow AI ➔ Slack Lists · Anti-Alucinación · CRUD</p>
           </div>
+        </div>
+
+        <div class="slack-search-bar" role="search" title="Buscar en #canales y listas de Slack">
+          <span aria-hidden="true">🔍</span>
+          <span>Buscar en TaskFlow AI · Slack Lists (Ctrl+K)</span>
         </div>
 
         <div class="topbar__actions">
@@ -64,7 +69,7 @@
               class="mode-nav__btn is-active"
               aria-pressed="true"
             >
-              ⚡ Espacio IA &amp; CRUD
+              ⚡ Slack Lists
             </button>
             <button
               type="button"
@@ -72,7 +77,7 @@
               class="mode-nav__btn"
               aria-pressed="false"
             >
-              📘 Informe &amp; Sustentación
+              📘 Docs
             </button>
           </nav>
 
@@ -84,7 +89,7 @@
               aria-label="Cambiar tamaño de letra y controles"
               title="Alternar tamaño visual: Normal / Grande"
             >
-              🔍 Tamaño: Normal
+              🔍 Zoom
             </button>
 
             <button
@@ -94,7 +99,7 @@
               aria-label="Alternar vista de pantalla completa del tablero"
               title="Expandir el tablero de tareas a pantalla completa o vista dividida"
             >
-              📐 2 Columnas
+              📐 2 Col
             </button>
 
             <label for="eye-care-select" class="sr-only">Perfil de confort visual</label>
@@ -242,24 +247,38 @@
                 </div>
               </div>
 
-              <div class="field">
-                <label for="input-message" class="field__label">Mensaje o correo a organizar</label>
+              <div class="field slack-composer-wrap">
+                <label for="input-message" class="field__label sr-only">Mensaje o correo a organizar</label>
                 <textarea
                   id="input-message"
                   name="message"
-                  rows="6"
+                  rows="5"
                   maxlength="4000"
-                  class="field__control field__textarea"
-                  placeholder="Pega aquí un correo, mensaje de Slack o solicitud de Teams..."
+                  class="field__control field__textarea slack-composer__textarea"
+                  placeholder="Enviar un mensaje a #general o pegar una solicitud..."
                   required
                 ></textarea>
+                <div class="slack-composer-toolbar" aria-hidden="true">
+                  <div class="slack-fmt-group">
+                    <span class="slack-fmt-icon" title="Negrita"><b>B</b></span>
+                    <span class="slack-fmt-icon" title="Cursiva"><i>I</i></span>
+                    <span class="slack-fmt-icon" title="Tachado"><s>S</s></span>
+                    <span class="slack-fmt-icon" title="Enlace">🔗</span>
+                    <span class="slack-fmt-icon" title="Lista">≡</span>
+                    <span class="slack-fmt-icon" title="Código">&lt;/&gt;</span>
+                  </div>
+                  <div class="slack-fmt-group">
+                    <span class="slack-fmt-icon" title="Emoji">😊</span>
+                    <span class="slack-fmt-icon" title="Mención">@</span>
+                  </div>
+                </div>
               </div>
 
               <div id="form-error-banner" class="alert alert--error" hidden role="alert"></div>
 
               <div class="intake-actions">
-                <button type="submit" id="analyze-submit-btn" class="btn btn--primary btn--full">
-                  ⚡ Enviar y Extraer Tareas con IA
+                <button type="submit" id="analyze-submit-btn" class="btn btn--slack-send btn--full">
+                  ⚡ Enviar a Slack Lists (Extraer Tareas) ➤
                 </button>
                 <div class="intake-actions__sub">
                   <span class="slack-shortcut-tip">💡 Atajo: Presiona <strong>Ctrl + Enter</strong> para enviar</span>

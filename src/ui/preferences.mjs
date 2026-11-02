@@ -55,10 +55,10 @@ export function initVisualPreferences(refs, notify) {
   };
 
   const applyScale = (scale) => {
-    const safe = scale === "xl" ? "xl" : "lg";
+    const safe = scale === "xl" ? "xl" : "md";
     root.setAttribute("data-scale", safe);
     if (refs.scaleToggleBtn) {
-      refs.scaleToggleBtn.textContent = safe === "xl" ? "🔍 Tamaño: XL" : "🔍 Tamaño: Normal";
+      refs.scaleToggleBtn.textContent = safe === "xl" ? "🔍 Zoom: XL" : "🔍 Zoom: 100%";
     }
     writePref("taskflow.scale", safe);
   };
@@ -67,13 +67,13 @@ export function initVisualPreferences(refs, notify) {
     const focus = layout === "focus";
     refs.workspaceGrid?.classList.toggle("is-focus-board", focus);
     if (refs.layoutFocusBtn) {
-      refs.layoutFocusBtn.textContent = focus ? "📐 1 Columna" : "📐 2 Columnas";
+      refs.layoutFocusBtn.textContent = focus ? "📐 1 Col" : "📐 2 Col";
     }
     writePref("taskflow.layout", focus ? "focus" : "split");
   };
 
   applyTheme(readPref("taskflow.theme", "light"));
-  applyScale(readPref("taskflow.scale", "lg"));
+  applyScale(readPref("taskflow.scale", "md"));
   applyLayout(readPref("taskflow.layout", "split"));
 
   refs.themeToggleBtn?.addEventListener("click", () => {
@@ -84,7 +84,7 @@ export function initVisualPreferences(refs, notify) {
   });
   refs.eyeCareSelect?.addEventListener("change", () => applyTheme(refs.eyeCareSelect.value));
   refs.scaleToggleBtn?.addEventListener("click", () => {
-    applyScale(root.getAttribute("data-scale") === "xl" ? "lg" : "xl");
+    applyScale(root.getAttribute("data-scale") === "xl" ? "md" : "xl");
   });
   refs.layoutFocusBtn?.addEventListener("click", () => {
     applyLayout(refs.workspaceGrid?.classList.contains("is-focus-board") ? "split" : "focus");

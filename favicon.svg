@@ -1,7 +1,14 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
-  <rect width="64" height="64" rx="16" fill="#0B1120"/>
-  <rect x="3" y="3" width="58" height="58" rx="13" stroke="#38BDF8" stroke-opacity="0.35" stroke-width="2"/>
-  <path d="M18 22h28M18 32h20M18 42h14" stroke="#E2E8F0" stroke-width="4" stroke-linecap="round"/>
-  <circle cx="45" cy="40" r="8" fill="#10B981"/>
-  <path d="M41.5 40l2.3 2.5 5-5" stroke="#06281E" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" fill="none">
+  <!-- Top Blue / Cyan Pill and Droplet -->
+  <path d="M26 73a12 12 0 0 1 0-24h12v24H26z" fill="#36C5F0"/>
+  <path d="M47 73a12 12 0 1 1 24 0v28a12 12 0 0 1-24 0V73z" fill="#36C5F0"/>
+  <!-- Top Right Green Pill and Droplet -->
+  <path d="M47 26a12 12 0 0 1 24 0v12H47V26z" fill="#2EB67D"/>
+  <path d="M47 47a12 12 0 1 1 0 24H19a12 12 0 0 1 0-24h28z" fill="#2EB67D"/>
+  <!-- Bottom Right Yellow Pill and Droplet -->
+  <path d="M94 47a12 12 0 0 1 0 24H82V47h12z" fill="#ECB22E"/>
+  <path d="M73 47a12 12 0 1 1-24 0V19a12 12 0 0 1 24 0v28z" fill="#ECB22E"/>
+  <!-- Bottom Left Aubergine Red/Pink Pill and Droplet -->
+  <path d="M73 94a12 12 0 0 1-24 0V82h24v12z" fill="#E01E5A"/>
+  <path d="M73 73a12 12 0 1 1 0-24h28a12 12 0 0 1 0 24H73z" fill="#E01E5A"/>
 </svg>
