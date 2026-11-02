@@ -39,12 +39,21 @@
 ### FR-CS-009: Input Validation, Rate Limiting & XSS Immunity
 - **Pattern (Error / Unwanted Condition)**: SI una petición excede `4000` caracteres, está vacía, contiene etiquetas HTML/scripts maliciosos o supera el límite de `30` solicitudes por minuto por IP en `/api/analyze`, ENTONCES EL SISTEMA rechazará o sanitizará la entrada de forma segura retornando códigos HTTP semánticos (`400` o `429`) sin exponer trazas internas ni secretos.
 
+### FR-CS-010: Slack-Grade Workspace Shell (Sidebar & Channel Navigation)
+- **Pattern (State-Driven)**: MIENTRAS el usuario navega el espacio de trabajo, EL SISTEMA mostrará una barra lateral con canales, mensajes directos con presencia y acciones de app, sincronizará el encabezado del canal (nombre y tema) con el canal activo, limpiará el contador de no leídos al abrirlo y la convertirá en un panel deslizable accesible en pantallas ≤ `900px`.
+
+### FR-CS-011: Command Palette (Ctrl/Cmd + K)
+- **Pattern (Event-Driven)**: CUANDO el usuario pulsa `Ctrl+K` / `Cmd+K` o activa el buscador superior, EL SISTEMA abrirá una paleta modal con filtrado insensible a acentos sobre canales, vistas, acciones, preferencias y tareas existentes, navegable por teclado (`↑ ↓ Enter Esc`) mediante el patrón ARIA combobox/listbox.
+
+### FR-CS-012: Functional Message Composer
+- **Pattern (Event-Driven)**: CUANDO el usuario acciona la barra de formato del compositor (o `Ctrl+B` / `Ctrl+I`), EL SISTEMA aplicará sintaxis mrkdwn de Slack (negrita, cursiva, tachado, código, enlace, lista), insertará emojis y menciones en la posición del cursor y ajustará la altura del campo al contenido.
+
 ---
 
 ## 3. Non-Functional Requirements (NFR)
 1. **NFR-001 (Layer-0 Purity)**: Zero external runtime npm dependencies (`dependencies: {}`).
 2. **NFR-002 (Accessibility)**: WCAG 2.1 Level AA compliance (`skip-link`, semantic landmarks, `aria-live="polite"`, keyboard navigation, `<dialog closedby="any">`, contrast ratio >= 4.5:1).
-3. **NFR-003 (Performance)**: Core Web Vitals budget — total initial JS + CSS < `90 KB` uncompressed, deterministic engine latency < `5 ms`, `content-visibility: auto`.
+3. **NFR-003 (Performance)**: Core Web Vitals budget — total initial JS + CSS < `110 KB` uncompressed, deterministic engine latency < `5 ms`, `content-visibility: auto`.
 4. **NFR-004 (Security)**: Strict CSP, HSTS, `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, zero plaintext secrets.
 
 ---
