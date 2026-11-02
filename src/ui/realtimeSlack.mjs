@@ -1,7 +1,7 @@
 /**
- * REAL-TIME SLACK & GOOGLE AUTHENTICATION CONTROLLER
+ * REAL-TIME SLACK, TEAM AUTH GATE & GOOGLE AUTHENTICATION CONTROLLER
  * Connects directly to Neon PostgreSQL serverless endpoints (/api/channels, /api/messages).
- * Renders official Google Sign-In button and handles live multi-person chat sync.
+ * Manages dedicated Slack Auth Gate (4 Team Profiles + Google OAuth) and real-time chat sync.
  */
 
 import { escapeHtml } from "../domain/taskEntities.mjs";
@@ -10,6 +10,7 @@ const GOOGLE_CLIENT_ID = "600439007156-q6ku9a6fnm3dcmbkakgv5fi9b57enm89.apps.goo
 
 export function initRealtimeSlack({
   onExtractTasksFromMessage,
+  onUserChanged,
   showToast
 }) {
   let currentUser = null;
@@ -19,37 +20,108 @@ export function initRealtimeSlack({
   let pollIntervalId = null;
 
   // DOM Elements
+  const authGate = document.getElementById("slack-auth-gate");
+  const teamUsersGrid = document.getElementById("team-users-grid");
   const userSlot = document.getElementById("slack-user-slot");
   const channelsList = document.getElementById("slack-channels-list");
   const newChannelBtn = document.getElementById("slack-new-channel-btn");
+  const addChannelBtn = document.getElementById("add-channel-btn");
   const channelHeading = document.getElementById("slack-channel-badge");
   const activeChannelTitle = document.getElementById("slack-active-channel-title");
   const activeChannelDesc = document.getElementById("slack-active-channel-desc");
   const messageFeed = document.getElementById("slack-message-feed");
-  const composerTextarea = /** @type {HTMLTextAreaElement} */ (document.getElementById("input-message"));
-  const composerForm = document.getElementById("analyze-form");
   const newChannelDialog = /** @type {HTMLDialogElement} */ (document.getElementById("new-channel-dialog"));
   const newChannelForm = /** @type {HTMLFormElement} */ (document.getElementById("new-channel-form"));
   const newChannelInput = /** @type {HTMLInputElement} */ (document.getElementById("new-channel-name-input"));
   const newChannelDescInput = /** @type {HTMLInputElement} */ (document.getElementById("new-channel-desc-input"));
 
-  // 1. AUTHENTICATION & GOOGLE IDENTITY SERVICES
+  // 1. AUTHENTICATION & TEAM AUTH GATEWAY
   async function checkAuthSession() {
     try {
       const res = await fetch("./api/auth/me");
       const json = await res.json();
       if (json.ok && json.user) {
         currentUser = json.user;
+        hideAuthGate();
         renderUserStatus();
+        onUserChanged?.(currentUser);
       } else {
         currentUser = null;
+        showAuthGate();
         renderGoogleSignInPrompt();
+        onUserChanged?.(null);
       }
     } catch {
       currentUser = null;
+      showAuthGate();
       renderGoogleSignInPrompt();
+      onUserChanged?.(null);
     }
   }
+
+  async function showAuthGate() {
+    if (authGate) authGate.hidden = false;
+    loadGoogleScriptAndRender();
+    await fetchAndRenderTeamProfiles();
+  }
+
+  function hideAuthGate() {
+    if (authGate) authGate.hidden = true;
+  }
+
+  async function fetchAndRenderTeamProfiles() {
+    if (!teamUsersGrid) return;
+    try {
+      const res = await fetch("./api/auth/team");
+      const json = await res.json();
+      if (json.ok && Array.isArray(json.users)) {
+        teamUsersGrid.innerHTML = json.users
+          .map(
+            (u) => `
+          <button type="button" class="team-user-card" data-user-id="${escapeHtml(u.id)}" title="Ingresar como ${escapeHtml(u.full_name)}">
+            <img src="${escapeHtml(u.avatar_url)}" alt="${escapeHtml(u.full_name)}" class="team-user-avatar" />
+            <div class="team-user-info">
+              <strong class="team-user-name">${escapeHtml(u.full_name)}</strong>
+              <span class="team-user-role">${escapeHtml(u.status_text || u.email)}</span>
+            </div>
+          </button>
+        `
+          )
+          .join("");
+      }
+    } catch {
+      // Fallback
+    }
+  }
+
+  teamUsersGrid?.addEventListener("click", async (ev) => {
+    const card = /** @type {HTMLElement} */ (ev.target)?.closest(".team-user-card");
+    if (!card) return;
+    const userId = card.getAttribute("data-user-id");
+    if (!userId) return;
+
+    showToast("Ingresando al espacio de trabajo...");
+    try {
+      const res = await fetch("./api/auth/team", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId })
+      });
+      const json = await res.json();
+      if (!res.ok || !json.ok) {
+        throw new Error(json.error || "No se pudo iniciar sesión.");
+      }
+
+      currentUser = json.user;
+      hideAuthGate();
+      renderUserStatus();
+      onUserChanged?.(currentUser);
+      showToast(`¡Bienvenido, ${currentUser.full_name}!`);
+      fetchMessages();
+    } catch (err) {
+      showToast(`Error: ${err.message}`);
+    }
+  });
 
   function renderUserStatus() {
     if (!userSlot) return;
@@ -72,10 +144,12 @@ export function initRealtimeSlack({
           <strong class="slack-user-name">${escapeHtml(currentUser.full_name)}</strong>
           <span class="slack-user-status">${escapeHtml(currentUser.status_text || "En línea")}</span>
         </div>
+        <button type="button" id="slack-switch-user-btn" class="slack-switch-user-btn" title="Cambiar a otro de los 4 usuarios del equipo">Cambiar</button>
         <button type="button" id="slack-logout-btn" class="btn btn--ghost btn--sm" title="Cerrar sesión">Salir</button>
       </div>
     `;
 
+    document.getElementById("slack-switch-user-btn")?.addEventListener("click", handleLogout);
     document.getElementById("slack-logout-btn")?.addEventListener("click", handleLogout);
   }
 
@@ -84,10 +158,13 @@ export function initRealtimeSlack({
     userSlot.innerHTML = `
       <div class="google-auth-box">
         <div id="google-btn-container" class="google-btn-slot"></div>
-        <span class="google-auth-tip">Inicia sesión con Google para enviar mensajes reales</span>
+        <button type="button" id="slack-open-gate-btn" class="slack-switch-user-btn" style="margin-top:0.35rem">
+          Elegir perfil de equipo (4 usuarios)
+        </button>
       </div>
     `;
 
+    document.getElementById("slack-open-gate-btn")?.addEventListener("click", () => showAuthGate());
     loadGoogleScriptAndRender();
   }
 
@@ -96,7 +173,7 @@ export function initRealtimeSlack({
 
     const tryMount = () => {
       if (window.google?.accounts?.id) {
-        mountGoogleButton();
+        mountGoogleButtons();
         return true;
       }
       return false;
@@ -117,16 +194,14 @@ export function initRealtimeSlack({
     let attempts = 0;
     const interval = setInterval(() => {
       attempts++;
-      if (tryMount() || attempts > 30) {
+      if (tryMount() || attempts > 25) {
         clearInterval(interval);
       }
     }, 200);
   }
 
-  function mountGoogleButton() {
+  function mountGoogleButtons() {
     if (!window.google?.accounts?.id) return;
-    const btnContainer = document.getElementById("google-btn-container");
-    if (!btnContainer) return;
 
     try {
       window.google.accounts.id.initialize({
@@ -136,15 +211,33 @@ export function initRealtimeSlack({
         cancel_on_tap_outside: true
       });
 
-      window.google.accounts.id.renderButton(btnContainer, {
-        type: "standard",
-        theme: "outline",
-        size: "large",
-        text: "signin_with",
-        shape: "pill",
-        logo_alignment: "left",
-        width: 220
-      });
+      // Render on gate modal if present
+      const gateBtnContainer = document.getElementById("gate-google-btn");
+      if (gateBtnContainer) {
+        window.google.accounts.id.renderButton(gateBtnContainer, {
+          type: "standard",
+          theme: "outline",
+          size: "large",
+          text: "signin_with",
+          shape: "pill",
+          logo_alignment: "left",
+          width: 250
+        });
+      }
+
+      // Render on sidebar slot if present
+      const sidebarBtnContainer = document.getElementById("google-btn-container");
+      if (sidebarBtnContainer) {
+        window.google.accounts.id.renderButton(sidebarBtnContainer, {
+          type: "standard",
+          theme: "outline",
+          size: "medium",
+          text: "signin_with",
+          shape: "pill",
+          logo_alignment: "left",
+          width: 210
+        });
+      }
 
       try {
         window.google.accounts.id.prompt();
@@ -171,7 +264,9 @@ export function initRealtimeSlack({
       }
 
       currentUser = json.user;
+      hideAuthGate();
       renderUserStatus();
+      onUserChanged?.(currentUser);
       showToast(`¡Bienvenido, ${currentUser.full_name}!`);
       fetchMessages();
     } catch (err) {
@@ -184,7 +279,9 @@ export function initRealtimeSlack({
       await fetch("./api/auth/logout", { method: "POST" });
       currentUser = null;
       renderUserStatus();
-      showToast("Sesión cerrada.");
+      showAuthGate();
+      onUserChanged?.(null);
+      showToast("Sesión cerrada. Selecciona tu perfil de usuario.");
       fetchMessages();
     } catch {
       showToast("Error al cerrar sesión.");
@@ -253,12 +350,14 @@ export function initRealtimeSlack({
   });
 
   function openNewChannelModal() {
-    newChannelDialog?.showModal();
-    newChannelInput?.focus();
+    if (newChannelDialog) {
+      newChannelDialog.showModal();
+      newChannelInput?.focus();
+    }
   }
 
   newChannelBtn?.addEventListener("click", openNewChannelModal);
-  document.getElementById("add-channel-btn")?.addEventListener("click", openNewChannelModal);
+  addChannelBtn?.addEventListener("click", openNewChannelModal);
 
   document.getElementById("close-channel-dialog-btn")?.addEventListener("click", () => {
     newChannelDialog?.close();
@@ -324,6 +423,7 @@ export function initRealtimeSlack({
 
     messageFeed.innerHTML = messages
       .map((msg) => {
+        const isSelf = currentUser && (msg.author_id === currentUser.id || msg.user_id === currentUser.id);
         const authorInitial = (msg.author_name || "U")[0].toUpperCase();
         const avatar = msg.author_avatar
           ? `<img src="${escapeHtml(msg.author_avatar)}" alt="${escapeHtml(msg.author_name)}" class="slack-avatar-img" />`
@@ -351,12 +451,12 @@ export function initRealtimeSlack({
           .join("");
 
         return `
-          <article class="slack-feed-msg" data-msg-id="${escapeHtml(msg.id)}">
+          <article class="slack-feed-msg ${isSelf ? "is-self" : ""}" data-msg-id="${escapeHtml(msg.id)}">
             <div class="slack-msg-header">
               ${avatar}
               <div class="slack-msg-meta">
                 <div class="slack-msg-sender-row">
-                  <strong class="slack-sender">${escapeHtml(msg.author_name || "Usuario")}</strong>
+                  <strong class="slack-sender">${escapeHtml(msg.author_name || "Usuario")}${isSelf ? ' <span class="badge badge--sm">Tú</span>' : ""}</strong>
                   <time class="slack-time">${escapeHtml(timeStr)}</time>
                 </div>
                 <div class="slack-msg-text">${escapeHtml(msg.text)}</div>
@@ -402,7 +502,8 @@ export function initRealtimeSlack({
 
     if (action === "toggle-reaction" || action === "quick-react") {
       if (!currentUser) {
-        showToast("Inicia sesión con Google para reaccionar.");
+        showToast("Inicia sesión para reaccionar.");
+        showAuthGate();
         return;
       }
       const msgId = btn.getAttribute("data-msg-id");
@@ -428,7 +529,8 @@ export function initRealtimeSlack({
   // Sending Real Message from Slack Composer
   async function sendMessage(text) {
     if (!currentUser) {
-      showToast("Debes iniciar sesión con Google para enviar mensajes.");
+      showToast("Debes iniciar sesión para enviar mensajes.");
+      showAuthGate();
       return false;
     }
 
@@ -456,7 +558,7 @@ export function initRealtimeSlack({
     }
   }
 
-  // Start polling
+  // Start polling & check initial session
   checkAuthSession();
   fetchChannels();
   fetchMessages();
@@ -467,6 +569,7 @@ export function initRealtimeSlack({
     getActiveChannel: () => ({ id: activeChannelId, name: activeChannelName }),
     sendMessage,
     refreshMessages: fetchMessages,
+    showAuthGate,
     stopPolling: () => clearInterval(pollIntervalId)
   };
 }

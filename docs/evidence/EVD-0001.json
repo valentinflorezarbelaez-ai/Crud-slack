@@ -4,11 +4,11 @@
   "epistemicState": "VERIFIED",
   "stagesPassed": "7/7",
   "exitCode": 0,
-  "artifactCount": 61,
-  "sbomMerkleRoot": "sha256:d900054c2e3e2230b54a5b4061cb2eae56cf46f7dc0c394fd62347419f2c805f",
+  "artifactCount": 63,
+  "sbomMerkleRoot": "sha256:94116bd09a0f35d4af5d09a0c84cb8a02e5700b0953ce94193d351840afd6514",
   "budgets": {
     "cssKilobytes": 39.4,
-    "uiJsKilobytes": 43.4,
+    "uiJsKilobytes": 43.7,
     "runtimeDependencies": 0
   },
   "verifiedEndpoints": [

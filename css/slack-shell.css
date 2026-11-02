@@ -1027,3 +1027,172 @@ gap: 0.5rem;
   padding: 0.25rem 0.6rem;
 
 }
+
+/* ---------- SLACK AUTH GATEWAY OVERLAY (4 USERS + GOOGLE) ---------- */
+.slack-auth-gate {
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  background: rgba(15, 13, 19, 0.94);
+  backdrop-filter: blur(10px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+.slack-auth-gate[hidden] {
+  display: none !important;
+}
+.slack-auth-modal {
+  background: var(--bg-surface, #1e1d24);
+  border: 1px solid var(--border-strong, #3a3842);
+  border-radius: var(--radius-md, 12px);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6);
+  max-width: 540px;
+  width: 100%;
+  padding: 2.2rem 2.2rem;
+  text-align: center;
+  animation: authFadeIn 0.25s ease-out;
+}
+@keyframes authFadeIn {
+  from { opacity: 0; transform: scale(0.97); }
+  to { opacity: 1; transform: scale(1); }
+}
+.slack-auth-logo {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 0.85rem;
+}
+.slack-auth-title {
+  font-size: 1.45rem;
+  font-weight: 800;
+  margin: 0 0 0.35rem;
+  color: var(--text-primary, #ffffff);
+  letter-spacing: -0.02em;
+}
+.slack-auth-subtitle {
+  color: var(--text-secondary, #a09fa6);
+  font-size: 0.9rem;
+  margin: 0 0 1.5rem;
+  line-height: 1.4;
+}
+.slack-auth-section {
+  text-align: left;
+  margin-bottom: 1.25rem;
+}
+.slack-auth-label {
+  display: block;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted, #7c7b85);
+  margin-bottom: 0.75rem;
+}
+.team-users-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+@media (max-width: 480px) {
+  .team-users-grid {
+    grid-template-columns: 1fr;
+  }
+}
+.team-user-card {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 0.85rem;
+  background: var(--bg-elevated, #282730);
+  border: 1px solid var(--border-subtle, #383742);
+  border-radius: var(--radius-sm, 8px);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-align: left;
+  font: inherit;
+  color: var(--text-primary, #ffffff);
+  width: 100%;
+}
+.team-user-card:hover {
+  border-color: var(--accent, #611f69);
+  background: rgba(97, 31, 105, 0.25);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.25);
+}
+.team-user-avatar {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+  border: 1.5px solid rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.05);
+}
+.team-user-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.team-user-name {
+  font-size: 0.9rem;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: #ffffff;
+}
+.team-user-role {
+  font-size: 0.72rem;
+  color: var(--text-secondary, #a09fa6);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.slack-auth-divider {
+  display: flex;
+  align-items: center;
+  margin: 1.35rem 0 1.1rem;
+  color: var(--text-muted, #7c7b85);
+  font-size: 0.8rem;
+}
+.slack-auth-divider::before,
+.slack-auth-divider::after {
+  content: "";
+  flex: 1;
+  border-bottom: 1px solid var(--border-subtle, #383742);
+}
+.slack-auth-divider span {
+  padding: 0 0.85rem;
+}
+.slack-auth-google-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6rem;
+}
+.gate-google-btn-slot {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.slack-auth-tip {
+  font-size: 0.75rem;
+  color: var(--text-muted, #7c7b85);
+  margin: 0;
+  text-align: center;
+}
+.slack-switch-user-btn {
+  font-size: 0.72rem;
+  padding: 0.2rem 0.5rem;
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--sidebar-text, #ffffff);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.slack-switch-user-btn:hover {
+  background: rgba(255, 255, 255, 0.22);
+}

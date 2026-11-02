@@ -46,6 +46,7 @@ const NEXT_STATUS_CYCLE = Object.freeze({
   COMPLETED: "PENDING"
 });
 let boardState = createInitialBoardState();
+let activeUserId = null;
 let currentViewMode = "cards"; // "cards" | "table" | "kanban"
 let toastTimerId = null;
 let activeChannel = { id: "general", kind: "preset", name: "general", presetId: WORKPLACE_PRESETS[0].id };
@@ -145,7 +146,7 @@ function showToast(message) {
 function dispatch(action) {
   const previousDone = (boardState.tasks || []).filter((t) => t.status === "COMPLETED").length;
   boardState = taskBoardReducer(boardState, action);
-  savePersistedBoardState(boardState, activeChannel.id);
+  savePersistedBoardState(boardState, activeChannel.id, activeUserId);
   renderWorkspace();
 
   const currentDone = (boardState.tasks || []).filter((t) => t.status === "COMPLETED").length;
@@ -296,7 +297,7 @@ function renderTeamsCardPreviewHelper() {
 
 async function applyChannel(channel, opts = {}, todayIso = new Date().toISOString().slice(0, 10)) {
   activeChannel = channel;
-  const saved = opts.rerun ? null : loadPersistedBoardState(channel.id);
+  const saved = opts.rerun ? null : loadPersistedBoardState(channel.id, activeUserId);
   boardState = saved ?? createInitialBoardState();
 
   if (channel.kind === "custom") {
@@ -448,10 +449,11 @@ async function runAnalysisFlow(payload) {
     }
     if (originChannelId !== activeChannel.id) {
       // The user switched channels while the analysis was running: keep the result in its own channel
-      const originBoard = loadPersistedBoardState(originChannelId) ?? createInitialBoardState();
+      const originBoard = loadPersistedBoardState(originChannelId, activeUserId) ?? createInitialBoardState();
       savePersistedBoardState(
         taskBoardReducer(originBoard, { type: "LOAD_TRIAGE_RESULT", payload: resultData }),
-        originChannelId
+        originChannelId,
+        activeUserId
       );
       return;
     }
@@ -658,6 +660,12 @@ async function bootstrap() {
         referenceDate: el.inputRefDate?.value || todayIso
       });
     },
+    onUserChanged: (user) => {
+      activeUserId = user ? user.id : null;
+      const saved = loadPersistedBoardState(activeChannel.id, activeUserId);
+      boardState = saved ?? createInitialBoardState();
+      renderWorkspace();
+    },
     showToast
   });
 
@@ -687,7 +695,7 @@ async function bootstrap() {
         payload: { id: t.id, deadlineDate: friday }
       });
     }
-    savePersistedBoardState(boardState, activeChannel.id);
+    savePersistedBoardState(boardState, activeChannel.id, activeUserId);
     renderWorkspace();
     showToast(`${pending.length} tarea(s) con fecha ${friday} confirmada por el usuario.`);
   });
