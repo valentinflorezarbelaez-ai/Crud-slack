@@ -202,12 +202,42 @@
 
           <section class="sidebar-section">
             <h2 class="sidebar-section__title">
-              <button type="button" class="sidebar-section__toggle" aria-expanded="true" aria-controls="sidebar-channels">
+              <button type="button" class="sidebar-section__toggle" aria-expanded="true" aria-controls="slack-channels-list">
                 <svg class="icon" width="12" height="12" aria-hidden="true"><use href="#i-chevron" /></svg>
                 Canales
               </button>
+              <button type="button" id="slack-new-channel-btn" class="sidebar-section__add" title="Crear nuevo canal de Slack" aria-label="Crear canal">
+                <svg class="icon" width="12" height="12" aria-hidden="true"><use href="#i-plus" /></svg>
+              </button>
             </h2>
-            <ul class="sidebar-list" id="sidebar-channels" role="listbox" aria-label="Canales">
+            <ul class="sidebar-list" id="slack-channels-list" role="listbox" aria-label="Canales en tiempo real">
+              <li role="presentation">
+                <button type="button" class="slack-channel-pill sidebar-item is-active" data-preset="reto-oficial-viernes" data-channel-name="general" data-topic="Reunión del viernes · plan accionable sin inventar fechas" role="option" aria-selected="true">
+                  <span class="sidebar-item__hash" aria-hidden="true">#</span>
+                  <span class="sidebar-item__name">general</span>
+                </button>
+              </li>
+              <li role="presentation">
+                <button type="button" class="slack-channel-pill sidebar-item is-unread" data-preset="incidente-slack-prod" data-channel-name="incidentes-prod" data-topic="Alertas urgentes de producción · asignación y notificación a soporte" role="option" aria-selected="false">
+                  <span class="sidebar-item__hash" aria-hidden="true">#</span>
+                  <span class="sidebar-item__name">incidentes-prod</span>
+                  <span class="sidebar-item__badge">3</span>
+                </button>
+              </li>
+              <li role="presentation">
+                <button type="button" class="slack-channel-pill sidebar-item is-unread" data-preset="sharepoint-intranet" data-channel-name="operaciones" data-topic="SharePoint, permisos y entregables de Operaciones" role="option" aria-selected="false">
+                  <span class="sidebar-item__hash" aria-hidden="true">#</span>
+                  <span class="sidebar-item__name">operaciones</span>
+                  <span class="sidebar-item__badge">1</span>
+                </button>
+              </li>
+              <li role="presentation">
+                <button type="button" class="slack-channel-pill sidebar-item" data-preset="sin-fechas-antihalucinacion" data-channel-name="legal-auditoria" data-topic="Mensajes sin fechas · prueba de guardia anti-alucinación" role="option" aria-selected="false">
+                  <span class="sidebar-item__hash" aria-hidden="true">#</span>
+                  <span class="sidebar-item__name">legal-auditoria</span>
+                </button>
+              </li>
+
             </ul>
             <button type="button" id="add-channel-btn" class="sidebar-item sidebar-item--add" aria-haspopup="dialog">
               <span class="sidebar-item__hash sidebar-item__hash--add" aria-hidden="true">
@@ -283,6 +313,7 @@
           <span class="sidebar-user__avatar" aria-hidden="true">VF<span class="presence presence--on"></span></span>
           <span class="sidebar-user__text"><strong>Valentín F.</strong><small>Activo</small></span>
         </div>
+        <div id="slack-user-slot" class="slack-user-slot"></div>
       </aside>
       <div class="sidebar-backdrop" id="sidebar-backdrop" hidden></div>
 
@@ -347,6 +378,10 @@
               </div>
             </section>
             <div class="day-divider" id="intake-day-divider" role="separator"><span>Hoy</span></div>
+
+            <div id="slack-message-feed" class="slack-message-feed" aria-live="polite"></div>
+            <div class="day-divider" role="separator"><span>Hoy</span></div>
+
             <div class="slack-message-card" id="slack-message-card">
               <div class="slack-msg-header">
                 <div class="slack-avatar" id="slack-avatar">LS</div>
@@ -1008,6 +1043,29 @@
         <span><kbd>↵</kbd> Seleccionar</span>
         <span><kbd>ESC</kbd> Cerrar</span>
       </div>
+    </dialog>
+
+        <!-- NEW CHANNEL CREATION DIALOG -->
+    <dialog id="new-channel-dialog" class="crud-dialog" closedby="any" aria-labelledby="new-channel-title">
+      <div class="crud-dialog__header">
+        <h2 id="new-channel-title" class="crud-dialog__title">Crear un canal de Slack</h2>
+        <button type="button" id="close-channel-dialog-btn" class="btn btn--ghost btn--sm" aria-label="Cerrar">✕</button>
+      </div>
+      <form id="new-channel-form" class="crud-dialog__form">
+        <div class="field">
+          <label for="new-channel-name-input" class="field__label">Nombre del canal</label>
+          <input type="text" id="new-channel-name-input" class="field__control" placeholder="ej. proyectos-2026" pattern="^[a-z0-9-_]{2,30}$" required />
+          <small class="field__tip">Usa letras minúsculas, números o guiones (2-30 caracteres).</small>
+        </div>
+        <div class="field">
+          <label for="new-channel-desc-input" class="field__label">Descripción (opcional)</label>
+          <input type="text" id="new-channel-desc-input" class="field__control" placeholder="¿De qué trata este canal?" />
+        </div>
+        <div class="crud-dialog__actions">
+          <button type="button" id="cancel-channel-dialog-btn" class="btn btn--ghost">Cancelar</button>
+          <button type="submit" class="btn btn--primary">Crear Canal</button>
+        </div>
+      </form>
     </dialog>
 
     <div id="toast-notification" class="toast" role="status" aria-live="polite" hidden></div>

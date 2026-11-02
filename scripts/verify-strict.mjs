@@ -23,7 +23,7 @@ console.log("===================================================================
 
 function listFiles(dir, acc = []) {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-    if ([".git", ".vercel", "node_modules"].includes(entry.name)) continue;
+    if ([".git", ".vercel", "node_modules"].includes(entry.name) || entry.name.startsWith(".env")) continue;
     const full = path.join(dir, entry.name);
     if (entry.isDirectory()) listFiles(full, acc);
     else acc.push(full);
@@ -131,10 +131,11 @@ assert.ok(cssKb < 40, `CSS bundle exceeded 40 KB budget: ${cssKb} KB`);
 assert.ok(uiJsKb < 45, `UI JS bundle exceeded 45 KB budget: ${uiJsKb} KB`);
 console.log(`[PASS] Stage 5/7 — WCAG 2.1 AA, SEO JSON-LD, Strict CSP & CWV Budget Gate (CSS: ${cssKb} KB, UI JS: ${uiJsKb} KB).`);
 
-// STAGE 6: IN-PROCESS SERVERLESS ENDPOINTS SMOKE VERIFICATION (/api/health, /api/analyze, /api/metrics)
+// STAGE 6: IN-PROCESS SERVERLESS ENDPOINTS SMOKE VERIFICATION (/api/health, /api/analyze, /api/metrics, /api/channels)
 const healthMod = await import(pathToFileURL(path.join(root, "api/health.js")).href);
 const analyzeMod = await import(pathToFileURL(path.join(root, "api/analyze.js")).href);
 const metricsMod = await import(pathToFileURL(path.join(root, "api/metrics.js")).href);
+const channelsMod = await import(pathToFileURL(path.join(root, "api/channels.js")).href);
 
 const hRes = await healthMod.GET(new Request("http://localhost/api/health"));
 assert.equal(hRes.status, 200, "/api/health failed smoke check");
@@ -143,6 +144,9 @@ const mRes = await metricsMod.GET(new Request("http://localhost/api/metrics"));
 assert.equal(mRes.status, 200, "/api/metrics failed smoke check");
 const mText = await mRes.text();
 assert.ok(mText.includes("taskflow_process_uptime_seconds"), "Prometheus metrics missing uptime");
+
+const cRes = await channelsMod.GET();
+assert.equal(cRes.status, 200, "/api/channels failed smoke check");
 
 const aRes = await analyzeMod.POST(
   new Request("http://localhost/api/analyze", {
@@ -156,7 +160,7 @@ const aRes = await analyzeMod.POST(
   })
 );
 assert.equal(aRes.status, 200, "/api/analyze POST failed smoke check");
-console.log("[PASS] Stage 6/7 — In-Process Serverless API Smoke Gate (/api/health, /api/analyze & /api/metrics 200 OK).");
+console.log("[PASS] Stage 6/7 — In-Process Serverless API Smoke Gate (/api/health, /api/analyze, /api/metrics & /api/channels 200 OK).");
 
 // STAGE 7: CRYPTOGRAPHIC EVIDENCE RECEIPT GENERATION (LAW III)
 const receipt = {

@@ -285,4 +285,36 @@ describe("SPEC-CRUD-SLACK-001: TaskFlow AI Domain, Anti-Hallucination & API Suit
     assert.ok(mailto.includes("subject="));
     assert.ok(mailto.includes("body="));
   });
+
+  it("BDD-CS-008: validates channel creation constraints and rejection of invalid slugs", async () => {
+    const { POST: channelsPost } = await import("../api/channels.js");
+
+    const invalidReq = new Request("http://localhost/api/channels", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "Invalid Name With Spaces!" })
+    });
+    const res = await channelsPost(invalidReq);
+    assert.equal(res.status, 400);
+    const json = await res.json();
+    assert.equal(json.ok, false);
+    assert.ok(json.error.includes("2 y 30 caracteres"));
+  });
+
+  it("BDD-CS-009: signs and verifies HMAC session tokens using Web Crypto API", async () => {
+    const { signSession, verifySession } = await import("../api/_auth.js");
+
+    const payload = { userId: "usr_test123", email: "test@example.com" };
+    const token = await signSession(payload);
+    assert.ok(typeof token === "string");
+    assert.ok(token.includes("."));
+
+    const verified = await verifySession(token);
+    assert.equal(verified.userId, "usr_test123");
+    assert.equal(verified.email, "test@example.com");
+
+    const tampered = token.slice(0, -3) + "xyz";
+    const invalid = await verifySession(tampered);
+    assert.equal(invalid, null);
+  });
 });

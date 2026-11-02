@@ -31,6 +31,7 @@ import { setupCommandPalette } from "./commandPalette.mjs";
 import { fireConfettiCelebration } from "./confetti.mjs";
 import { renderTableView, renderSharePointListView, renderTeamsCardPreview } from "./taskViews.mjs";
 import { playTaskCompletedSound } from "./soundFx.mjs";
+import { initRealtimeSlack } from "./realtimeSlack.mjs";
 import {
   loadPersistedBoardState,
   removePersistedBoardState,
@@ -701,8 +702,12 @@ async function bootstrap() {
   });
   el.analyzeForm?.addEventListener("submit", (ev) => {
     ev.preventDefault();
+    const msgText = el.inputMessage?.value?.trim() || "";
+    if (msgText && typeof realtimeSlack?.sendMessage === "function") {
+      realtimeSlack.sendMessage(msgText);
+    }
     runAnalysisFlow({
-      message: el.inputMessage.value,
+      message: msgText,
       channel: el.inputChannel.value,
       referenceDate: el.inputRefDate.value || todayIso
     });
