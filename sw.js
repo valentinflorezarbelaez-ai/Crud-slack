@@ -4,7 +4,7 @@
  * Network-First bypass for real-time /api/* endpoints.
  */
 
-const CACHE_NAME = "taskflow-ai-v4.1.0";
+const CACHE_NAME = "taskflow-ai-v4.2.0";
 const PRECACHE_ASSETS = [
   "./",
   "./favicon.svg",
@@ -46,6 +46,14 @@ self.addEventListener("fetch", (event) => {
     url.pathname.startsWith("/api/") ||
     url.origin !== self.location.origin
   ) {
+    return;
+  }
+
+  // Network-First for HTML navigation so users never get stuck on stale/broken caches
+  if (event.request.mode === "navigate") {
+    event.respondWith(
+      fetch(event.request).catch(() => caches.match(event.request))
+    );
     return;
   }
 
