@@ -2,19 +2,7 @@
 <html lang="es" data-theme="light" data-scale="md">
   <head>
     <meta charset="UTF-8" />
-    <script>
-      // Anti-White-Screen Shield: Purge stale service worker & clear all caches
-      if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.getRegistrations().then(function(regs) {
-          for (var r of regs) { r.unregister(); }
-        }).catch(function() {});
-        if (window.caches) {
-          caches.keys().then(function(keys) {
-            for (var k of keys) { caches.delete(k); }
-          }).catch(function() {});
-        }
-      }
-    </script>
+    <script src="./src/ui/recovery.js?v=4.3.0"></script>
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>TaskFlow AI · Organizador Omnicanal de Tareas con IA &amp; CRUD Verificado</title>
     <meta
