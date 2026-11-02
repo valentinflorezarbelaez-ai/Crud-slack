@@ -977,21 +977,13 @@ async function bootstrap() {
       else if (ev.key === "4") setViewMode("sharepoint");
     }
   });
-  // Progressive Web App (PWA) Offline Service Worker Registration
+  // PWA Recovery: Unregister any legacy Service Worker to ensure clean network execution
   if ("serviceWorker" in navigator) {
-    const registerWorker = () => {
-      navigator.serviceWorker.getRegistrations().then((regs) => {
-        for (const reg of regs) {
-          reg.update().catch(() => {});
-        }
-      }).catch(() => {});
-      navigator.serviceWorker.register("./sw.js?v=4.2.0").catch(() => {});
-    };
-    if (document.readyState === "complete" || document.readyState === "interactive") {
-      registerWorker();
-    } else {
-      window.addEventListener("load", registerWorker);
-    }
+    navigator.serviceWorker.getRegistrations().then((regs) => {
+      for (const reg of regs) {
+        reg.unregister().catch(() => {});
+      }
+    }).catch(() => {});
   }
 }
 bootstrap();
