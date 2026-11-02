@@ -10,6 +10,7 @@ export async function GET(req) {
   try {
     const url = new URL(req.url);
     const channelId = url.searchParams.get("channelId") || "c_general";
+    const altChannelId = channelId.startsWith("c_") ? channelId.slice(2) : "c_" + channelId;
     const user = await getAuthenticatedUser(req);
     const currentUserId = user ? user.id : "";
 
@@ -20,11 +21,11 @@ export async function GET(req) {
         u.id AS author_id, u.full_name AS author_name, u.avatar_url AS author_avatar, u.email AS author_email
       FROM messages m
       LEFT JOIN users u ON u.id = m.user_id
-      WHERE m.channel_id = $1
+      WHERE m.channel_id = $1 OR m.channel_id = $2
       ORDER BY m.created_at ASC
       LIMIT 100;
     `,
-      [channelId]
+      [channelId, altChannelId]
     );
 
     // Retrieve reactions for messages in this channel
