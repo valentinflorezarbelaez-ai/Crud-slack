@@ -24,8 +24,8 @@
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="./css/styles.css?v=2.2" />
-    <link rel="stylesheet" href="./css/slack-shell.css?v=1.0" />
+    <link rel="stylesheet" href="./css/styles.css?v=4.0.0" />
+    <link rel="stylesheet" href="./css/slack-shell.css?v=4.0.0" />
     <script type="application/ld+json">
       {
         "@context": "https://schema.org",
@@ -232,7 +232,7 @@
 
           <section class="sidebar-section">
             <h2 class="sidebar-section__title">
-              <button type="button" class="sidebar-section__toggle" aria-expanded="true" aria-controls="slack-channels-list">
+              <button type="button" class="sidebar-section__toggle" aria-expanded="true" aria-controls="sidebar-channels">
                 <svg class="icon" width="12" height="12" aria-hidden="true"><use href="#i-chevron" /></svg>
                 Canales
               </button>
@@ -240,7 +240,7 @@
                 <svg class="icon" width="12" height="12" aria-hidden="true"><use href="#i-plus" /></svg>
               </button>
             </h2>
-            <ul class="sidebar-list" id="slack-channels-list" role="listbox" aria-label="Canales en tiempo real">
+            <ul class="sidebar-list" id="sidebar-channels" role="listbox" aria-label="Canales">
               <li role="presentation">
                 <button type="button" class="slack-channel-pill sidebar-item is-active" data-preset="reto-oficial-viernes" data-channel-name="general" data-topic="Reunión del viernes · plan accionable sin inventar fechas" role="option" aria-selected="true">
                   <span class="sidebar-item__hash" aria-hidden="true">#</span>
@@ -1071,32 +1071,11 @@
       </div>
     </dialog>
 
-        <!-- NEW CHANNEL CREATION DIALOG -->
-    <dialog id="new-channel-dialog" class="crud-dialog" closedby="any" aria-labelledby="new-channel-title">
-      <div class="crud-dialog__header">
-        <h2 id="new-channel-title" class="crud-dialog__title">Crear un canal de Slack</h2>
-        <button type="button" id="close-channel-dialog-btn" class="btn btn--ghost btn--sm" aria-label="Cerrar">✕</button>
-      </div>
-      <form id="new-channel-form" class="crud-dialog__form">
-        <div class="field">
-          <label for="new-channel-name-input" class="field__label">Nombre del canal</label>
-          <input type="text" id="new-channel-name-input" class="field__control" placeholder="ej. proyectos-2026" pattern="^[a-z0-9-_]{2,30}$" required />
-          <small class="field__tip">Usa letras minúsculas, números o guiones (2-30 caracteres).</small>
-        </div>
-        <div class="field">
-          <label for="new-channel-desc-input" class="field__label">Descripción (opcional)</label>
-          <input type="text" id="new-channel-desc-input" class="field__control" placeholder="¿De qué trata este canal?" />
-        </div>
-        <div class="crud-dialog__actions">
-          <button type="button" id="cancel-channel-dialog-btn" class="btn btn--ghost">Cancelar</button>
-          <button type="submit" class="btn btn--primary">Crear Canal</button>
-        </div>
-      </form>
-    </dialog>
+        
 
     <div id="toast-notification" class="toast" role="status" aria-live="polite" hidden></div>
 
-    <script type="module" src="./src/ui/main.mjs?v=2.1"></script>
-    <script type="module" src="./src/ui/slackShell.mjs?v=1.0"></script>
+    <script type="module" src="./src/ui/main.mjs?v=4.0.0"></script>
+    <script type="module" src="./src/ui/slackShell.mjs?v=4.0.0"></script>
   </body>
 </html>

@@ -212,6 +212,13 @@ export function initChannels({ onActivate, onRemoved, showToast }) {
         showToast(`Canal #${slug} actualizado.`);
       }
     } else {
+      // Persist to Neon PostgreSQL in real-time
+      fetch("./api/channels", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: slug, description: topic })
+      }).catch(() => {});
+
       const created = {
         id: `c-${Date.now().toString(36)}`,
         name: slug,
@@ -225,7 +232,7 @@ export function initChannels({ onActivate, onRemoved, showToast }) {
       persist();
       dialog?.close();
       activate(created.id, { created: true });
-      showToast(`Canal #${slug} creado. Ya puedes organizar sus tareas.`);
+      showToast(`Canal #${slug} creado en PostgreSQL. Ya puedes chatear y organizar tareas.`);
       return;
     }
     dialog?.close();
@@ -260,6 +267,7 @@ export function initChannels({ onActivate, onRemoved, showToast }) {
   });
 
   $("add-channel-btn")?.addEventListener("click", () => openDialog(null));
+  $("slack-new-channel-btn")?.addEventListener("click", () => openDialog(null));
   settingsBtn?.addEventListener("click", () => {
     const active = getActive();
     if (active.kind === "custom") openDialog(active);

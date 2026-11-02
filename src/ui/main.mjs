@@ -980,6 +980,12 @@ async function bootstrap() {
   // Progressive Web App (PWA) Offline Service Worker Registration
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
+      // Purge any legacy cached workers
+      navigator.serviceWorker.getRegistrations().then((regs) => {
+        for (const reg of regs) {
+          reg.update();
+        }
+      }).catch(() => {});
       navigator.serviceWorker.register("./sw.js").catch(() => {});
     });
   }

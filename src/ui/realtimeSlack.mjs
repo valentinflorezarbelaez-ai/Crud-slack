@@ -23,7 +23,7 @@ export function initRealtimeSlack({
   const authGate = document.getElementById("slack-auth-gate");
   const teamUsersGrid = document.getElementById("team-users-grid");
   const userSlot = document.getElementById("slack-user-slot");
-  const channelsList = document.getElementById("slack-channels-list");
+  const channelsList = document.getElementById("sidebar-channels") || document.getElementById("slack-channels-list");
   const newChannelBtn = document.getElementById("slack-new-channel-btn");
   const addChannelBtn = document.getElementById("add-channel-btn");
   const channelHeading = document.getElementById("slack-channel-badge");
@@ -349,50 +349,7 @@ export function initRealtimeSlack({
     if (id && name) selectChannel(id, name);
   });
 
-  function openNewChannelModal() {
-    if (newChannelDialog) {
-      newChannelDialog.showModal();
-      newChannelInput?.focus();
-    }
-  }
-
-  newChannelBtn?.addEventListener("click", openNewChannelModal);
-  addChannelBtn?.addEventListener("click", openNewChannelModal);
-
-  document.getElementById("close-channel-dialog-btn")?.addEventListener("click", () => {
-    newChannelDialog?.close();
-  });
-  document.getElementById("cancel-channel-dialog-btn")?.addEventListener("click", () => {
-    newChannelDialog?.close();
-  });
-
-  newChannelForm?.addEventListener("submit", async (ev) => {
-    ev.preventDefault();
-    const name = newChannelInput?.value.trim().toLowerCase();
-    const desc = newChannelDescInput?.value.trim();
-    if (!name) return;
-
-    try {
-      const res = await fetch("./api/channels", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, description: desc })
-      });
-      const json = await res.json();
-      if (!res.ok || !json.ok) {
-        throw new Error(json.error || "No se pudo crear el canal.");
-      }
-
-      newChannelDialog?.close();
-      if (newChannelInput) newChannelInput.value = "";
-      if (newChannelDescInput) newChannelDescInput.value = "";
-      showToast(`Canal #${json.channel.name} creado.`);
-      await fetchChannels();
-      selectChannel(json.channel.id, json.channel.name);
-    } catch (err) {
-      showToast(`Error: ${err.message}`);
-    }
-  });
+// Channel dialog handled cleanly by channels.mjs
 
   // 3. MESSAGES FEED & REAL-TIME POLLING
   async function fetchMessages() {
