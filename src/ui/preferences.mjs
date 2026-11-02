@@ -7,7 +7,7 @@
  */
 
 const THEMES = Object.freeze(["light", "warm", "dark"]);
-const THEME_COLORS = Object.freeze({ light: "#f2f6f9", warm: "#f4f0e4", dark: "#070b14" });
+const THEME_COLORS = Object.freeze({ light: "#350d36", warm: "#3f0e40", dark: "#121016" });
 
 function readPref(key, fallback) {
   try {
@@ -58,7 +58,7 @@ export function initVisualPreferences(refs, notify) {
     const safe = scale === "xl" ? "xl" : "md";
     root.setAttribute("data-scale", safe);
     if (refs.scaleToggleBtn) {
-      refs.scaleToggleBtn.textContent = safe === "xl" ? "🔍 Zoom: XL" : "🔍 Zoom: 100%";
+      refs.scaleToggleBtn.textContent = safe === "xl" ? "Zoom XL" : "Zoom 100%";
     }
     writePref("taskflow.scale", safe);
   };
@@ -67,7 +67,7 @@ export function initVisualPreferences(refs, notify) {
     const focus = layout === "focus";
     refs.workspaceGrid?.classList.toggle("is-focus-board", focus);
     if (refs.layoutFocusBtn) {
-      refs.layoutFocusBtn.textContent = focus ? "📐 1 Col" : "📐 2 Col";
+      refs.layoutFocusBtn.textContent = focus ? "1 Col" : "2 Col";
     }
     writePref("taskflow.layout", focus ? "focus" : "split");
   };

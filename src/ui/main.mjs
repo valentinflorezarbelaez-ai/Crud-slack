@@ -712,7 +712,11 @@ function updateSlackMessagePreview(preset) {
     avatar.textContent = initials || "SL";
   }
   if (sender) sender.textContent = preset.sender || "Canal Slack";
-  if (channelBadge) channelBadge.textContent = `#${preset.id || "general"}`;
+  const chName = document.querySelector(`.slack-channel-pill[data-preset="${CSS.escape(preset.id || "")}"]`)?.dataset.channel || "general";
+  if (channelBadge) channelBadge.textContent = `#${chName}`;
+  const chHeader = document.getElementById("channel-header-name");
+  if (chHeader) chHeader.textContent = chName;
+  if (el.inputMessage) el.inputMessage.placeholder = `Enviar un mensaje a #${chName}`;
   if (text) text.textContent = `"${preset.message}"`;
 }
 
