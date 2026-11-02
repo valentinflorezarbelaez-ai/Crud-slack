@@ -711,3 +711,37 @@ display: none !important;
 display: block;
 }
 }
+
+/* ---------- Slack AI search affordance ---------- */
+.slack-search-bar__ai {
+display: inline-flex;
+align-items: center;
+gap: 0.25rem;
+padding: 0.1rem 0.45rem;
+border-radius: 999px;
+font-size: 0.68rem;
+font-weight: 700;
+letter-spacing: 0.02em;
+color: #ffffff;
+background: linear-gradient(135deg, #36c5f0 0%, #9b6bff 55%, #e01e5a 100%);
+}
+.cmdk__spark {
+color: #7c4dff;
+}
+.cmdk__item--ai {
+font-weight: 600;
+}
+.cmdk__item--ai span::before {
+content: "";
+display: inline-block;
+width: 0.5rem;
+height: 0.5rem;
+margin-right: 0.5rem;
+border-radius: 50%;
+background: linear-gradient(135deg, #36c5f0, #9b6bff 55%, #e01e5a);
+}
+@media (max-width: 720px) {
+.slack-search-bar__ai {
+display: none;
+}
+}
