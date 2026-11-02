@@ -646,6 +646,21 @@ async function bootstrap() {
     onRemoved: (channel) => removePersistedBoardState(channel.id),
     showToast
   });
+
+  const realtimeSlack = initRealtimeSlack({
+    onExtractTasksFromMessage: (text, channelName) => {
+      if (el.inputMessage) el.inputMessage.value = text;
+      if (el.inputChannel) el.inputChannel.value = channelName;
+      updateCharCounter();
+      runAnalysisFlow({
+        message: text,
+        channel: channelName,
+        referenceDate: el.inputRefDate?.value || todayIso
+      });
+    },
+    showToast
+  });
+
   initPresets(todayIso);
 
   // Restore the active channel (and its saved board) or seed the canonical Friday meeting case

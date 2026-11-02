@@ -94,10 +94,15 @@ export function initRealtimeSlack({
   function loadGoogleScriptAndRender() {
     if (typeof window === "undefined") return;
 
-    if (window.google?.accounts?.id) {
-      mountGoogleButton();
-      return;
-    }
+    const tryMount = () => {
+      if (window.google?.accounts?.id) {
+        mountGoogleButton();
+        return true;
+      }
+      return false;
+    };
+
+    if (tryMount()) return;
 
     if (!document.getElementById("google-gsi-script")) {
       const script = document.createElement("script");
@@ -105,9 +110,17 @@ export function initRealtimeSlack({
       script.src = "https://accounts.google.com/gsi/client";
       script.async = true;
       script.defer = true;
-      script.onload = mountGoogleButton;
+      script.onload = tryMount;
       document.head.appendChild(script);
     }
+
+    let attempts = 0;
+    const interval = setInterval(() => {
+      attempts++;
+      if (tryMount() || attempts > 30) {
+        clearInterval(interval);
+      }
+    }, 200);
   }
 
   function mountGoogleButton() {
@@ -115,21 +128,30 @@ export function initRealtimeSlack({
     const btnContainer = document.getElementById("google-btn-container");
     if (!btnContainer) return;
 
-    window.google.accounts.id.initialize({
-      client_id: GOOGLE_CLIENT_ID,
-      callback: handleGoogleCredentialResponse,
-      auto_select: false,
-      cancel_on_tap_outside: true
-    });
+    try {
+      window.google.accounts.id.initialize({
+        client_id: GOOGLE_CLIENT_ID,
+        callback: handleGoogleCredentialResponse,
+        auto_select: false,
+        cancel_on_tap_outside: true
+      });
 
-    window.google.accounts.id.renderButton(btnContainer, {
-      type: "standard",
-      theme: "outline",
-      size: "medium",
-      text: "signin_with",
-      shape: "pill",
-      logo_alignment: "left"
-    });
+      window.google.accounts.id.renderButton(btnContainer, {
+        type: "standard",
+        theme: "outline",
+        size: "large",
+        text: "signin_with",
+        shape: "pill",
+        logo_alignment: "left",
+        width: 220
+      });
+
+      try {
+        window.google.accounts.id.prompt();
+      } catch {}
+    } catch (err) {
+      console.warn("GIS initialization warning:", err);
+    }
   }
 
   async function handleGoogleCredentialResponse(response) {
@@ -230,13 +252,19 @@ export function initRealtimeSlack({
     if (id && name) selectChannel(id, name);
   });
 
-  newChannelBtn?.addEventListener("click", () => {
-    if (!currentUser) {
-      showToast("Inicia sesión con Google para crear canales.");
-      return;
-    }
+  function openNewChannelModal() {
     newChannelDialog?.showModal();
     newChannelInput?.focus();
+  }
+
+  newChannelBtn?.addEventListener("click", openNewChannelModal);
+  document.getElementById("add-channel-btn")?.addEventListener("click", openNewChannelModal);
+
+  document.getElementById("close-channel-dialog-btn")?.addEventListener("click", () => {
+    newChannelDialog?.close();
+  });
+  document.getElementById("cancel-channel-dialog-btn")?.addEventListener("click", () => {
+    newChannelDialog?.close();
   });
 
   newChannelForm?.addEventListener("submit", async (ev) => {
