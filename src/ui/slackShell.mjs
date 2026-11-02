@@ -181,6 +181,55 @@ function initComposer() {
 }
 
 /* ---------- Command palette ---------- */
+function extractTasksFromText(text) {
+  $("nav-btn-workspace")?.click();
+  const field = /** @type {HTMLTextAreaElement|null} */ ($("input-message"));
+  if (!field) return;
+  field.value = text;
+  field.dispatchEvent(new Event("input", { bubbles: true }));
+  field.scrollIntoView({ behavior: "smooth", block: "center" });
+  $("analyze-submit-btn")?.click();
+}
+
+function focusComposer() {
+  $("nav-btn-workspace")?.click();
+  const field = $("input-message");
+  field?.scrollIntoView({ behavior: "smooth", block: "center" });
+  field?.focus();
+}
+
+function buildAiCommands(query) {
+  const text = query.trim();
+  const ai = [];
+  if (text.length >= 3) {
+    ai.push({
+      group: "TaskFlow AI",
+      label: `Extraer tareas de: «${text.length > 60 ? `${text.slice(0, 60)}…` : text}»`,
+      hint: "Preguntar a la IA",
+      ai: true,
+      run: () => extractTasksFromText(text)
+    });
+  } else {
+    ai.push(
+      {
+        group: "TaskFlow AI",
+        label: "Convertir un mensaje en tareas",
+        hint: "Pegar y analizar",
+        ai: true,
+        run: focusComposer
+      },
+      {
+        group: "TaskFlow AI",
+        label: "Resumir lo pendiente para el canal",
+        hint: "Markdown",
+        ai: true,
+        run: () => $("copy-slack-md-btn")?.click()
+      }
+    );
+  }
+  return ai;
+}
+
 function buildCommands(query) {
   const cmds = [];
   const click = (id) => () => $(id)?.click();
@@ -234,9 +283,10 @@ function buildCommands(query) {
   }
 
   const tokens = norm(query).split(/\s+/).filter(Boolean);
-  return cmds
+  const matches = cmds
     .filter((c) => tokens.every((t) => norm(`${c.label} ${c.hint} ${c.group}`).includes(t)))
     .slice(0, 40);
+  return [...buildAiCommands(query), ...matches];
 }
 
 function initPalette() {
@@ -276,6 +326,7 @@ function initPalette() {
       li.className = "cmdk__item";
       li.setAttribute("role", "option");
       li.dataset.index = String(i);
+      if (cmd.ai) li.classList.add("cmdk__item--ai");
       const label = document.createElement("span");
       label.textContent = cmd.label;
       const hint = document.createElement("small");
@@ -283,7 +334,7 @@ function initPalette() {
       li.append(label, hint);
       list.append(li);
     });
-    if (empty) empty.hidden = items.length > 0;
+    if (empty) empty.hidden = items.some((c) => !c.ai);
     select(0);
   };
 
