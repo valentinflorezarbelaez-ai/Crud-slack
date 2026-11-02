@@ -400,7 +400,7 @@
                   placeholder="Enviar un mensaje a #general o pegar una solicitud..."
                   required
                 ></textarea>
-                <div class="slack-composer-toolbar" role="toolbar" aria-label="Formato del mensaje">
+<div class="slack-composer-toolbar" role="toolbar" aria-label="Herramientas del compositor">
                   <div class="slack-fmt-group">
                     <button type="button" class="slack-fmt-icon" data-fmt="bold" title="Negrita (Ctrl+B)" aria-label="Negrita"><b>B</b></button>
                     <button type="button" class="slack-fmt-icon" data-fmt="italic" title="Cursiva (Ctrl+I)" aria-label="Cursiva"><i>I</i></button>
@@ -412,7 +412,20 @@
                   <div class="slack-fmt-group">
                     <button type="button" class="slack-fmt-icon" data-fmt="emoji" title="Emoji" aria-label="Insertar emoji" aria-haspopup="true" aria-expanded="false" aria-controls="emoji-pop"><svg class="icon" width="15" height="15" aria-hidden="true"><use href="#i-smile" /></svg></button>
                     <button type="button" class="slack-fmt-icon" data-fmt="mention" title="Mención" aria-label="Mencionar a alguien"><svg class="icon" width="15" height="15" aria-hidden="true"><use href="#i-at" /></svg></button>
+                    <button type="button" id="mic-dictate-btn" class="slack-fmt-icon slack-fmt-mic-btn" title="Dictar mensaje por voz" aria-label="Dictar mensaje por voz" aria-pressed="false">🎙️</button>
                   </div>
+                </div>                  <div class="slack-fmt-group">
+                    <button type="button" class="slack-fmt-icon" data-fmt="bold" title="Negrita (Ctrl+B)" aria-label="Negrita"><b>B</b></button>
+                    <button type="button" class="slack-fmt-icon" data-fmt="italic" title="Cursiva (Ctrl+I)" aria-label="Cursiva"><i>I</i></button>
+                    <button type="button" class="slack-fmt-icon" data-fmt="strike" title="Tachado" aria-label="Tachado"><s>S</s></button>
+                    <button type="button" class="slack-fmt-icon" data-fmt="link" title="Enlace" aria-label="Enlace"><svg class="icon" width="15" height="15" aria-hidden="true"><use href="#i-link" /></svg></button>
+                    <button type="button" class="slack-fmt-icon" data-fmt="list" title="Lista" aria-label="Lista"><svg class="icon" width="15" height="15" aria-hidden="true"><use href="#i-list" /></svg></button>
+                    <button type="button" class="slack-fmt-icon" data-fmt="code" title="Código" aria-label="Código">&lt;/&gt;</button>
+                  </div>
+                  <div class="slack-fmt-group">
+<button type="button" class="slack-fmt-icon" data-fmt="emoji" title="Emoji" aria-label="Insertar emoji" aria-haspopup="true" aria-expanded="false" aria-controls="emoji-pop"><svg class="icon" width="15" height="15" aria-hidden="true"><use href="#i-smile" /></svg></button>
+                    <button type="button" class="slack-fmt-icon" data-fmt="mention" title="Mención" aria-label="Mencionar a alguien"><svg class="icon" width="15" height="15" aria-hidden="true"><use href="#i-at" /></svg></button>
+                    <button type="button" id="mic-dictate-btn" class="slack-fmt-icon slack-fmt-mic-btn" title="Dictar mensaje por voz" aria-label="Dictar mensaje por voz" aria-pressed="false">🎙️</button>                  </div>
                 </div>
                 <div class="emoji-pop" id="emoji-pop" role="group" aria-label="Emojis" hidden>
                   <button type="button" data-emoji="👍" aria-label="Pulgar arriba">👍</button>
@@ -481,6 +494,9 @@
                 <button type="button" id="export-csv-btn" class="btn btn--ghost" title="Exportar CSV compatible con SharePoint Lists, Planner y Excel">
                   Exportar SharePoint CSV
                 </button>
+                <button type="button" id="export-ics-btn" class="btn btn--ghost" title="Agendar entregas en Outlook / Apple Calendar / Google Calendar (.ics)">
+                  📅 Outlook / iCal (.ics)
+                </button>
                 <button type="button" id="export-teams-card-btn" class="btn btn--ghost" title="Visualizar y copiar Microsoft Teams Adaptive Card v1.5">
                   Teams Adaptive Card
                 </button>
@@ -532,6 +548,9 @@
                   </button>
                   <button type="button" id="copy-clarification-btn" class="btn btn--ghost btn--sm">
                     📋 Copiar mensaje de aclaración
+                  </button>
+                  <button type="button" id="send-clarification-email-btn" class="btn btn--ghost btn--sm" title="Abrir cliente de correo (Outlook/Mail) con el borrador de aclaración">
+                    ✉️ Enviar Correo de Aclaración
                   </button>
                 </div>
               </div>
@@ -971,6 +990,23 @@
       </div>
       <div class="crud-dialog__actions">
         <button type="button" id="dismiss-thread-dialog-btn" class="btn btn--ghost">Cerrar Hilo</button>
+      </div>
+    </dialog>
+
+    <!-- ================================================================ -->
+    <!-- SPOTLIGHT COMMAND PALETTE (CTRL + K)                              -->
+    <!-- ================================================================ -->
+    <dialog id="cmd-palette-dialog" class="cmd-palette-dialog" closedby="any" aria-label="Paleta de comandos de TaskFlow AI">
+      <div class="cmd-palette-header">
+        <span>🔍</span>
+        <input type="text" id="cmd-palette-input" class="cmd-palette-input" placeholder="Escribe un comando o busca una tarea..." autocomplete="off" />
+        <kbd class="cmd-kbd">ESC</kbd>
+      </div>
+      <ul id="cmd-palette-results" class="cmd-palette-results" role="listbox"></ul>
+      <div class="cmd-palette-footer">
+        <span><kbd>↑</kbd> <kbd>↓</kbd> Navegar</span>
+        <span><kbd>↵</kbd> Seleccionar</span>
+        <span><kbd>ESC</kbd> Cerrar</span>
       </div>
     </dialog>
 
