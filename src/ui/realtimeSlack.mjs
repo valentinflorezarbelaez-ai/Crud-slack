@@ -378,8 +378,8 @@ export function initRealtimeSlack({
         const isSelf = currentUser && (msg.author_id === currentUser.id || msg.user_id === currentUser.id);
         const authorInitial = (msg.author_name || "U")[0].toUpperCase();
         const avatar = msg.author_avatar
-          ? `<img src="${escapeHtml(msg.author_avatar)}" alt="${escapeHtml(msg.author_name)}" class="slack-avatar-img" width="38" height="38" loading="lazy" />`
-          : `<div class="slack-avatar">${escapeHtml(authorInitial)}</div>`;
+          ? `<div class="slack-avatar-container" style="width:38px!important;height:38px!important;min-width:38px!important;max-width:38px!important;min-height:38px!important;max-height:38px!important;flex-shrink:0!important;border-radius:8px!important;overflow:hidden!important;display:inline-block!important;"><img src="${escapeHtml(msg.author_avatar)}" alt="${escapeHtml(msg.author_name)}" class="slack-avatar-img" width="38" height="38" style="width:38px!important;height:38px!important;min-width:38px!important;max-width:38px!important;min-height:38px!important;max-height:38px!important;object-fit:cover!important;display:block!important;border-radius:8px!important;flex-shrink:0!important;" loading="lazy" /></div>`
+          : `<div class="slack-avatar" style="width:38px!important;height:38px!important;min-width:38px!important;max-width:38px!important;flex-shrink:0!important;border-radius:8px!important;display:flex!important;align-items:center!important;justify-content:center!important;">${escapeHtml(authorInitial)}</div>`;
 
         const timeStr = msg.created_at
           ? new Date(msg.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
@@ -404,14 +404,14 @@ export function initRealtimeSlack({
 
         return `
           <article class="slack-feed-msg ${isSelf ? "is-self" : ""}" data-msg-id="${escapeHtml(msg.id)}">
-            <div class="slack-msg-header">
+            <div class="slack-msg-header" style="display:flex!important;align-items:flex-start!important;gap:0.75rem!important;width:100%!important;">
               ${avatar}
-              <div class="slack-msg-meta">
+              <div class="slack-msg-meta" style="flex:1 1 auto!important;min-width:0!important;width:calc(100% - 50px)!important;">
                 <div class="slack-msg-sender-row">
                   <strong class="slack-sender">${escapeHtml(msg.author_name || "Usuario")}${isSelf ? ' <span class="badge badge--sm">Tú</span>' : ""}</strong>
                   <time class="slack-time">${escapeHtml(timeStr)}</time>
                 </div>
-                <div class="slack-msg-text">${escapeHtml(msg.text)}</div>
+                <div class="slack-msg-text" style="word-break:break-word!important;overflow-wrap:break-word!important;width:100%!important;">${escapeHtml(msg.text)}</div>
                 <div class="slack-msg-actions-row">
                   <div class="slack-reactions-bar">
                     ${reactionsHtml}
