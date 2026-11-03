@@ -840,7 +840,7 @@ line-height: 1.45;
 display: flex;
 flex-wrap: wrap;
 gap: 0.5rem;
-
+}
 
 /* ---------- Real-time Slack & Google Auth Styles ---------- */
 .slack-user-slot {
@@ -861,13 +861,26 @@ gap: 0.5rem;
   position: relative;
   flex-shrink: 0;
 }
-.slack-user-avatar-img,
-.slack-avatar-img {
+.slack-user-avatar-img {
   width: 32px;
   height: 32px;
   border-radius: 50%;
   object-fit: cover;
   border: 1px solid var(--border-subtle);
+  flex-shrink: 0;
+}
+.slack-avatar-img {
+  width: 38px;
+  height: 38px;
+  min-width: 38px;
+  max-width: 38px;
+  min-height: 38px;
+  max-height: 38px;
+  border-radius: 8px;
+  object-fit: cover;
+  border: 1px solid var(--border-subtle);
+  flex-shrink: 0;
+  display: block;
 }
 .slack-user-avatar-placeholder {
   width: 32px;

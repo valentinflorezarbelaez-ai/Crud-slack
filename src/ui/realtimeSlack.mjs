@@ -378,7 +378,7 @@ export function initRealtimeSlack({
         const isSelf = currentUser && (msg.author_id === currentUser.id || msg.user_id === currentUser.id);
         const authorInitial = (msg.author_name || "U")[0].toUpperCase();
         const avatar = msg.author_avatar
-          ? `<img src="${escapeHtml(msg.author_avatar)}" alt="${escapeHtml(msg.author_name)}" class="slack-avatar-img" />`
+          ? `<img src="${escapeHtml(msg.author_avatar)}" alt="${escapeHtml(msg.author_name)}" class="slack-avatar-img" width="38" height="38" loading="lazy" />`
           : `<div class="slack-avatar">${escapeHtml(authorInitial)}</div>`;
 
         const timeStr = msg.created_at
