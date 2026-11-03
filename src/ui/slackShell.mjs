@@ -6,10 +6,10 @@
 
 const $ = (id) => document.getElementById(id);
 const norm = (s) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
-const shell = $("app-shell");
+const getShell = () => $("slack-shell") || $("app-shell");
 
 function setSidebarOpen(open) {
-  shell?.classList.toggle("is-sidebar-open", open);
+  getShell()?.classList.toggle("is-sidebar-open", open);
   const btn = $("sidebar-toggle-btn");
   btn?.setAttribute("aria-expanded", String(open));
   if ($("sidebar-backdrop")) $("sidebar-backdrop").hidden = !open;
@@ -17,11 +17,11 @@ function setSidebarOpen(open) {
 
 function initSidebar() {
   $("sidebar-toggle-btn")?.addEventListener("click", () => {
-    setSidebarOpen(!shell.classList.contains("is-sidebar-open"));
+    setSidebarOpen(!getShell()?.classList.contains("is-sidebar-open"));
   });
   $("sidebar-backdrop")?.addEventListener("click", () => setSidebarOpen(false));
   document.addEventListener("keydown", (ev) => {
-    if (ev.key === "Escape" && shell?.classList.contains("is-sidebar-open")) setSidebarOpen(false);
+    if (ev.key === "Escape" && getShell()?.classList.contains("is-sidebar-open")) setSidebarOpen(false);
   });
 
   document.querySelectorAll(".sidebar-section__toggle").forEach((toggle) => {
@@ -48,26 +48,7 @@ function initSidebar() {
   });
 
   const channels = $("sidebar-channels");
-  const syncChannel = () => {
-    const active = channels?.querySelector(".slack-channel-pill.is-active");
-    if (!active) return;
-    const name = $("channel-header-name");
-    const topic = $("channel-header-topic");
-    if (name) name.textContent = active.dataset.channelName || "general";
-    if (topic) topic.textContent = active.dataset.topic || "Sin descripción · usa «Editar canal» para añadir una";
-    active.classList.remove("is-unread");
-    active.querySelector(".sidebar-item__badge")?.remove();
-  };
-  if (channels) {
-    new MutationObserver(syncChannel).observe(channels, {
-      attributes: true,
-      attributeFilter: ["class"],
-      childList: true,
-      subtree: true
-    });
-    channels.addEventListener("click", () => setSidebarOpen(false));
-  }
-  syncChannel();
+  channels?.addEventListener("click", () => setSidebarOpen(false));
 
   document.querySelectorAll("[data-mention]").forEach((btn) => {
     btn.addEventListener("click", () => {
