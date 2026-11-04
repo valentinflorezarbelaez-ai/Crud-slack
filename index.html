@@ -2,7 +2,7 @@
 <html lang="es" data-theme="light" data-scale="md">
   <head>
     <meta charset="UTF-8" />
-    <script src="./src/ui/recovery.js?v=5.1.0"></script>
+    <script src="./src/ui/recovery.js?v=5.2.0"></script>
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>TaskFlow AI · Organizador Omnicanal de Tareas con IA &amp; CRUD Verificado</title>
     <meta
@@ -23,21 +23,21 @@
     <link rel="dns-prefetch" href="//fonts.gstatic.com" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="preload" href="./css/styles.css?v=5.1.0" as="style" />
-    <link rel="preload" href="./css/slack-shell.css?v=5.1.0" as="style" />
-    <link rel="stylesheet" href="./css/styles.css?v=5.1.0" />
-    <link rel="stylesheet" href="./css/slack-shell.css?v=5.1.0" />
+    <link rel="preload" href="./css/styles.css?v=5.2.0" as="style" />
+    <link rel="preload" href="./css/slack-shell.css?v=5.2.0" as="style" />
+    <link rel="stylesheet" href="./css/styles.css?v=5.2.0" />
+    <link rel="stylesheet" href="./css/slack-shell.css?v=5.2.0" />
     <link
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap"
       rel="stylesheet"
     />
-    <link rel="modulepreload" href="./src/ui/main.mjs?v=5.1.0" />
-    <link rel="modulepreload" href="./src/ui/slackShell.mjs?v=5.1.0" />
-    <link rel="modulepreload" href="./src/ui/realtimeSlack.mjs?v=5.1.0" />
-    <link rel="modulepreload" href="./src/ui/channels.mjs?v=5.1.0" />
-    <link rel="modulepreload" href="./src/domain/taskEntities.mjs?v=5.1.0" />
-    <link rel="modulepreload" href="./src/domain/taskBoardStore.mjs?v=5.1.0" />
-    <link rel="modulepreload" href="./src/domain/deterministicNlp.mjs?v=5.1.0" />
+    <link rel="modulepreload" href="./src/ui/main.mjs?v=5.2.0" />
+    <link rel="modulepreload" href="./src/ui/slackShell.mjs?v=5.2.0" />
+    <link rel="modulepreload" href="./src/ui/realtimeSlack.mjs?v=5.2.0" />
+    <link rel="modulepreload" href="./src/ui/channels.mjs?v=5.2.0" />
+    <link rel="modulepreload" href="./src/domain/taskEntities.mjs?v=5.2.0" />
+    <link rel="modulepreload" href="./src/domain/taskBoardStore.mjs?v=5.2.0" />
+    <link rel="modulepreload" href="./src/domain/deterministicNlp.mjs?v=5.2.0" />
         <script type="application/ld+json">
       {
         "@context": "https://schema.org",
@@ -89,19 +89,19 @@
             <path d="M82.5 101.3c7.4 0 13.4 6 13.4 13.4s-6 13.4-13.4 13.4-13.4-6-13.4-13.4v-13.4h13.4zm0-6.7c-7.4 0-13.4-6-13.4-13.4s6-13.4 13.4-13.4h33.4c7.4 0 13.4 6 13.4 13.4s-6 13.4-13.4 13.4H82.5z" fill="#ECB22E"/>
           </svg>
         </div>
-        <h1 class="slack-auth-title" id="slack-auth-title">TaskFlow AI — organiza tareas omnicanal con control anti-alucinación</h1>
-        <p class="slack-auth-subtitle">Convierte correo, Slack o Teams en listas priorizadas con CRUD verificado. Entra con Google o un perfil de equipo para colaborar en vivo con persistencia en tiempo real.</p>
+        <h1 class="slack-auth-title" id="slack-auth-title">TaskFlow AI</h1>
+        <p class="slack-auth-subtitle">Elige tu perfil de equipo para entrar al espacio Slack Lists, o continúa con Google.</p>
 
         <div class="slack-auth-section">
-          <span class="slack-auth-label">Perfiles de equipo autorizados (4 usuarios)</span>
-          <div class="team-users-grid" id="team-users-grid" role="list"></div>
+          <span class="slack-auth-label">Equipo autorizado · 4 perfiles</span>
+          <div class="team-users-grid" id="team-users-grid" role="list" aria-label="Perfiles de equipo"></div>
         </div>
 
-        <div class="slack-auth-divider"><span>O ingresa con tu cuenta de Google</span></div>
+        <div class="slack-auth-divider"><span>o continúa con Google</span></div>
 
         <div class="slack-auth-section slack-auth-google-box">
-          <div id="gate-google-btn" class="gate-google-btn-slot"></div>
-          <p class="slack-auth-tip">Tu sesión y tareas se guardarán vinculadas a tu cuenta en Neon PostgreSQL.</p>
+          <div id="gate-google-btn" class="gate-google-btn-slot" aria-label="Iniciar sesión con Google"></div>
+          <p class="slack-auth-tip">Tu sesión queda vinculada de forma segura. Sin secretos en el navegador.</p>
         </div>
       </div>
     </div>
@@ -1087,7 +1087,7 @@
 
     <div id="toast-notification" class="toast" role="status" aria-live="polite" hidden></div>
 
-    <script type="module" src="./src/ui/main.mjs?v=5.1.0"></script>
-    <script type="module" src="./src/ui/slackShell.mjs?v=5.1.0"></script>
+    <script type="module" src="./src/ui/main.mjs?v=5.2.0"></script>
+    <script type="module" src="./src/ui/slackShell.mjs?v=5.2.0"></script>
   </body>
 </html>

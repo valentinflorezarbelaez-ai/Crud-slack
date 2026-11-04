@@ -7,8 +7,63 @@
 import { sql } from "../_db.js";
 import { signSession, createSessionCookieHeader } from "../_auth.js";
 
+const CANONICAL_TEAM = Object.freeze([
+  {
+    id: "usr_valentin",
+    google_id: "demo_valentin_01",
+    email: "valentin.florez@crud-slack.internal",
+    full_name: "Valentín Flórez Arbelaez",
+    avatar_url: "data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Ccircle cx='24' cy='24' r='24' fill='%234A154B'/%3E%3Ctext x='50%25' y='54%25' dominant-baseline='middle' text-anchor='middle' fill='%23fff' font-family='Segoe UI,sans-serif' font-size='16' font-weight='700'%3EVF%3C/text%3E%3C/svg%3E",
+    status_text: "Coordinador General · Activo"
+  },
+  {
+    id: "usr_ana",
+    google_id: "demo_jacobo_02",
+    email: "jacobo.florez@crud-slack.internal",
+    full_name: "Jacobo Flórez Galeano",
+    avatar_url: "data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Ccircle cx='24' cy='24' r='24' fill='%23007A5A'/%3E%3Ctext x='50%25' y='54%25' dominant-baseline='middle' text-anchor='middle' fill='%23fff' font-family='Segoe UI,sans-serif' font-size='16' font-weight='700'%3EJF%3C/text%3E%3C/svg%3E",
+    status_text: "Diseño UX/UI · Activo"
+  },
+  {
+    id: "usr_carlos",
+    google_id: "demo_edison_03",
+    email: "edison.florez@crud-slack.internal",
+    full_name: "Edison Flórez López",
+    avatar_url: "data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Ccircle cx='24' cy='24' r='24' fill='%231264A3'/%3E%3Ctext x='50%25' y='54%25' dominant-baseline='middle' text-anchor='middle' fill='%23fff' font-family='Segoe UI,sans-serif' font-size='16' font-weight='700'%3EEF%3C/text%3E%3C/svg%3E",
+    status_text: "Ingeniero Backend · Activo"
+  },
+  {
+    id: "usr_elena",
+    google_id: "demo_roberto_04",
+    email: "roberto.urrea@crud-slack.internal",
+    full_name: "Roberto Urrea",
+    avatar_url: "data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Ccircle cx='24' cy='24' r='24' fill='%23ECB22E'/%3E%3Ctext x='50%25' y='54%25' dominant-baseline='middle' text-anchor='middle' fill='%231D1C1D' font-family='Segoe UI,sans-serif' font-size='16' font-weight='700'%3ERU%3C/text%3E%3C/svg%3E",
+    status_text: "QA & Testing · Activo"
+  }
+]);
+
+async function syncCanonicalTeam() {
+  for (const u of CANONICAL_TEAM) {
+    await sql(
+      `
+      INSERT INTO users (id, google_id, email, full_name, avatar_url, status_text, last_seen_at)
+      VALUES ($1, $2, $3, $4, $5, $6, NOW())
+      ON CONFLICT (id) DO UPDATE SET
+        google_id = EXCLUDED.google_id,
+        email = EXCLUDED.email,
+        full_name = EXCLUDED.full_name,
+        avatar_url = EXCLUDED.avatar_url,
+        status_text = EXCLUDED.status_text
+      `,
+      [u.id, u.google_id, u.email, u.full_name, u.avatar_url, u.status_text]
+    );
+  }
+}
+
 export async function GET() {
   try {
+    await syncCanonicalTeam();
+
     const rows = await sql(`
       SELECT id, full_name, email, avatar_url, status_text
       FROM users
@@ -61,6 +116,8 @@ export async function POST(req) {
       });
     }
 
+    await syncCanonicalTeam();
+
     const rows = await sql(
       `SELECT id, google_id, email, full_name, avatar_url, status_text FROM users WHERE id = $1 LIMIT 1;`,
       [userId]
@@ -75,7 +132,6 @@ export async function POST(req) {
 
     const user = rows[0];
 
-    // Update last_seen_at
     await sql(`UPDATE users SET last_seen_at = NOW() WHERE id = $1;`, [user.id]);
 
     const sessionToken = await signSession({

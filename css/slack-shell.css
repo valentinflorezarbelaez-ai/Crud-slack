@@ -1053,8 +1053,8 @@ gap: 0.5rem;
   position: fixed;
   inset: 0;
   z-index: 99999;
-  background: rgba(15, 13, 19, 0.94);
-  backdrop-filter: blur(10px);
+  background: rgba(18, 16, 22, 0.72);
+  backdrop-filter: blur(14px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1064,57 +1064,61 @@ gap: 0.5rem;
   display: none !important;
 }
 .slack-auth-modal {
+  position: relative;
   background: var(--bg-surface, #1e1d24);
   border: 1px solid var(--border-strong, #3a3842);
-  border-radius: var(--radius-md, 12px);
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6);
-  max-width: 540px;
+  border-radius: 18px;
+  box-shadow: 0 28px 64px rgba(0, 0, 0, 0.35);
+  max-width: 560px;
   width: 100%;
-  padding: 2.2rem 2.2rem;
+  max-height: min(92vh, 720px);
+  overflow-y: auto;
+  padding: 1.75rem 1.6rem 1.5rem;
   text-align: center;
-  animation: authFadeIn 0.25s ease-out;
+  animation: authFadeIn 0.28s cubic-bezier(0.16, 1, 0.3, 1);
 }
 @keyframes authFadeIn {
-  from { opacity: 0; transform: scale(0.97); }
-  to { opacity: 1; transform: scale(1); }
+  from { opacity: 0; transform: translateY(8px) scale(0.985); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
 }
 .slack-auth-logo {
   display: flex;
   justify-content: center;
-  margin-bottom: 0.85rem;
+  margin-bottom: 0.7rem;
 }
 .slack-auth-title {
-  font-size: 1.45rem;
+  font-size: clamp(1.15rem, 2.4vw, 1.4rem);
   font-weight: 800;
-  margin: 0 0 0.35rem;
-  color: var(--text-primary, #ffffff);
-  letter-spacing: -0.02em;
+  margin: 0 0 0.4rem;
+  color: var(--text-primary, #1d1c1d);
+  letter-spacing: -0.03em;
+  line-height: 1.25;
 }
 .slack-auth-subtitle {
-  color: var(--text-secondary, #a09fa6);
-  font-size: 0.9rem;
-  margin: 0 0 1.5rem;
-  line-height: 1.4;
+  color: var(--text-secondary, #616061);
+  font-size: 0.88rem;
+  margin: 0 0 1.35rem;
+  line-height: 1.45;
 }
 .slack-auth-section {
   text-align: left;
-  margin-bottom: 1.25rem;
+  margin-bottom: 0.35rem;
 }
 .slack-auth-label {
   display: block;
-  font-size: 0.78rem;
+  font-size: 0.72rem;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--text-muted, #7c7b85);
-  margin-bottom: 0.75rem;
+  letter-spacing: 0.06em;
+  color: var(--text-muted, #868686);
+  margin-bottom: 0.65rem;
 }
 .team-users-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 0.75rem;
+  gap: 0.65rem;
 }
-@media (max-width: 480px) {
+@media (max-width: 520px) {
   .team-users-grid {
     grid-template-columns: 1fr;
   }
@@ -1122,49 +1126,57 @@ gap: 0.5rem;
 .team-user-card {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  padding: 0.75rem 0.85rem;
-  background: var(--bg-elevated, #282730);
-  border: 1px solid var(--border-subtle, #383742);
-  border-radius: var(--radius-sm, 8px);
+  gap: 0.7rem;
+  padding: 0.8rem 0.85rem;
+  background: var(--bg-canvas, #f4f5f7);
+  border: 1px solid var(--border-subtle, #e8e8e8);
+  border-radius: 12px;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: border-color 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
   text-align: left;
   font: inherit;
-  color: var(--text-primary, #ffffff);
+  color: var(--text-primary, #1d1c1d);
   width: 100%;
+  min-height: 68px;
 }
-.team-user-card:hover {
-  border-color: var(--accent, #611f69);
-  background: rgba(97, 31, 105, 0.25);
-  transform: translateY(-2px);
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.25);
+.team-user-card:hover,
+.team-user-card:focus-visible {
+  border-color: #611f69;
+  background: color-mix(in srgb, #611f69 8%, var(--bg-surface, #fff));
+  transform: translateY(-1px);
+  box-shadow: 0 8px 18px rgba(97, 31, 105, 0.12);
+  outline: none;
 }
 .team-user-avatar {
-  width: 38px;
-  height: 38px;
+  width: 42px;
+  height: 42px;
   border-radius: 50%;
   object-fit: cover;
   flex-shrink: 0;
-  border: 1.5px solid rgba(255, 255, 255, 0.15);
-  background: rgba(255, 255, 255, 0.05);
+  border: 1.5px solid var(--border-subtle, #e8e8e8);
+  background: var(--bg-elevated, #fff);
 }
 .team-user-info {
   display: flex;
   flex-direction: column;
+  gap: 0.12rem;
   min-width: 0;
+  flex: 1;
 }
 .team-user-name {
-  font-size: 0.9rem;
+  font-size: 0.84rem;
   font-weight: 700;
-  white-space: nowrap;
+  line-height: 1.25;
+  color: var(--text-primary, #1d1c1d);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
   overflow: hidden;
-  text-overflow: ellipsis;
-  color: #ffffff;
 }
 .team-user-role {
-  font-size: 0.72rem;
-  color: var(--text-secondary, #a09fa6);
+  font-size: 0.7rem;
+  line-height: 1.3;
+  color: var(--text-secondary, #616061);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1172,36 +1184,75 @@ gap: 0.5rem;
 .slack-auth-divider {
   display: flex;
   align-items: center;
-  margin: 1.35rem 0 1.1rem;
-  color: var(--text-muted, #7c7b85);
-  font-size: 0.8rem;
+  margin: 1.15rem 0 0.95rem;
+  color: var(--text-muted, #868686);
+  font-size: 0.78rem;
 }
 .slack-auth-divider::before,
 .slack-auth-divider::after {
   content: "";
   flex: 1;
-  border-bottom: 1px solid var(--border-subtle, #383742);
+  border-bottom: 1px solid var(--border-subtle, #e8e8e8);
 }
 .slack-auth-divider span {
-  padding: 0 0.85rem;
+  padding: 0 0.75rem;
+  white-space: nowrap;
 }
 .slack-auth-google-box {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.6rem;
+  gap: 0.55rem;
+  margin-bottom: 0;
 }
 .gate-google-btn-slot {
+  width: 100%;
+  max-width: 280px;
   min-height: 44px;
+  max-height: 48px;
   display: flex;
   align-items: center;
   justify-content: center;
+  overflow: hidden;
+}
+.gate-google-btn-slot > div {
+  max-width: 280px !important;
+  max-height: 44px !important;
+  overflow: hidden !important;
+}
+.gate-google-btn-slot iframe {
+  max-width: 280px !important;
+  max-height: 44px !important;
+  width: 280px !important;
+  height: 44px !important;
 }
 .slack-auth-tip {
-  font-size: 0.75rem;
-  color: var(--text-muted, #7c7b85);
+  font-size: 0.72rem;
+  color: var(--text-muted, #868686);
   margin: 0;
   text-align: center;
+  max-width: 36ch;
+  line-height: 1.4;
+}
+html[data-theme="dark"] .team-user-card {
+  background: #282730;
+  border-color: #383742;
+  color: #f5f4f7;
+}
+html[data-theme="dark"] .team-user-card:hover,
+html[data-theme="dark"] .team-user-card:focus-visible {
+  background: rgba(97, 31, 105, 0.28);
+  border-color: #9b59b6;
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.28);
+}
+html[data-theme="dark"] .team-user-name {
+  color: #ffffff;
+}
+html[data-theme="dark"] .team-user-role {
+  color: #a09fa6;
+}
+html[data-theme="dark"] .team-user-avatar {
+  border-color: rgba(255, 255, 255, 0.14);
 }
 .slack-switch-user-btn {
   font-size: 0.72rem;

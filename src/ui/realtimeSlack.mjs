@@ -10,7 +10,7 @@ const GOOGLE_CLIENT_ID = "600439007156-q6ku9a6fnm3dcmbkakgv5fi9b57enm89.apps.goo
 
 const makeAvatarSvg = (initials, bg, fg = "#ffffff") =>
   `data:image/svg+xml;utf8,${encodeURIComponent(
-    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48"><rect width="48" height="48" rx="10" fill="${bg}"/><text x="50%" y="54%" dominant-baseline="middle" text-anchor="middle" fill="${fg}" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif" font-size="18" font-weight="700">${initials}</text></svg>`
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48"><circle cx="24" cy="24" r="24" fill="${bg}"/><text x="50%" y="54%" dominant-baseline="middle" text-anchor="middle" fill="${fg}" font-family="Segoe UI,system-ui,sans-serif" font-size="16" font-weight="700">${initials}</text></svg>`
   )}`;
 
 export const TEAM_PROFILES = Object.freeze({
@@ -71,8 +71,8 @@ export function initRealtimeSlack({
     teamUsersGrid.innerHTML = Object.values(TEAM_PROFILES)
       .map(
         (u) => `
-        <button type="button" class="team-user-card" data-user-id="${escapeHtml(u.id)}" role="listitem">
-          <img src="${escapeHtml(u.avatar_url)}" alt="${escapeHtml(u.full_name)}" class="team-user-avatar" width="44" height="44" />
+        <button type="button" class="team-user-card" data-user-id="${escapeHtml(u.id)}" role="listitem" aria-label="Entrar como ${escapeHtml(u.full_name)}">
+          <img src="${escapeHtml(u.avatar_url)}" alt="" class="team-user-avatar" width="42" height="42" decoding="async" />
           <div class="team-user-info">
             <strong class="team-user-name">${escapeHtml(u.full_name)}</strong>
             <span class="team-user-role">${escapeHtml(u.status_text)}</span>
@@ -261,31 +261,31 @@ export function initRealtimeSlack({
         cancel_on_tap_outside: true
       });
 
-      // Render on gate modal if present
       const gateBtnContainer = document.getElementById("gate-google-btn");
       if (gateBtnContainer) {
+        gateBtnContainer.replaceChildren();
         window.google.accounts.id.renderButton(gateBtnContainer, {
           type: "standard",
           theme: "outline",
           size: "large",
           text: "signin_with",
-          shape: "pill",
+          shape: "rectangular",
           logo_alignment: "left",
-          width: 250
+          width: 280
         });
       }
 
-      // Render on sidebar slot if present
       const sidebarBtnContainer = document.getElementById("google-btn-container");
       if (sidebarBtnContainer) {
+        sidebarBtnContainer.replaceChildren();
         window.google.accounts.id.renderButton(sidebarBtnContainer, {
           type: "standard",
           theme: "outline",
           size: "medium",
           text: "signin_with",
-          shape: "pill",
+          shape: "rectangular",
           logo_alignment: "left",
-          width: 210
+          width: 220
         });
       }
     } catch (err) {
