@@ -31,14 +31,14 @@ import { setupCommandPalette } from "./commandPalette.mjs";
 import { fireConfettiCelebration } from "./confetti.mjs";
 import { renderTableView, renderSharePointListView, renderTeamsCardPreview } from "./taskViews.mjs";
 import { playTaskCompletedSound } from "./soundFx.mjs";
-import { initRealtimeSlack } from "./realtimeSlack.mjs";
+import { initRealtimeSlack } from "./realtimeSlack.mjs?v=5.2.1";
 import {
   loadPersistedBoardState,
   removePersistedBoardState,
   savePersistedBoardState
 } from "../infrastructure/storageAdapter.mjs";
-import { WORKPLACE_PRESETS } from "./presets.mjs";
-import { initChannels, syncChannelPanels } from "./channels.mjs";
+import { WORKPLACE_PRESETS } from "./presets.mjs?v=5.2.1";
+import { initChannels, syncChannelPanels } from "./channels.mjs?v=5.2.1";
 import { initVisualPreferences, nextFridayIso } from "./preferences.mjs";
 const NEXT_STATUS_CYCLE = Object.freeze({
   PENDING: "IN_PROGRESS",

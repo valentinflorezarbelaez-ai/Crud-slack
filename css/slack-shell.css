@@ -1209,22 +1209,52 @@ gap: 0.5rem;
   width: 100%;
   max-width: 280px;
   min-height: 44px;
-  max-height: 48px;
   display: flex;
   align-items: center;
   justify-content: center;
-  overflow: hidden;
+  overflow: visible;
+  position: relative;
 }
 .gate-google-btn-slot > div {
+  width: 280px !important;
   max-width: 280px !important;
-  max-height: 44px !important;
-  overflow: hidden !important;
 }
 .gate-google-btn-slot iframe {
-  max-width: 280px !important;
-  max-height: 44px !important;
   width: 280px !important;
+  max-width: 280px !important;
   height: 44px !important;
+  max-height: 44px !important;
+  transform: none !important;
+}
+.tf-google-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
+  width: 100%;
+  max-width: 280px;
+  min-height: 44px;
+  padding: 0.55rem 1rem;
+  border-radius: 10px;
+  border: 1px solid var(--border-strong, #d1d2d3);
+  background: var(--bg-surface, #fff);
+  color: var(--text-primary, #1d1c1d);
+  font: inherit;
+  font-weight: 650;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+.tf-google-btn:hover,
+.tf-google-btn:focus-visible {
+  border-color: #4285f4;
+  box-shadow: 0 4px 14px rgba(66, 133, 244, 0.18);
+  outline: none;
+}
+.tf-google-btn__mark {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
 }
 .slack-auth-tip {
   font-size: 0.72rem;
