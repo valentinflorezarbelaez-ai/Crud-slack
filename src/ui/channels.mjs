@@ -84,8 +84,8 @@ export function initChannels({ onActivate, onRemoved, showToast }) {
       members.append(span("", "VF"));
       return;
     }
-    members.setAttribute("aria-label", "7 miembros en el canal");
-    members.append(span("", "LS"), span("", "CR"), span("", "EL"), span("avatar-stack__more", "+4"));
+    members.setAttribute("aria-label", "4 miembros en el canal");
+    members.append(span("", "VF"), span("", "JF"), span("", "EF"), span("", "RU"));
   }
 
   function render() {

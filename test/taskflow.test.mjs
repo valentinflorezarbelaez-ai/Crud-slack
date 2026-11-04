@@ -141,7 +141,7 @@ describe("SPEC-CRUD-SLACK-001: TaskFlow AI Domain, Anti-Hallucination & API Suit
       payload: {
         id: firstId,
         deadlineDate: "2026-10-29",
-        assignee: "Ana Gómez",
+        assignee: "Jacobo Flórez Galeano",
         status: "COMPLETED"
       }
     });

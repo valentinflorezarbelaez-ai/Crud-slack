@@ -16,31 +16,31 @@ const makeAvatarSvg = (initials, bg, fg = "#ffffff") =>
 export const TEAM_PROFILES = Object.freeze({
   usr_valentin: {
     id: "usr_valentin",
-    full_name: "Valentín Flórez",
+    full_name: "Valentín Flórez Arbelaez",
     email: "valentin.florez@crud-slack.internal",
     avatar_url: makeAvatarSvg("VF", "#4A154B", "#FFFFFF"),
     status_text: "Coordinador General · Activo"
   },
   usr_ana: {
     id: "usr_ana",
-    full_name: "Ana Gómez",
-    email: "ana.gomez@crud-slack.internal",
-    avatar_url: makeAvatarSvg("AG", "#007A5A", "#FFFFFF"),
-    status_text: "Diseño UX/UI · Activa"
+    full_name: "Jacobo Flórez Galeano",
+    email: "jacobo.florez@crud-slack.internal",
+    avatar_url: makeAvatarSvg("JF", "#007A5A", "#FFFFFF"),
+    status_text: "Diseño UX/UI · Activo"
   },
   usr_carlos: {
     id: "usr_carlos",
-    full_name: "Carlos Restrepo",
-    email: "carlos.restrepo@crud-slack.internal",
-    avatar_url: makeAvatarSvg("CR", "#1264A3", "#FFFFFF"),
+    full_name: "Edison Flórez López",
+    email: "edison.florez@crud-slack.internal",
+    avatar_url: makeAvatarSvg("EF", "#1264A3", "#FFFFFF"),
     status_text: "Ingeniero Backend · Activo"
   },
   usr_elena: {
     id: "usr_elena",
-    full_name: "Elena Morales",
-    email: "elena.morales@crud-slack.internal",
-    avatar_url: makeAvatarSvg("EM", "#ECB22E", "#1D1C1D"),
-    status_text: "QA & Testing · Activa"
+    full_name: "Roberto Urrea",
+    email: "roberto.urrea@crud-slack.internal",
+    avatar_url: makeAvatarSvg("RU", "#ECB22E", "#1D1C1D"),
+    status_text: "QA & Testing · Activo"
   }
 });
 

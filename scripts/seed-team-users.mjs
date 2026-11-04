@@ -5,33 +5,33 @@ const TEAM_USERS = [
     id: "usr_valentin",
     google_id: "demo_valentin_01",
     email: "valentin.florez@crud-slack.internal",
-    full_name: "Valentín Flórez",
+    full_name: "Valentín Flórez Arbelaez",
     avatar_url: "https://api.dicebear.com/7.x/bottts/svg?seed=Valentin",
     status_text: "Coordinador General · Activo"
   },
   {
     id: "usr_ana",
-    google_id: "demo_ana_02",
-    email: "ana.gomez@crud-slack.internal",
-    full_name: "Ana Gómez",
-    avatar_url: "https://api.dicebear.com/7.x/bottts/svg?seed=Ana",
-    status_text: "Tech Lead Frontend · Activa"
+    google_id: "demo_jacobo_02",
+    email: "jacobo.florez@crud-slack.internal",
+    full_name: "Jacobo Flórez Galeano",
+    avatar_url: "https://api.dicebear.com/7.x/bottts/svg?seed=Jacobo",
+    status_text: "Diseño UX/UI · Activo"
   },
   {
     id: "usr_carlos",
-    google_id: "demo_carlos_03",
-    email: "carlos.ruiz@crud-slack.internal",
-    full_name: "Carlos Ruiz",
-    avatar_url: "https://api.dicebear.com/7.x/bottts/svg?seed=Carlos",
-    status_text: "DevOps & Cloud · Activo"
+    google_id: "demo_edison_03",
+    email: "edison.florez@crud-slack.internal",
+    full_name: "Edison Flórez López",
+    avatar_url: "https://api.dicebear.com/7.x/bottts/svg?seed=Edison",
+    status_text: "Ingeniero Backend · Activo"
   },
   {
     id: "usr_elena",
-    google_id: "demo_elena_04",
-    email: "elena.lopez@crud-slack.internal",
-    full_name: "Elena López",
-    avatar_url: "https://api.dicebear.com/7.x/bottts/svg?seed=Elena",
-    status_text: "Product & QA · Activa"
+    google_id: "demo_roberto_04",
+    email: "roberto.urrea@crud-slack.internal",
+    full_name: "Roberto Urrea",
+    avatar_url: "https://api.dicebear.com/7.x/bottts/svg?seed=Roberto",
+    status_text: "QA & Testing · Activo"
   }
 ];
 
@@ -42,6 +42,8 @@ async function seed() {
       INSERT INTO users (id, google_id, email, full_name, avatar_url, status_text, last_seen_at)
       VALUES ($1, $2, $3, $4, $5, $6, NOW())
       ON CONFLICT (id) DO UPDATE SET
+        google_id = EXCLUDED.google_id,
+        email = EXCLUDED.email,
         full_name = EXCLUDED.full_name,
         avatar_url = EXCLUDED.avatar_url,
         status_text = EXCLUDED.status_text,
@@ -52,7 +54,6 @@ async function seed() {
     console.log("Seeded user:", res[0]);
   }
 
-  // Also seed initial welcome messages in #general demonstrating the 4 users
   const messages = [
     {
       id: "msg_init_01",

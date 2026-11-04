@@ -48,7 +48,7 @@ export function getInitialRoleTasks(userId, refDateIso) {
         status: "PENDING",
         deadlineDate: refDateIso,
         deadlineState: "CONFIRMED",
-        assignee: "Valentín Flórez",
+        assignee: "Valentín Flórez Arbelaez",
         sourceQuote: "reunión del equipo para el viernes",
         priorityReason: "Coordinación general de compromisos del equipo."
       },
@@ -59,7 +59,7 @@ export function getInitialRoleTasks(userId, refDateIso) {
         status: "IN_PROGRESS",
         deadlineDate: null,
         deadlineState: "MISSING",
-        assignee: "Valentín Flórez",
+        assignee: "Valentín Flórez Arbelaez",
         sourceQuote: "revisar los resultados del mes",
         priorityReason: "Reporte de avance para la dirección."
       },
@@ -70,7 +70,7 @@ export function getInitialRoleTasks(userId, refDateIso) {
         status: "PENDING",
         deadlineDate: refDateIso,
         deadlineState: "CONFIRMED",
-        assignee: "Valentín Flórez",
+        assignee: "Valentín Flórez Arbelaez",
         sourceQuote: "enviar la agenda a los participantes",
         priorityReason: "Alineación de participantes antes de la sesión."
       }
@@ -83,7 +83,7 @@ export function getInitialRoleTasks(userId, refDateIso) {
         status: "IN_PROGRESS",
         deadlineDate: refDateIso,
         deadlineState: "CONFIRMED",
-        assignee: "Ana Gómez",
+        assignee: "Jacobo Flórez Galeano",
         sourceQuote: "sistema de diseño y componentes UX",
         priorityReason: "Consistencia visual y tokens de accesibilidad."
       },
@@ -94,7 +94,7 @@ export function getInitialRoleTasks(userId, refDateIso) {
         status: "PENDING",
         deadlineDate: null,
         deadlineState: "MISSING",
-        assignee: "Ana Gómez",
+        assignee: "Jacobo Flórez Galeano",
         sourceQuote: "auditoría de accesibilidad visual",
         priorityReason: "Cumplimiento normativo y ergonomía visual."
       },
@@ -105,7 +105,7 @@ export function getInitialRoleTasks(userId, refDateIso) {
         status: "COMPLETED",
         deadlineDate: refDateIso,
         deadlineState: "CONFIRMED",
-        assignee: "Ana Gómez",
+        assignee: "Jacobo Flórez Galeano",
         sourceQuote: "estados interactivos",
         priorityReason: "Claridad en feedback táctil y teclado."
       }
@@ -118,7 +118,7 @@ export function getInitialRoleTasks(userId, refDateIso) {
         status: "IN_PROGRESS",
         deadlineDate: refDateIso,
         deadlineState: "CONFIRMED",
-        assignee: "Carlos Restrepo",
+        assignee: "Edison Flórez López",
         sourceQuote: "conexiones PostgreSQL serverless",
         priorityReason: "Estabilidad de persistencia en tiempo real."
       },
@@ -129,7 +129,7 @@ export function getInitialRoleTasks(userId, refDateIso) {
         status: "COMPLETED",
         deadlineDate: refDateIso,
         deadlineState: "CONFIRMED",
-        assignee: "Carlos Restrepo",
+        assignee: "Edison Flórez López",
         sourceQuote: "seguridad de sesiones y cookies",
         priorityReason: "Protección contra inyección y manipulación de tokens."
       },
@@ -140,7 +140,7 @@ export function getInitialRoleTasks(userId, refDateIso) {
         status: "PENDING",
         deadlineDate: null,
         deadlineState: "MISSING",
-        assignee: "Carlos Restrepo",
+        assignee: "Edison Flórez López",
         sourceQuote: "observabilidad de endpoints",
         priorityReason: "Diagnóstico proactivo de latencia."
       }
@@ -153,7 +153,7 @@ export function getInitialRoleTasks(userId, refDateIso) {
         status: "IN_PROGRESS",
         deadlineDate: refDateIso,
         deadlineState: "CONFIRMED",
-        assignee: "Elena Morales",
+        assignee: "Roberto Urrea",
         sourceQuote: "suite de pruebas automatizadas",
         priorityReason: "Garantía de calidad 7-gate SecDevOps."
       },
@@ -164,7 +164,7 @@ export function getInitialRoleTasks(userId, refDateIso) {
         status: "COMPLETED",
         deadlineDate: refDateIso,
         deadlineState: "CONFIRMED",
-        assignee: "Elena Morales",
+        assignee: "Roberto Urrea",
         sourceQuote: "aislamiento de estado multi-usuario",
         priorityReason: "Verificación de independencia de historiales."
       },
@@ -175,7 +175,7 @@ export function getInitialRoleTasks(userId, refDateIso) {
         status: "PENDING",
         deadlineDate: null,
         deadlineState: "MISSING",
-        assignee: "Elena Morales",
+        assignee: "Roberto Urrea",
         sourceQuote: "pruebas de canales dinámicos",
         priorityReason: "Comprobación de sincronización con base de datos."
       }
