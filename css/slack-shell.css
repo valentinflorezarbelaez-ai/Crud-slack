@@ -1007,7 +1007,7 @@ gap: 0.5rem;
   padding: 0.5rem 0;
 }
 .slack-feed-empty {
-  padding: 2rem 1rem;
+  padding: 2rem 1.1rem;
   text-align: center;
   color: var(--text-muted);
   background: var(--bg-surface);
@@ -1015,6 +1015,13 @@ gap: 0.5rem;
   border-radius: var(--radius-sm);
   font-size: 0.9rem;
 }
+.slack-feed-empty__title {
+  margin: 0 0 0.45rem;
+  color: var(--text-main, #e8eef7);
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+.slack-feed-empty p { margin: 0.35rem 0; text-wrap: pretty; }
 .slack-feed-msg {
   background: var(--bg-surface);
   border: 1px solid var(--border-subtle);

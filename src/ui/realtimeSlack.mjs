@@ -365,9 +365,10 @@ export function initRealtimeSlack({
 
     if (messages.length === 0) {
       messageFeed.innerHTML = `
-        <div class="slack-feed-empty">
-          <p>Este es el comienzo del canal <strong>#${escapeHtml(activeChannelName)}</strong>.</p>
-          <p><small>Envía el primer mensaje o una solicitud para organizar actividades en equipo.</small></p>
+        <div class="slack-feed-empty" role="status">
+          <p class="slack-feed-empty__title">Canal listo</p>
+          <p>Escribe una solicitud en <strong>#${escapeHtml(activeChannelName)}</strong> y TaskFlow la convertirá en tareas priorizadas.</p>
+          <p><small>Tip: pega un correo o mensaje de Slack/Teams para empezar.</small></p>
         </div>
       `;
       return;

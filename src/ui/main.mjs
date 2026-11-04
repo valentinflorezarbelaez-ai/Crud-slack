@@ -393,7 +393,7 @@ function renderWorkspace() {
   const filtered = getFilteredTasks();
   if (!el.tasksRenderRoot) return;
   if (filtered.length === 0) {
-    el.tasksRenderRoot.innerHTML = `<div class="empty-state">No hay tareas que coincidan con el filtro seleccionado. Usa "+ Nueva Tarea" o analiza una solicitud.</div>`;
+    el.tasksRenderRoot.innerHTML = `<div class="empty-state" role="status"><strong>Sin tareas aquí todavía</strong><p>Crea una con “+ Nueva Tarea” o pega una solicitud para que la IA la organice sin inventar fechas.</p></div>`;
     return;
   }
   if (currentViewMode === "table") {
