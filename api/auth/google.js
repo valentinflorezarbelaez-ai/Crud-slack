@@ -6,12 +6,17 @@
 import { sql } from "../_db.js";
 import { signSession, createSessionCookieHeader } from "../_auth.js";
 
-const EXPECTED_CLIENT_ID =
-  process.env.GOOGLE_CLIENT_ID ||
-  "600439007156-q6ku9a6fnm3dcmbkakgv5fi9b57enm89.apps.googleusercontent.com";
+function requireGoogleClientId() {
+  const id = (process.env.GOOGLE_CLIENT_ID || "").trim();
+  if (!id) {
+    throw new Error("GOOGLE_CLIENT_ID_REQUIRED");
+  }
+  return id;
+}
 
 export async function POST(req) {
   try {
+    const expectedClientId = requireGoogleClientId();
     const body = await req.json().catch(() => ({}));
     const credential = body.credential;
 
@@ -35,7 +40,7 @@ export async function POST(req) {
 
     const payload = await gRes.json();
 
-    if (payload.aud !== EXPECTED_CLIENT_ID) {
+    if (payload.aud !== expectedClientId) {
       return new Response(JSON.stringify({ ok: false, error: "Token audience mismatch" }), {
         status: 403,
         headers: { "Content-Type": "application/json" }

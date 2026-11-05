@@ -2,18 +2,26 @@
  * LAYER-0 SESSION & AUTHENTICATION HELPER
  * HMAC-SHA256 session token signer using native Web Crypto API.
  * Zero external npm dependencies.
+ * IA-5: SESSION_SECRET must come from environment — no plaintext fallback.
  */
 
 import { sql } from "./_db.js";
 
-const SESSION_SECRET = process.env.SESSION_SECRET || "taskflow-secure-hmac-secret-key-2026-production";
+function requireSessionSecret() {
+  const value = (process.env.SESSION_SECRET || "").trim();
+  if (value.length < 32) {
+    throw new Error("SESSION_SECRET_REQUIRED_MIN_32_CHARS");
+  }
+  return value;
+}
+
 const COOKIE_NAME = "taskflow_session";
 
 async function getHmacKey() {
   const encoder = new TextEncoder();
   return crypto.subtle.importKey(
     "raw",
-    encoder.encode(SESSION_SECRET),
+    encoder.encode(requireSessionSecret()),
     { name: "HMAC", hash: "SHA-256" },
     false,
     ["sign", "verify"]
