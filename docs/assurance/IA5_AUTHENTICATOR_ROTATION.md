@@ -23,3 +23,19 @@ Fail-closed authenticators:
 - `api/auth/google-client.js` GET bootstraps GIS client id from env only (503 if unset).
 - `src/ui/realtimeSlack.mjs` fetches `/api/auth/google-client` — zero hardcoded client id.
 - `.env*` gitignored; `.env.example` placeholders only; local redact via `scripts/redact-env-local.mjs`.
+
+## Rotation attestation (2026-11-05)
+
+- `SESSION_SECRET` uploaded to Vercel Production / Preview / Development via CLI (stdin; no plaintext in git/chat).
+- Attestation SHA-256 of rotated value: `565877da8d9277abb167f4fbffddffc86144c6cbd728546fb641f42482dca4e9`
+- Local secret file removed after upload.
+- Residual: set `GOOGLE_CLIENT_ID` in Vercel host secrets if OAuth must work in production (owner-held; agent must not invent client ids).
+- Epistemic: `IA5_SESSION_SECRET_ROTATED_WITHIN_TESTED_SCOPE` — not Level-5.
+
+## Rotation attestation (2026-11-05)
+
+- `SESSION_SECRET` uploaded to Vercel Production / Preview / Development via CLI (stdin; no plaintext in git/chat).
+- Attestation SHA-256 of rotated value: `565877da8d9277abb167f4fbffddffc86144c6cbd728546fb641f42482dca4e9`
+- Local secret file removed after upload.
+- Residual: set `GOOGLE_CLIENT_ID` in Vercel host secrets if OAuth must work in production (owner-held; agent must not invent client ids).
+- Epistemic: `IA5_SESSION_SECRET_ROTATED_WITHIN_TESTED_SCOPE` — not Level-5.
