@@ -6,7 +6,18 @@
 
 import { escapeHtml } from "../domain/taskEntities.mjs";
 
-const GOOGLE_CLIENT_ID = "600439007156-q6ku9a6fnm3dcmbkakgv5fi9b57enm89.apps.googleusercontent.com";
+/** Resolve GIS client id from host env via fail-closed API — never hardcode. */
+let cachedGoogleClientId = "";
+async function resolveGoogleClientId() {
+  if (cachedGoogleClientId) return cachedGoogleClientId;
+  const res = await fetch("/api/auth/google-client", { credentials: "same-origin" });
+  if (!res.ok) throw new Error("GOOGLE_CLIENT_ID_REQUIRED");
+  const body = await res.json().catch(() => ({}));
+  const id = typeof body.clientId === "string" ? body.clientId.trim() : "";
+  if (!id) throw new Error("GOOGLE_CLIENT_ID_REQUIRED");
+  cachedGoogleClientId = id;
+  return id;
+}
 
 const makeAvatarSvg = (initials, bg, fg = "#ffffff") =>
   `data:image/svg+xml;utf8,${encodeURIComponent(
@@ -218,15 +229,18 @@ export function initRealtimeSlack({
     loadGoogleScriptAndRender();
   }
 
+  let googleMountStarted = false;
   function loadGoogleScriptAndRender() {
     if (typeof window === "undefined") return;
 
     const tryMount = () => {
-      if (window.google?.accounts?.id) {
-        mountGoogleButtons();
-        return true;
-      }
-      return false;
+      if (!window.google?.accounts?.id) return false;
+      if (googleMountStarted) return true;
+      googleMountStarted = true;
+      void mountGoogleButtons().catch(() => {
+        googleMountStarted = false;
+      });
+      return true;
     };
 
     if (tryMount()) return;
@@ -250,12 +264,13 @@ export function initRealtimeSlack({
     }, 200);
   }
 
-  function mountGoogleButtons() {
+  async function mountGoogleButtons() {
     if (!window.google?.accounts?.id) return;
 
     try {
+      const clientId = await resolveGoogleClientId();
       window.google.accounts.id.initialize({
-        client_id: GOOGLE_CLIENT_ID,
+        client_id: clientId,
         callback: handleGoogleCredentialResponse,
         auto_select: false,
         cancel_on_tap_outside: true

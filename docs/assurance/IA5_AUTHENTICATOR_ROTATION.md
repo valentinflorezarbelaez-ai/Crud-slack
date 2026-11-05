@@ -20,4 +20,6 @@ Fail-closed authenticators:
 
 - `api/_auth.js` throws `SESSION_SECRET_REQUIRED_MIN_32_CHARS` when missing.
 - `api/auth/google.js` throws `GOOGLE_CLIENT_ID_REQUIRED` when missing.
-- `.env*` gitignored; `.env.example` placeholders only.
+- `api/auth/google-client.js` GET bootstraps GIS client id from env only (503 if unset).
+- `src/ui/realtimeSlack.mjs` fetches `/api/auth/google-client` — zero hardcoded client id.
+- `.env*` gitignored; `.env.example` placeholders only; local redact via `scripts/redact-env-local.mjs`.
