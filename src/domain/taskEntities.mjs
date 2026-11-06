@@ -156,6 +156,12 @@ export function normalizeDeadlineState(raw, deadlineDate) {
   return deadlineDate ? DEADLINE_STATES.PARTIAL_ANCHOR : DEADLINE_STATES.MISSING_INFO;
 }
 
+export function normalizeScheduledTime(raw) {
+  if (typeof raw !== "string") return null;
+  const trimmed = raw.trim();
+  return /^([01]\d|2[0-3]):[0-5]\d$/.test(trimmed) ? trimmed : null;
+}
+
 /**
  * Deterministic lightweight hash for task IDs and state integrity.
  * @param {string} input
@@ -218,6 +224,14 @@ export function createTaskEntity(raw, index = 0) {
       ? sanitizePlainText(raw.id).slice(0, 48)
       : `tsk_${fnv1aHex(`${order}:${title}:${Date.now()}:${index}`)}`;
 
+  const scheduledTime = normalizeScheduledTime(raw.scheduledTime);
+  const durationMinutes =
+    typeof raw.durationMinutes === "number" && Number.isFinite(raw.durationMinutes) && raw.durationMinutes > 0
+      ? Math.min(raw.durationMinutes, 480)
+      : 60;
+  const isPrivate = Boolean(raw.isPrivate);
+  const userId = typeof raw.userId === "string" ? sanitizePlainText(raw.userId).slice(0, 64) : null;
+
   return {
     id,
     order,
@@ -235,6 +249,10 @@ export function createTaskEntity(raw, index = 0) {
     dependsOnOrder,
     grounded: raw.grounded !== false,
     channel: SUPPORTED_CHANNELS.includes(String(raw.channel || "")) ? String(raw.channel) : "slack",
+    scheduledTime,
+    durationMinutes,
+    isPrivate,
+    userId,
     updatedAt: typeof raw.updatedAt === "string" ? raw.updatedAt : new Date().toISOString()
   };
 }

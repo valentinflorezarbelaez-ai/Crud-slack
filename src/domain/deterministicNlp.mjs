@@ -519,7 +519,8 @@ export function runDeterministicTriage(input) {
         sourceQuote: item.rawSpan,
         dependsOnOrder,
         grounded: true,
-        channel
+        channel,
+        scheduledTime: extractHourlySchedule(item.rawSpan) || extractHourlySchedule(item.cleanAction)
       },
       sortedIdx
     );
@@ -535,4 +536,37 @@ export function runDeterministicTriage(input) {
     missingInfoGaps: audit.gaps,
     clarificationDraft: audit.clarificationDraft
   };
+}
+
+/**
+ * Extracts explicit hour references from text (e.g. "a las 09:30", "15:45", "2:00 pm", "10 am").
+ * Returns normalized "HH:mm" in 24h format, or null if no explicit hour anchor exists.
+ * @param {string} text
+ * @returns {string|null}
+ */
+export function extractHourlySchedule(text) {
+  if (typeof text !== "string") return null;
+
+  // Match 12-hour format with am/pm: "a las 2:30 pm", "10:00 am", "2 pm"
+  const m12 = text.match(/\b(?:a\s+las\s+)?(\d{1,2})(?::(\d{2}))?\s*(am|pm)\b/i);
+  if (m12) {
+    let hours = parseInt(m12[1], 10);
+    const minutes = m12[2] ? parseInt(m12[2], 10) : 0;
+    const meridian = m12[3].toLowerCase();
+    if (meridian === "pm" && hours < 12) hours += 12;
+    if (meridian === "am" && hours === 12) hours = 0;
+    if (hours >= 0 && hours <= 23 && minutes >= 0 && minutes <= 59) {
+      return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
+    }
+  }
+
+  // Match 24-hour format: "a las 15:45", "09:30", "a las 9:30"
+  const m24 = text.match(/\b(?:a\s+las\s+)?([01]?\d|2[0-3]):([0-5]\d)\b/i);
+  if (m24) {
+    const hours = String(parseInt(m24[1], 10)).padStart(2, "0");
+    const minutes = m24[2];
+    return `${hours}:${minutes}`;
+  }
+
+  return null;
 }
