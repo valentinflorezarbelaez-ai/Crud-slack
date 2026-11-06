@@ -1809,3 +1809,5 @@ button.slack-search-bar { border: none; font: inherit; text-align: left; cursor:
 .cmd-palette-empty { padding: 1.2rem 1rem; text-align: center; color: var(--text-muted); font-size: 0.88rem; }
 .cmd-palette-footer { display: flex; gap: 1rem; padding: 0.45rem 1rem; border-top: 1px solid var(--border-subtle); font-size: 0.75rem; color: var(--text-muted); background: var(--bg-elevated); }
 .cmd-kbd, .cmd-palette-footer kbd { background: var(--bg-surface); border: 1px solid var(--border-strong); border-radius: 3px; padding: 0.1rem 0.35rem; font-size: 0.72rem; }
+
+.panel__title-row{display:flex;align-items:center;gap:8px}.sync-badge{display:inline-flex;align-items:center;gap:4px;font-size:0.72rem;font-weight:600;padding:2px 8px;border-radius:9999px;background:rgba(14,165,233,0.12);color:#0284c7;border:1px solid rgba(14,165,233,0.28)}

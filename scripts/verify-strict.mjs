@@ -15,6 +15,9 @@ import { pathToFileURL } from "node:url";
 const root = process.cwd();
 const startedAt = Date.now();
 process.env.TASKFLOW_HERMETIC_TEST = "1";
+if (!process.env.SESSION_SECRET) {
+  process.env.SESSION_SECRET = "test_hermetic_session_secret_32_chars_long_minimum!";
+}
 
 console.log("======================================================================");
 console.log(" TASKFLOW AI (CRUD-SLACK) — 7-STAGE EOS SECDEVOPS VERIFICATION GATE   ");
@@ -106,7 +109,7 @@ const codeFiles = allFiles.filter((f) => f.endsWith(".mjs") || f.endsWith(".js")
 for (const cf of codeFiles) {
   execFileSync(process.execPath, ["--check", cf], { cwd: root, stdio: "pipe" });
 }
-execFileSync(process.execPath, ["--test", path.join(root, "test/taskflow.test.mjs")], {
+execFileSync(process.execPath, ["--test", path.join(root, "test/taskflow.test.mjs"), path.join(root, "test/tasksApi.test.mjs"), path.join(root, "test/cloudTaskAdapter.test.mjs")], {
   cwd: root,
   stdio: "inherit"
 });
@@ -136,6 +139,7 @@ const healthMod = await import(pathToFileURL(path.join(root, "api/health.js")).h
 const analyzeMod = await import(pathToFileURL(path.join(root, "api/analyze.js")).href);
 const metricsMod = await import(pathToFileURL(path.join(root, "api/metrics.js")).href);
 const channelsMod = await import(pathToFileURL(path.join(root, "api/channels.js")).href);
+const tasksMod = await import(pathToFileURL(path.join(root, "api/tasks.js")).href);
 
 const hRes = await healthMod.GET(new Request("http://localhost/api/health"));
 assert.equal(hRes.status, 200, "/api/health failed smoke check");
@@ -168,7 +172,9 @@ const aRes = await analyzeMod.POST(
   })
 );
 assert.equal(aRes.status, 200, "/api/analyze POST failed smoke check");
-console.log("[PASS] Stage 6/7 — In-Process Serverless API Smoke Gate (/api/health, /api/analyze, /api/metrics & /api/channels 200 OK).");
+const tRes = await tasksMod.GET(new Request("http://localhost/api/tasks?channelId=general"));
+assert.equal(tRes.status, 200, "/api/tasks GET failed smoke check");
+console.log("[PASS] Stage 6/7 — In-Process Serverless API Smoke Gate (/api/health, /api/analyze, /api/metrics, /api/channels & /api/tasks 200 OK).");
 
 // STAGE 7: CRYPTOGRAPHIC EVIDENCE RECEIPT GENERATION (LAW III)
 const receipt = {
@@ -184,7 +190,7 @@ const receipt = {
     uiJsKilobytes: uiJsKb,
     runtimeDependencies: 0
   },
-  verifiedEndpoints: ["/api/health", "/api/analyze", "/api/metrics"]
+  verifiedEndpoints: ["/api/health", "/api/analyze", "/api/metrics", "/api/tasks"]
 };
 
 fs.writeFileSync(

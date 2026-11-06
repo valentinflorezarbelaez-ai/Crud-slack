@@ -7,6 +7,9 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 
 process.env.TASKFLOW_HERMETIC_TEST = "1";
+if (!process.env.SESSION_SECRET) {
+  process.env.SESSION_SECRET = "test_hermetic_session_secret_32_chars_long_minimum!";
+}
 
 import {
   DEADLINE_STATES,

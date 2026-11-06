@@ -37,6 +37,10 @@ import {
   removePersistedBoardState,
   savePersistedBoardState
 } from "../infrastructure/storageAdapter.mjs";
+import {
+  fetchRemoteTasks,
+  syncRemoteTasks
+} from "../infrastructure/cloudTaskAdapter.mjs";
 import { WORKPLACE_PRESETS } from "./presets.mjs?v=5.2.1";
 import { initChannels, syncChannelPanels } from "./channels.mjs?v=5.2.1";
 import { initVisualPreferences, nextFridayIso } from "./preferences.mjs";
@@ -147,6 +151,7 @@ function dispatch(action) {
   const previousDone = (boardState.tasks || []).filter((t) => t.status === "COMPLETED").length;
   boardState = taskBoardReducer(boardState, action);
   savePersistedBoardState(boardState, activeChannel.id, activeUserId);
+  syncRemoteTasks(activeChannel.id, boardState.tasks, activeUserId);
   renderWorkspace();
 
   const currentDone = (boardState.tasks || []).filter((t) => t.status === "COMPLETED").length;
@@ -318,6 +323,22 @@ async function applyChannel(channel, opts = {}, todayIso = new Date().toISOStrin
   });
 
   renderWorkspace();
+
+  if (!opts.rerun) {
+    fetchRemoteTasks(channel.id, activeUserId).then((res) => {
+      if (res && res.ok && res.tasks && res.tasks.length > 0 && activeChannel.id === channel.id) {
+        boardState = {
+          ...boardState,
+          tasks: res.tasks,
+          checksum: computeTasksChecksum(res.tasks)
+        };
+        renderWorkspace();
+        const syncEl = document.getElementById("cloud-sync-status");
+        if (syncEl) syncEl.textContent = "☁️ En la nube";
+      }
+    }).catch(() => {});
+  }
+
   if (boardState.tasks.length > 0) return;
   const request = { message: preset.message, channel: preset.channel, referenceDate: el.inputRefDate?.value || todayIso };
   if (opts.rerun) return runAnalysisFlow(request);
@@ -696,6 +717,7 @@ async function bootstrap() {
       });
     }
     savePersistedBoardState(boardState, activeChannel.id, activeUserId);
+    syncRemoteTasks(activeChannel.id, boardState.tasks, activeUserId);
     renderWorkspace();
     showToast(`${pending.length} tarea(s) con fecha ${friday} confirmada por el usuario.`);
   });
