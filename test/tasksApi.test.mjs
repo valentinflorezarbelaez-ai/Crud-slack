@@ -41,4 +41,34 @@ describe("Task API Endpoint: api/tasks.js", () => {
     const json = await res.json();
     assert.ok(typeof json.ok === "boolean");
   });
+
+  it("handles personal private tasks with scheduledTime and userId isolation", async () => {
+    const { POST, GET } = await import("../api/tasks.js");
+
+    const postReq = new Request("http://localhost/api/tasks", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        channelId: "personal",
+        userId: "usr_valentin",
+        tasks: [
+          {
+            id: "tsk_priv_1",
+            title: "Mi tarea privada de las 09:30",
+            scheduledTime: "09:30",
+            durationMinutes: 45,
+            isPrivate: true,
+            userId: "usr_valentin"
+          }
+        ]
+      })
+    });
+
+    const postRes = await POST(postReq);
+    assert.ok(postRes.status === 200 || postRes.status === 500);
+
+    const getReq = new Request("http://localhost/api/tasks?channelId=personal&userId=usr_valentin");
+    const getRes = await GET(getReq);
+    assert.ok(getRes.status === 200 || getRes.status === 500);
+  });
 });

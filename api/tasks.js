@@ -1,6 +1,6 @@
 /**
  * SERVERLESS TASKS API ENDPOINT (GET & POST)
- * Reads and persists shared task boards in Neon PostgreSQL per channel.
+ * Reads and persists shared task boards and private workspaces in Neon PostgreSQL.
  * Clean / Hexagonal Layer-0: zero external npm dependencies.
  */
 
@@ -31,6 +31,10 @@ export async function ensureTasksTable() {
         depends_on_order INT,
         grounded BOOLEAN DEFAULT TRUE,
         channel_type VARCHAR(24) DEFAULT 'slack',
+        scheduled_time VARCHAR(8) DEFAULT NULL,
+        duration_minutes INT DEFAULT 60,
+        is_private BOOLEAN DEFAULT FALSE,
+        user_id VARCHAR(64) DEFAULT NULL,
         created_at TIMESTAMPTZ DEFAULT NOW(),
         updated_at TIMESTAMPTZ DEFAULT NOW()
       );
@@ -53,6 +57,8 @@ export async function GET(req) {
     const url = new URL(req.url);
     const rawChannel = url.searchParams.get("channelId") || "general";
     const canonicalChannel = normalizeChannelId(rawChannel);
+    const userId = url.searchParams.get("userId") || (rawChannel.startsWith("usr_") ? rawChannel : null);
+    const isPrivate = canonicalChannel === "personal" || rawChannel.startsWith("usr_");
 
     if (process.env.TASKFLOW_HERMETIC_TEST === "1" && !process.env.DATABASE_URL) {
       return new Response(JSON.stringify({ ok: true, channelId: canonicalChannel, tasks: [] }), {
@@ -63,20 +69,38 @@ export async function GET(req) {
 
     await ensureTasksTable();
 
-    const rows = await sql(
-      `
-      SELECT 
-        id, channel_id, order_idx, title, description, priority, priority_reason,
-        status, deadline_date, deadline_label, deadline_state, missing_details,
-        assignee, source_quote, depends_on_order, grounded, channel_type,
-        updated_at
-      FROM tasks
-      WHERE channel_id = $1 OR channel_id = $2
-      ORDER BY order_idx ASC, created_at ASC
-      LIMIT 200;
-    `,
-      [canonicalChannel, `c_${canonicalChannel}`]
-    );
+    let rows;
+    if (isPrivate && userId) {
+      rows = await sql(
+        `
+        SELECT 
+          id, channel_id, order_idx, title, description, priority, priority_reason,
+          status, deadline_date, deadline_label, deadline_state, missing_details,
+          assignee, source_quote, depends_on_order, grounded, channel_type,
+          scheduled_time, duration_minutes, is_private, user_id, updated_at
+        FROM tasks
+        WHERE is_private = TRUE AND user_id = $1
+        ORDER BY scheduled_time ASC NULLS LAST, order_idx ASC, created_at ASC
+        LIMIT 200;
+      `,
+        [userId]
+      );
+    } else {
+      rows = await sql(
+        `
+        SELECT 
+          id, channel_id, order_idx, title, description, priority, priority_reason,
+          status, deadline_date, deadline_label, deadline_state, missing_details,
+          assignee, source_quote, depends_on_order, grounded, channel_type,
+          scheduled_time, duration_minutes, is_private, user_id, updated_at
+        FROM tasks
+        WHERE (channel_id = $1 OR channel_id = $2) AND (is_private = FALSE OR is_private IS NULL)
+        ORDER BY scheduled_time ASC NULLS LAST, order_idx ASC, created_at ASC
+        LIMIT 200;
+      `,
+        [canonicalChannel, `c_${canonicalChannel}`]
+      );
+    }
 
     const tasks = (rows || []).map((row, idx) =>
       createTaskEntity(
@@ -97,6 +121,10 @@ export async function GET(req) {
           dependsOnOrder: row.depends_on_order,
           grounded: row.grounded !== false,
           channel: row.channel_type || "slack",
+          scheduledTime: row.scheduled_time || null,
+          durationMinutes: row.duration_minutes ?? 60,
+          isPrivate: Boolean(row.is_private),
+          userId: row.user_id || null,
           updatedAt: row.updated_at ? new Date(row.updated_at).toISOString() : new Date().toISOString()
         },
         idx
@@ -147,6 +175,8 @@ export async function POST(req) {
     }
 
     const canonicalChannel = normalizeChannelId(rawChannel);
+    const userId = body.userId || (rawChannel.startsWith("usr_") ? rawChannel : null);
+    const isPrivate = canonicalChannel === "personal" || rawChannel.startsWith("usr_") || Boolean(body.isPrivate);
 
     if (body.tasks.length > 200) {
       return new Response(JSON.stringify({ ok: false, error: "Exceeded maximum of 200 tasks per channel." }), {
@@ -155,7 +185,16 @@ export async function POST(req) {
       });
     }
 
-    const sanitizedTasks = body.tasks.map((raw, idx) => createTaskEntity(raw, idx));
+    const sanitizedTasks = body.tasks.map((raw, idx) =>
+      createTaskEntity(
+        {
+          ...raw,
+          isPrivate,
+          userId: userId || raw.userId
+        },
+        idx
+      )
+    );
 
     if (process.env.TASKFLOW_HERMETIC_TEST === "1" && !process.env.DATABASE_URL) {
       return new Response(
@@ -166,11 +205,14 @@ export async function POST(req) {
 
     await ensureTasksTable();
 
-    // Replace tasks for this channel cleanly to synchronize deletions and order updates
-    await sql(
-      `DELETE FROM tasks WHERE channel_id = $1 OR channel_id = $2;`,
-      [canonicalChannel, `c_${canonicalChannel}`]
-    );
+    if (isPrivate && userId) {
+      await sql(`DELETE FROM tasks WHERE is_private = TRUE AND user_id = $1;`, [userId]);
+    } else {
+      await sql(
+        `DELETE FROM tasks WHERE (channel_id = $1 OR channel_id = $2) AND (is_private = FALSE OR is_private IS NULL);`,
+        [canonicalChannel, `c_${canonicalChannel}`]
+      );
+    }
 
     for (let idx = 0; idx < sanitizedTasks.length; idx++) {
       const t = sanitizedTasks[idx];
@@ -179,11 +221,13 @@ export async function POST(req) {
         INSERT INTO tasks (
           id, channel_id, order_idx, title, description, priority, priority_reason,
           status, deadline_date, deadline_label, deadline_state, missing_details,
-          assignee, source_quote, depends_on_order, grounded, channel_type, updated_at
+          assignee, source_quote, depends_on_order, grounded, channel_type,
+          scheduled_time, duration_minutes, is_private, user_id, updated_at
         ) VALUES (
           $1, $2, $3, $4, $5, $6, $7,
           $8, $9, $10, $11, $12,
-          $13, $14, $15, $16, $17, NOW()
+          $13, $14, $15, $16, $17,
+          $18, $19, $20, $21, NOW()
         )
         ON CONFLICT (id) DO UPDATE SET
           channel_id = EXCLUDED.channel_id,
@@ -202,6 +246,10 @@ export async function POST(req) {
           depends_on_order = EXCLUDED.depends_on_order,
           grounded = EXCLUDED.grounded,
           channel_type = EXCLUDED.channel_type,
+          scheduled_time = EXCLUDED.scheduled_time,
+          duration_minutes = EXCLUDED.duration_minutes,
+          is_private = EXCLUDED.is_private,
+          user_id = EXCLUDED.user_id,
           updated_at = NOW();
       `,
         [
@@ -221,7 +269,11 @@ export async function POST(req) {
           t.sourceQuote || "",
           t.dependsOnOrder ?? null,
           t.grounded !== false,
-          t.channel || "slack"
+          t.channel || "slack",
+          t.scheduledTime || null,
+          t.durationMinutes ?? 60,
+          Boolean(t.isPrivate),
+          t.userId || null
         ]
       );
     }
