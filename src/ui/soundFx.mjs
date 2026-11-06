@@ -69,3 +69,31 @@ export function playCardDroppedSound() {
     // Graceful no-op
   }
 }
+
+export function playAlarmChime() {
+  try {
+    const ctx = getAudioContext();
+    if (!ctx) return;
+    const now = ctx.currentTime;
+
+    // Harmonic triple chime (E5 -> G#5 -> B5)
+    const freqs = [659.25, 830.61, 987.77];
+    freqs.forEach((f, idx) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "triangle";
+      osc.frequency.setValueAtTime(f, now + idx * 0.12);
+
+      gain.gain.setValueAtTime(0.06, now + idx * 0.12);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + idx * 0.12 + 0.35);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc.start(now + idx * 0.12);
+      osc.stop(now + idx * 0.12 + 0.38);
+    });
+  } catch {
+    // Graceful no-op
+  }
+}
