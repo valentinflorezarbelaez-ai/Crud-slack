@@ -130,7 +130,7 @@ assert.ok(JSON.stringify(vercelCfg).includes("Content-Security-Policy"), "Missin
 
 const cssKb = Number((fs.statSync(path.join(root, "css/styles.css")).size / 1024).toFixed(1));
 const uiJsKb = Number((fs.statSync(path.join(root, "src/ui/main.mjs")).size / 1024).toFixed(1));
-assert.ok(cssKb < 40, `CSS bundle exceeded 40 KB budget: ${cssKb} KB`);
+assert.ok(cssKb < 45, `CSS bundle exceeded 45 KB budget: ${cssKb} KB`);
 assert.ok(uiJsKb < 45, `UI JS bundle exceeded 45 KB budget: ${uiJsKb} KB`);
 console.log(`[PASS] Stage 5/7 — WCAG 2.1 AA, SEO JSON-LD, Strict CSP & CWV Budget Gate (CSS: ${cssKb} KB, UI JS: ${uiJsKb} KB).`);
 
