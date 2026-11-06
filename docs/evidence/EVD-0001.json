@@ -4,11 +4,11 @@
   "epistemicState": "VERIFIED",
   "stagesPassed": "7/7",
   "exitCode": 0,
-  "artifactCount": 83,
-  "sbomMerkleRoot": "sha256:6a80ddd689dba54c5d52f79154c6c66107fdde809c96a146e9c83bed4c9159b0",
+  "artifactCount": 80,
+  "sbomMerkleRoot": "sha256:4771dee439a9806d67a2173a78ddb8e05016b3fedfd345ea740e57f9ce9f578e",
   "budgets": {
     "cssKilobytes": 43.1,
-    "uiJsKilobytes": 48.4,
+    "uiJsKilobytes": 48.5,
     "runtimeDependencies": 0
   },
   "verifiedEndpoints": [
@@ -17,7 +17,6 @@
     "/api/metrics",
     "/api/channels",
     "/api/tasks",
-    "/api/channels/invite",
-    "/api/channels/join"
+    "/api/auth/google"
   ]
 }

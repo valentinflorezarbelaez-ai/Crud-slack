@@ -4,6 +4,11 @@
   "trailingSlash": false,
   "buildCommand": "node scripts/verify-strict.mjs",
   "outputDirectory": ".",
+  "rewrites": [
+    { "source": "/api/channels/invite", "destination": "/api/channels?action=invite" },
+    { "source": "/api/channels/join", "destination": "/api/channels?action=join" },
+    { "source": "/api/auth/google-client", "destination": "/api/auth/google" }
+  ],
   "headers": [
     {
       "source": "/sw\\.js",

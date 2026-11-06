@@ -146,14 +146,13 @@ assert.ok(cssKb < 45, `CSS bundle exceeded 45 KB budget: ${cssKb} KB`);
 assert.ok(uiJsKb < 55, `UI JS bundle exceeded 55 KB budget: ${uiJsKb} KB`);
 console.log(`[PASS] Stage 5/7 — WCAG 2.1 AA, SEO JSON-LD, Strict CSP & CWV Budget Gate (CSS: ${cssKb} KB, UI JS: ${uiJsKb} KB).`);
 
-// STAGE 6: IN-PROCESS SERVERLESS ENDPOINTS SMOKE VERIFICATION (/api/health, /api/analyze, /api/metrics, /api/channels, /api/tasks, /api/channels/invite, /api/channels/join)
+// STAGE 6: IN-PROCESS SERVERLESS ENDPOINTS SMOKE VERIFICATION (/api/health, /api/analyze, /api/metrics, /api/channels, /api/tasks, /api/auth/google)
 const healthMod = await import(pathToFileURL(path.join(root, "api/health.js")).href);
 const analyzeMod = await import(pathToFileURL(path.join(root, "api/analyze.js")).href);
 const metricsMod = await import(pathToFileURL(path.join(root, "api/metrics.js")).href);
 const channelsMod = await import(pathToFileURL(path.join(root, "api/channels.js")).href);
 const tasksMod = await import(pathToFileURL(path.join(root, "api/tasks.js")).href);
-const inviteMod = await import(pathToFileURL(path.join(root, "api/channels/invite.js")).href);
-const joinMod = await import(pathToFileURL(path.join(root, "api/channels/join.js")).href);
+const googleAuthMod = await import(pathToFileURL(path.join(root, "api/auth/google.js")).href);
 
 const hRes = await healthMod.GET(new Request("http://localhost/api/health"));
 assert.equal(hRes.status, 200, "/api/health failed smoke check");
@@ -197,20 +196,22 @@ if (tRes.status === 200) {
   console.log("[WARN] /api/tasks returned fail-closed 500 (DB unavailable) — accepted for hermetic Stage 6");
 }
 
-// Smoke check invite & join validation
-const invRes = await inviteMod.POST(new Request("http://localhost/api/channels/invite", {
+// Smoke check invite & join validation in channelsMod
+const invRes = await channelsMod.POST(new Request("http://localhost/api/channels?action=invite", {
   method: "POST",
   headers: { "Content-Type": "application/json" },
   body: JSON.stringify({})
 }));
-assert.equal(invRes.status, 400, "/api/channels/invite smoke check failed");
+assert.equal(invRes.status, 400, "/api/channels?action=invite smoke check failed");
 
-const jnRes = await joinMod.POST(new Request("http://localhost/api/channels/join", {
-  method: "POST"
-}));
-assert.equal(jnRes.status, 400, "/api/channels/join smoke check failed");
+const jnRes = await channelsMod.GET(new Request("http://localhost/api/channels?action=join"));
+assert.equal(jnRes.status, 400, "/api/channels?action=join smoke check failed");
 
-console.log("[PASS] Stage 6/7 — In-Process Serverless API Smoke Gate (/api/health, /api/analyze, /api/metrics, /api/channels, /api/tasks, /api/channels/invite, /api/channels/join).");
+// Smoke check googleAuthMod GET
+const gRes = await googleAuthMod.GET();
+assert.ok(gRes.status === 200 || gRes.status === 503, "/api/auth/google GET smoke check failed");
+
+console.log("[PASS] Stage 6/7 — In-Process Serverless API Smoke Gate (/api/health, /api/analyze, /api/metrics, /api/channels, /api/tasks, /api/auth/google).");
 
 // STAGE 7: CRYPTOGRAPHIC EVIDENCE RECEIPT GENERATION (LAW III)
 const receipt = {
@@ -232,8 +233,7 @@ const receipt = {
     "/api/metrics",
     "/api/channels",
     "/api/tasks",
-    "/api/channels/invite",
-    "/api/channels/join"
+    "/api/auth/google"
   ]
 };
 

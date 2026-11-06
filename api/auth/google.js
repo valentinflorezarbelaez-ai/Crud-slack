@@ -1,6 +1,7 @@
 /**
  * GOOGLE OAUTH 2.0 / OPENID CONNECT SIGN-IN HANDLER
  * Validates Google ID Token, registers user in Neon Postgres, sets session cookie.
+ * Also provides GET for public client id bootstrap (consolidated endpoint).
  */
 
 import { sql } from "../_db.js";
@@ -12,6 +13,33 @@ function requireGoogleClientId() {
     throw new Error("GOOGLE_CLIENT_ID_REQUIRED");
   }
   return id;
+}
+
+export async function GET() {
+  try {
+    const clientId = requireGoogleClientId();
+    return Response.json(
+      { ok: true, clientId },
+      {
+        status: 200,
+        headers: {
+          "Cache-Control": "no-store, max-age=0, must-revalidate",
+          "Content-Type": "application/json"
+        }
+      }
+    );
+  } catch {
+    return Response.json(
+      { ok: false, error: "GOOGLE_CLIENT_ID_REQUIRED" },
+      {
+        status: 503,
+        headers: {
+          "Cache-Control": "no-store, max-age=0, must-revalidate",
+          "Content-Type": "application/json"
+        }
+      }
+    );
+  }
 }
 
 export async function POST(req) {
@@ -47,53 +75,54 @@ export async function POST(req) {
       });
     }
 
-    if (
-      payload.iss !== "accounts.google.com" &&
-      payload.iss !== "https://accounts.google.com"
-    ) {
-      return new Response(JSON.stringify({ ok: false, error: "Invalid token issuer" }), {
-        status: 403,
+    if (!payload.sub || !payload.email) {
+      return new Response(JSON.stringify({ ok: false, error: "Malformed Google token payload" }), {
+        status: 400,
         headers: { "Content-Type": "application/json" }
       });
     }
 
     const googleId = payload.sub;
-    const email = payload.email || "";
-    const fullName = payload.name || payload.given_name || "Usuario de Google";
-    const avatarUrl = payload.picture || "";
-    const userId = `usr_${googleId.slice(0, 16)}`;
+    const email = payload.email.toLowerCase();
+    const fullName = payload.name || email.split("@")[0];
+    const avatarUrl = payload.picture || `https://api.dicebear.com/7.x/bottts/svg?seed=${googleId}`;
 
-    const upsertQuery = `
-      INSERT INTO users (id, google_id, email, full_name, avatar_url, last_seen_at)
-      VALUES ($1, $2, $3, $4, $5, NOW())
-      ON CONFLICT (google_id) DO UPDATE SET
-        full_name = EXCLUDED.full_name,
-        avatar_url = EXCLUDED.avatar_url,
-        last_seen_at = NOW()
+    const upsertRows = await sql(
+      `
+      INSERT INTO users (google_id, email, full_name, avatar_url)
+      VALUES ($1, $2, $3, $4)
+      ON CONFLICT (google_id) DO UPDATE
+      SET email = EXCLUDED.email,
+          full_name = EXCLUDED.full_name,
+          avatar_url = EXCLUDED.avatar_url,
+          last_active_at = NOW()
       RETURNING id, google_id, email, full_name, avatar_url, status_text;
-    `;
+    `,
+      [googleId, email, fullName, avatarUrl]
+    );
 
-    const rows = await sql(upsertQuery, [userId, googleId, email, fullName, avatarUrl]);
-    const user = rows[0];
+    const user = upsertRows[0];
+    const sessionToken = await signSession(user);
 
-    const sessionToken = await signSession({
-      userId: user.id,
-      googleId: user.google_id,
-      email: user.email,
-      fullName: user.full_name,
-      avatarUrl: user.avatar_url,
-      issuedAt: Date.now()
-    });
-
-    const cookieHeader = createSessionCookieHeader(sessionToken);
-
-    return new Response(JSON.stringify({ ok: true, user }), {
-      status: 200,
-      headers: {
-        "Content-Type": "application/json",
-        "Set-Cookie": cookieHeader
+    return new Response(
+      JSON.stringify({
+        ok: true,
+        user: {
+          id: user.id,
+          email: user.email,
+          fullName: user.full_name,
+          avatarUrl: user.avatar_url,
+          statusText: user.status_text
+        }
+      }),
+      {
+        status: 200,
+        headers: {
+          "Content-Type": "application/json",
+          "Set-Cookie": createSessionCookieHeader(sessionToken)
+        }
       }
-    });
+    );
   } catch (err) {
     return new Response(JSON.stringify({ ok: false, error: err.message }), {
       status: 500,
