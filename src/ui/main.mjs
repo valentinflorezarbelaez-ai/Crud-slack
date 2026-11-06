@@ -29,8 +29,11 @@ import { setupKanbanDragAndDrop } from "./kanbanDragDrop.mjs";
 import { setupVoiceDictation } from "./voiceDictation.mjs";
 import { setupCommandPalette } from "./commandPalette.mjs";
 import { fireConfettiCelebration } from "./confetti.mjs";
-import { renderTableView, renderSharePointListView, renderTeamsCardPreview } from "./taskViews.mjs";
-import { playTaskCompletedSound } from "./soundFx.mjs";
+import { renderTableView, renderSharePointListView, renderTeamsCardPreview, renderHourlyTimelineView } from "./taskViews.mjs";
+import { playTaskCompletedSound, playAlarmChime } from "./soundFx.mjs";
+import { checkDueAlarms, formatLocalHhMm } from "../application/notificationEngine.mjs";
+import { requestNotificationPermission, triggerTaskNotification } from "../infrastructure/webNotificationAdapter.mjs";
+// soundFx imported above
 import { initRealtimeSlack } from "./realtimeSlack.mjs?v=5.2.1";
 import {
   loadPersistedBoardState,
@@ -96,6 +99,9 @@ const el = {
   exportJsonBtn: document.getElementById("export-json-btn"),
   resetDemoBtn: document.getElementById("reset-demo-btn"),
   viewModeCards: document.getElementById("view-mode-cards"),
+  viewModeTimeline: document.getElementById("view-mode-timeline"),
+  alarmToggleBtn: document.getElementById("alarm-toggle-btn"),
+  inviteChannelBtn: document.getElementById("invite-channel-btn"),
   viewModeTable: document.getElementById("view-mode-table"),
   viewModeKanban: document.getElementById("view-mode-kanban"),
   viewModeSharepoint: document.getElementById("view-mode-sharepoint"),
@@ -117,6 +123,7 @@ const el = {
   crudPriority: (document.getElementById("crud-priority")),
   crudStatus: (document.getElementById("crud-status")),
   crudDeadline: (document.getElementById("crud-deadline")),
+  crudScheduledTime: (document.getElementById("crud-scheduled-time")),
   crudAssignee: (document.getElementById("crud-assignee")),
   crudReason: (document.getElementById("crud-reason")),
   closeDialogBtn: document.getElementById("close-dialog-btn"),
@@ -419,6 +426,8 @@ function renderWorkspace() {
   }
   if (currentViewMode === "table") {
     el.tasksRenderRoot.innerHTML = renderTableView(filtered);
+  } else if (currentViewMode === "timeline") {
+    el.tasksRenderRoot.innerHTML = renderHourlyTimelineView(filtered);
   } else if (currentViewMode === "kanban") {
     el.tasksRenderRoot.innerHTML = renderKanbanView(filtered);
   } else if (currentViewMode === "sharepoint") {
@@ -502,6 +511,7 @@ function openCrudDialog(task = null) {
     el.crudPriority.value = task.priority;
     el.crudStatus.value = task.status;
     el.crudDeadline.value = task.deadlineDate || "";
+    if (el.crudScheduledTime) el.crudScheduledTime.value = task.scheduledTime || "";
     el.crudAssignee.value = task.assignee === "Por asignar" ? "" : task.assignee;
     el.crudReason.value = task.priorityReason || "";
   } else {
@@ -511,6 +521,7 @@ function openCrudDialog(task = null) {
     el.crudPriority.value = "HIGH";
     el.crudStatus.value = "PENDING";
     el.crudDeadline.value = "";
+    if (el.crudScheduledTime) el.crudScheduledTime.value = "";
     el.crudAssignee.value = "";
     el.crudReason.value = "";
   }
@@ -585,6 +596,7 @@ function setViewMode(mode) {
   currentViewMode = mode;
   const map = {
     cards: el.viewModeCards,
+    timeline: el.viewModeTimeline,
     table: el.viewModeTable,
     kanban: el.viewModeKanban,
     sharepoint: el.viewModeSharepoint
@@ -724,10 +736,15 @@ async function bootstrap() {
   // Inline quick date picker on each task card
   el.tasksRenderRoot?.addEventListener("change", (ev) => {
     const input = (ev.target);
-    if (input.getAttribute("data-action") !== "quick-date") return;
+    const action = input.getAttribute("data-action");
     const taskId = input.getAttribute("data-id");
-    dispatch({ type: "UPDATE_TASK", payload: { id: taskId, deadlineDate: input.value || null } });
-    showToast(input.value ? `Fecha confirmada: ${input.value}` : "Fecha eliminada; la tarea vuelve a info faltante.");
+    if (action === "quick-date") {
+      dispatch({ type: "UPDATE_TASK", payload: { id: taskId, deadlineDate: input.value || null } });
+      showToast(input.value ? `Fecha confirmada: ${input.value}` : "Fecha eliminada; la tarea vuelve a info faltante.");
+    } else if (action === "quick-time") {
+      dispatch({ type: "UPDATE_TASK", payload: { id: taskId, scheduledTime: input.value || null } });
+      showToast(input.value ? `⏰ Hora programada: ${input.value}` : "Hora eliminada.");
+    }
   });
   el.inputMessage?.addEventListener("input", updateCharCounter);
   el.inputMessage?.addEventListener("keydown", (ev) => {
@@ -758,6 +775,42 @@ async function bootstrap() {
     });
   });
   el.viewModeCards?.addEventListener("click", () => setViewMode("cards"));
+  el.viewModeTimeline?.addEventListener("click", () => setViewMode("timeline"));
+
+  // Alarm permission and toggle button
+  el.alarmToggleBtn?.addEventListener("click", async () => {
+    const granted = await requestNotificationPermission();
+    if (granted) {
+      el.alarmToggleBtn.classList.add("is-active");
+      el.alarmToggleBtn.title = "Notificaciones y alarmas sonoras activadas";
+      playAlarmChime();
+      showToast("🔔 Notificaciones y alarma sonora activadas correctamente.");
+    } else {
+      showToast("Permiso de notificaciones no concedido por el navegador.");
+    }
+  });
+
+  // Channel Invite Generator
+  el.inviteChannelBtn?.addEventListener("click", async () => {
+    try {
+      const res = await fetch("/api/channels/invite", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          channelId: activeChannel?.id || "general",
+          createdBy: activeUserId || "anonymous"
+        })
+      });
+      const data = await res.json();
+      if (data.inviteUrl) {
+        copyTextToClipboard(data.inviteUrl, "🔗 Enlace de invitación al canal copiado al portapapeles.");
+      } else {
+        showToast("Error generando enlace de invitación.");
+      }
+    } catch {
+      showToast("Error de conexión al generar invitación.");
+    }
+  });
   el.viewModeTable?.addEventListener("click", () => setViewMode("table"));
   el.viewModeKanban?.addEventListener("click", () => setViewMode("kanban"));
   el.viewModeSharepoint?.addEventListener("click", () => setViewMode("sharepoint"));
@@ -821,6 +874,7 @@ async function bootstrap() {
       priority: el.crudPriority.value,
       status: el.crudStatus.value,
       deadlineDate: el.crudDeadline.value.trim() || null,
+      scheduledTime: el.crudScheduledTime?.value?.trim() || null,
       assignee: el.crudAssignee.value.trim() || "Por asignar",
       priorityReason: el.crudReason.value.trim() || "Prioridad definida por el usuario."
     };
@@ -997,8 +1051,42 @@ async function bootstrap() {
       else if (ev.key === "2") setViewMode("table");
       else if (ev.key === "3") setViewMode("kanban");
       else if (ev.key === "4") setViewMode("sharepoint");
+      else if (ev.key === "5") setViewMode("timeline");
     }
   });
+  // Background Alarm & Audio Notification Loop (runs every 25 seconds)
+  const firedAlarms = new Set();
+  setInterval(() => {
+    if (!boardState || !Array.isArray(boardState.tasks)) return;
+    const currentHhMm = formatLocalHhMm();
+    const due = checkDueAlarms(boardState.tasks, currentHhMm, firedAlarms);
+    for (const task of due) {
+      triggerTaskNotification(task);
+      playAlarmChime();
+      showToast(`⏰ ¡Hora de tu tarea programada! ${task.title}`);
+    }
+  }, 25_000);
+
+  // Auto-join channel if ?join=token query parameter is present in URL
+  const urlParams = new URLSearchParams(window.location.search);
+  const joinToken = urlParams.get("join");
+  if (joinToken) {
+    fetch(`/api/channels/join?token=${encodeURIComponent(joinToken)}`, { method: "POST" })
+      .then((r) => r.json())
+      .then((res) => {
+        if (res.ok && res.channelId) {
+          showToast(`🎉 Te has unido al canal #${res.channelId} exitosamente.`);
+          window.history.replaceState({}, document.title, window.location.pathname);
+          if (channelsCtrl) channelsCtrl.activate(res.channelId);
+        } else {
+          showToast(`Error al unirse: ${res.error || "enlace inválido"}`);
+        }
+      })
+      .catch(() => {
+        showToast("No se pudo conectar con el servidor de invitaciones.");
+      });
+  }
+
   // PWA Recovery: Unregister any legacy Service Worker to ensure clean network execution
   if ("serviceWorker" in navigator) {
     navigator.serviceWorker.getRegistrations().then((regs) => {

@@ -4,17 +4,20 @@
   "epistemicState": "VERIFIED",
   "stagesPassed": "7/7",
   "exitCode": 0,
-  "artifactCount": 73,
-  "sbomMerkleRoot": "sha256:8f109976af85f0739c095b4f74613e328ba7bd1864eb993eda0d9ab0bdb63e3e",
+  "artifactCount": 83,
+  "sbomMerkleRoot": "sha256:6a80ddd689dba54c5d52f79154c6c66107fdde809c96a146e9c83bed4c9159b0",
   "budgets": {
-    "cssKilobytes": 41.7,
-    "uiJsKilobytes": 44.6,
+    "cssKilobytes": 43.1,
+    "uiJsKilobytes": 48.4,
     "runtimeDependencies": 0
   },
   "verifiedEndpoints": [
     "/api/health",
     "/api/analyze",
     "/api/metrics",
-    "/api/tasks"
+    "/api/channels",
+    "/api/tasks",
+    "/api/channels/invite",
+    "/api/channels/join"
   ]
 }

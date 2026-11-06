@@ -1,5 +1,5 @@
 /**
- * CHANNEL JOIN ENDPOINT (GET)
+ * CHANNEL JOIN ENDPOINT (GET / POST)
  * Validates invite token and adds user to the channel.
  * Zero external npm dependencies.
  */
@@ -7,10 +7,21 @@
 import { sql } from "../_db.js";
 import { getAuthenticatedUser } from "../_auth.js";
 
-export async function GET(req) {
+async function handleJoin(req) {
   try {
     const url = new URL(req.url);
-    const token = (url.searchParams.get("token") || "").trim();
+    let token = (url.searchParams.get("token") || "").trim();
+    let bodyUserId = null;
+
+    if (!token && req.method === "POST") {
+      try {
+        const body = await req.json();
+        token = (body?.token || "").trim();
+        bodyUserId = body?.userId || null;
+      } catch {
+        // empty or non-json body
+      }
+    }
 
     if (!token) {
       return new Response(JSON.stringify({ ok: false, error: "token is required" }), {
@@ -49,7 +60,7 @@ export async function GET(req) {
 
     const channelId = rows[0].channel_id;
     const user = await getAuthenticatedUser(req);
-    const userId = user ? user.id : url.searchParams.get("userId");
+    const userId = user ? user.id : (bodyUserId || url.searchParams.get("userId"));
 
     if (userId) {
       await sql(
@@ -77,3 +88,6 @@ export async function GET(req) {
     });
   }
 }
+
+export const GET = handleJoin;
+export const POST = handleJoin;

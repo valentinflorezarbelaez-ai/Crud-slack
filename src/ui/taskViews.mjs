@@ -174,3 +174,80 @@ export function renderTeamsCardPreview(container, tasks, summary = "Plan de tare
     </div>
   `;
 }
+
+export function renderHourlyTimelineView(tasks) {
+  const safeTasks = Array.isArray(tasks) ? tasks : [];
+
+  const hours = [];
+  for (let h = 6; h <= 22; h++) {
+    hours.push(String(h).padStart(2, "0") + ":00");
+  }
+
+  const tasksByHour = new Map();
+  const unscheduled = [];
+
+  for (const t of safeTasks) {
+    if (t.scheduledTime) {
+      const slotHour = t.scheduledTime.slice(0, 2) + ":00";
+      if (!tasksByHour.has(slotHour)) tasksByHour.set(slotHour, []);
+      tasksByHour.get(slotHour).push(t);
+    } else {
+      unscheduled.push(t);
+    }
+  }
+
+  let html = `<div class="timeline-container">`;
+
+  if (unscheduled.length > 0) {
+    html += `
+      <div class="timeline-slot timeline-slot--unscheduled">
+        <div class="timeline-slot__time">
+          <span class="timeline-hour">📌 Sin Hora (${unscheduled.length})</span>
+        </div>
+        <div class="timeline-slot__cards">
+          ${unscheduled.map((t) => renderTimelineTaskCard(t)).join("")}
+        </div>
+      </div>
+    `;
+  }
+
+  for (const hour of hours) {
+    const slotTasks = tasksByHour.get(hour) || [];
+    const hasTasks = slotTasks.length > 0;
+    html += `
+      <div class="timeline-slot ${hasTasks ? "is-occupied" : ""}" data-hour="${escapeHtml(hour)}">
+        <div class="timeline-slot__time">
+          <span class="timeline-hour">${escapeHtml(hour)}</span>
+        </div>
+        <div class="timeline-slot__cards">
+          ${hasTasks ? slotTasks.map((t) => renderTimelineTaskCard(t)).join("") : `<div class="timeline-empty-slot">Espacio disponible</div>`}
+        </div>
+      </div>
+    `;
+  }
+
+  html += `</div>`;
+  return html;
+}
+
+function renderTimelineTaskCard(task) {
+  const prioMeta = PRIORITIES[task.priority] || PRIORITIES.MEDIUM;
+  const isDone = task.status === "COMPLETED";
+  return `
+    <div class="timeline-card ${isDone ? "is-done" : ""}" data-id="${escapeHtml(task.id)}">
+      <div class="timeline-card__header">
+        <button type="button" class="btn-check" data-action="toggle-status" data-id="${escapeHtml(task.id)}" title="Cambiar estado">
+          ${isDone ? "✓" : "○"}
+        </button>
+        <strong class="timeline-card__title">${escapeHtml(task.title)}</strong>
+        <span class="prio-badge ${escapeHtml(prioMeta.badgeClass)}">${escapeHtml(prioMeta.labelEs)}</span>
+      </div>
+      <div class="timeline-card__footer">
+        <span class="timeline-card__assignee">👤 ${escapeHtml(task.assignee)}</span>
+        <label class="timeline-card__time-label">
+          ⏰ <input type="time" class="timeline-time-input" data-action="quick-time" data-id="${escapeHtml(task.id)}" value="${escapeHtml(task.scheduledTime || "")}" />
+        </label>
+      </div>
+    </div>
+  `;
+}

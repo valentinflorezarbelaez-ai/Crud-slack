@@ -564,6 +564,12 @@
                 </div>
               </div>
               <div class="toolbar-actions">
+                <button type="button" id="alarm-toggle-btn" class="btn btn--secondary" title="Activar recordatorios y alarmas sonoras">
+                  🔔 Notificaciones
+                </button>
+                <button type="button" id="invite-channel-btn" class="btn btn--ghost" title="Generar enlace de invitación a este canal">
+                  🔗 Invitar
+                </button>
                 <button type="button" id="add-task-btn" class="btn btn--secondary">
                   + Nueva Tarea
                 </button>
@@ -642,6 +648,9 @@
               <div class="view-switcher" role="group" aria-label="Modo de visualización de tareas">
                 <button type="button" id="view-mode-cards" class="chip is-active" aria-pressed="true">
                   📋 Slack Lists
+                </button>
+                <button type="button" id="view-mode-timeline" class="chip" aria-pressed="false" title="Organización horaria diaria Time-Blocking">
+                  ⏰ Agenda Horaria
                 </button>
                 <button type="button" id="view-mode-kanban" class="chip" aria-pressed="false">
                   📌 Tablero Kanban
@@ -979,9 +988,14 @@
           </div>
 
           <div class="field">
-            <label for="crud-assignee" class="field__label">Responsable</label>
-            <input type="text" id="crud-assignee" class="field__control" maxlength="80" placeholder="Ej. Jacobo Flórez o @edison" />
+            <label for="crud-scheduled-time" class="field__label">Hora programada (agenda diaria)</label>
+            <input type="time" id="crud-scheduled-time" class="field__control" />
           </div>
+        </div>
+
+        <div class="field">
+          <label for="crud-assignee" class="field__label">Responsable</label>
+          <input type="text" id="crud-assignee" class="field__control" maxlength="80" placeholder="Ej. Jacobo Flórez o @edison" />
         </div>
 
         <div class="field">
