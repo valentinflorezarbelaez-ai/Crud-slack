@@ -44,20 +44,43 @@ function resolveNeonSqlUrl(connectionString) {
 export async function sql(queryText, params = []) {
   const connStr = requireDatabaseUrl();
   const neonSqlUrl = resolveNeonSqlUrl(connStr);
-  const res = await fetch(neonSqlUrl, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Neon-Connection-String": connStr
-    },
-    body: JSON.stringify({ query: queryText, params })
-  });
+  const maxAttempts = 2;
+  let attempt = 0;
 
-  if (!res.ok) {
-    const errJson = await res.json().catch(() => ({}));
-    throw new Error(errJson.message || `Database query failed with status ${res.status}`);
+  while (attempt < maxAttempts) {
+    attempt++;
+    try {
+      const res = await fetch(neonSqlUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Neon-Connection-String": connStr
+        },
+        body: JSON.stringify({ query: queryText, params }),
+        signal: AbortSignal.timeout(9000)
+      });
+
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        if ((res.status === 502 || res.status === 503 || res.status === 504) && attempt < maxAttempts) {
+          await new Promise((resolve) => setTimeout(resolve, 150 + Math.floor(Math.random() * 100)));
+          continue;
+        }
+        throw new Error(errJson.message || `Database query failed with status ${res.status}`);
+      }
+
+      const data = await res.json();
+      return data.rows || [];
+    } catch (err) {
+      if (
+        attempt < maxAttempts &&
+        (err.name === "TimeoutError" ||
+          (typeof err.message === "string" && (err.message.includes("fetch failed") || err.message.includes("network"))))
+      ) {
+        await new Promise((resolve) => setTimeout(resolve, 150 + Math.floor(Math.random() * 100)));
+        continue;
+      }
+      throw err;
+    }
   }
-
-  const data = await res.json();
-  return data.rows || [];
 }

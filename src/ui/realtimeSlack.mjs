@@ -670,7 +670,17 @@ export function initRealtimeSlack({
   // Verify server HttpOnly cookie session in background
   void checkAuthSession();
   fetchMessages();
-  pollIntervalId = setInterval(fetchMessages, 3500);
+
+  const pollSlackMessages = () => {
+    if (typeof document !== "undefined" && document.hidden) return;
+    fetchMessages();
+  };
+  pollIntervalId = setInterval(pollSlackMessages, 3500);
+  if (typeof document !== "undefined") {
+    document.addEventListener("visibilitychange", () => {
+      if (!document.hidden) fetchMessages();
+    });
+  }
 
   return {
     getCurrentUser: () => currentUser,

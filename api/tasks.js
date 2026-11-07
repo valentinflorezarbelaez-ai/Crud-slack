@@ -305,69 +305,81 @@ export async function POST(req) {
       );
     }
 
-    for (let idx = 0; idx < sanitizedTasks.length; idx++) {
-      const t = sanitizedTasks[idx];
-      await sql(
-        `
-        INSERT INTO tasks (
-          id, channel_id, order_idx, title, description, priority, priority_reason,
-          status, deadline_date, deadline_label, deadline_state, missing_details,
-          assignee, source_quote, depends_on_order, grounded, channel_type,
-          scheduled_time, duration_minutes, is_private, user_id, updated_at
-        ) VALUES (
-          $1, $2, $3, $4, $5, $6, $7,
-          $8, $9, $10, $11, $12,
-          $13, $14, $15, $16, $17,
-          $18, $19, $20, $21, NOW()
-        )
-        ON CONFLICT (id) DO UPDATE SET
-          channel_id = EXCLUDED.channel_id,
-          order_idx = EXCLUDED.order_idx,
-          title = EXCLUDED.title,
-          description = EXCLUDED.description,
-          priority = EXCLUDED.priority,
-          priority_reason = EXCLUDED.priority_reason,
-          status = EXCLUDED.status,
-          deadline_date = EXCLUDED.deadline_date,
-          deadline_label = EXCLUDED.deadline_label,
-          deadline_state = EXCLUDED.deadline_state,
-          missing_details = EXCLUDED.missing_details,
-          assignee = EXCLUDED.assignee,
-          source_quote = EXCLUDED.source_quote,
-          depends_on_order = EXCLUDED.depends_on_order,
-          grounded = EXCLUDED.grounded,
-          channel_type = EXCLUDED.channel_type,
-          scheduled_time = EXCLUDED.scheduled_time,
-          duration_minutes = EXCLUDED.duration_minutes,
-          is_private = EXCLUDED.is_private,
-          user_id = EXCLUDED.user_id,
-          updated_at = NOW()
-        WHERE tasks.user_id IS NOT DISTINCT FROM EXCLUDED.user_id;
-      `,
-        [
-          t.id,
-          canonicalChannel,
-          idx + 1,
-          t.title,
-          t.description || "",
-          t.priority,
-          t.priorityReason || "",
-          t.status,
-          t.deadlineDate || null,
-          t.deadlineLabel || "",
-          t.deadlineState || "MISSING_INFO",
-          t.missingDetails || "",
-          t.assignee || "Por asignar",
-          t.sourceQuote || "",
-          t.dependsOnOrder ?? null,
-          t.grounded !== false,
-          t.channel || "slack",
-          t.scheduledTime || null,
-          t.durationMinutes ?? 60,
-          Boolean(t.isPrivate),
-          t.userId || null
-        ]
-      );
+    if (sanitizedTasks.length > 0) {
+      const CHUNK_SIZE = 40;
+      for (let c = 0; c < sanitizedTasks.length; c += CHUNK_SIZE) {
+        const chunk = sanitizedTasks.slice(c, c + CHUNK_SIZE);
+        const valuesRows = [];
+        const flatParams = [];
+        let pIdx = 1;
+
+        for (let i = 0; i < chunk.length; i++) {
+          const t = chunk[i];
+          const globalOrder = c + i + 1;
+          const rowParams = [
+            t.id,
+            canonicalChannel,
+            globalOrder,
+            t.title,
+            t.description || "",
+            t.priority,
+            t.priorityReason || "",
+            t.status,
+            t.deadlineDate || null,
+            t.deadlineLabel || "",
+            t.deadlineState || "MISSING_INFO",
+            t.missingDetails || "",
+            t.assignee || "Por asignar",
+            t.sourceQuote || "",
+            t.dependsOnOrder ?? null,
+            t.grounded !== false,
+            t.channel || "slack",
+            t.scheduledTime || null,
+            t.durationMinutes ?? 60,
+            Boolean(t.isPrivate),
+            t.userId || null
+          ];
+
+          const placeholders = rowParams.map(() => `${pIdx++}`);
+          valuesRows.push(`(${placeholders.join(", ")}, NOW())`);
+          flatParams.push(...rowParams);
+        }
+
+        await sql(
+          `
+          INSERT INTO tasks (
+            id, channel_id, order_idx, title, description, priority, priority_reason,
+            status, deadline_date, deadline_label, deadline_state, missing_details,
+            assignee, source_quote, depends_on_order, grounded, channel_type,
+            scheduled_time, duration_minutes, is_private, user_id, updated_at
+          ) VALUES ${valuesRows.join(", ")}
+          ON CONFLICT (id) DO UPDATE SET
+            channel_id = EXCLUDED.channel_id,
+            order_idx = EXCLUDED.order_idx,
+            title = EXCLUDED.title,
+            description = EXCLUDED.description,
+            priority = EXCLUDED.priority,
+            priority_reason = EXCLUDED.priority_reason,
+            status = EXCLUDED.status,
+            deadline_date = EXCLUDED.deadline_date,
+            deadline_label = EXCLUDED.deadline_label,
+            deadline_state = EXCLUDED.deadline_state,
+            missing_details = EXCLUDED.missing_details,
+            assignee = EXCLUDED.assignee,
+            source_quote = EXCLUDED.source_quote,
+            depends_on_order = EXCLUDED.depends_on_order,
+            grounded = EXCLUDED.grounded,
+            channel_type = EXCLUDED.channel_type,
+            scheduled_time = EXCLUDED.scheduled_time,
+            duration_minutes = EXCLUDED.duration_minutes,
+            is_private = EXCLUDED.is_private,
+            user_id = EXCLUDED.user_id,
+            updated_at = NOW()
+          WHERE tasks.user_id IS NOT DISTINCT FROM EXCLUDED.user_id;
+        `,
+          flatParams
+        );
+      }
     }
 
     return new Response(

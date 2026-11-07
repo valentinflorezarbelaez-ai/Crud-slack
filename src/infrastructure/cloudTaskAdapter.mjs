@@ -154,6 +154,7 @@ export async function syncRemoteTasks(channelId, tasks, userId = null, options =
         method: "POST",
         credentials: "same-origin",
         headers: { "Content-Type": "application/json" },
+        signal: AbortSignal.timeout(8000),
         body: JSON.stringify({
           channelId: isCustomChannel ? rawId : canonical,
           userId: userId || null,
