@@ -1068,6 +1068,22 @@ async function bootstrap() {
 
   el.closeTeamsDialogBtn?.addEventListener("click", () => el.teamsCardDialog?.close());
   el.dismissTeamsDialogBtn?.addEventListener("click", () => el.teamsCardDialog?.close());
+  el.teamsCardPreviewContainer?.addEventListener("click", (ev) => {
+    const btn = (ev.target).closest("[data-teams-action]");
+    if (!btn) return;
+    const action = btn.getAttribute("data-teams-action");
+    if (action === "open-taskflow") {
+      el.teamsCardDialog?.close();
+      setActiveTopSection("workspace");
+      setViewMode("cards");
+      showToast("Abriendo vista principal de tareas en TaskFlow.");
+    } else if (action === "open-sharepoint") {
+      el.teamsCardDialog?.close();
+      setActiveTopSection("workspace");
+      setViewMode("sharepoint");
+      showToast("Mostrando vista interactiva estilo SharePoint Lists.");
+    }
+  });
   el.copyTeamsJsonBtn?.addEventListener("click", () => {
     const text = el.teamsCardJsonPre?.textContent || "";
     copyTextToClipboard(text, "Payload JSON de Adaptive Card copiado al portapapeles.");
@@ -1237,6 +1253,17 @@ async function bootstrap() {
       showToast(`⏰ ¡Hora de tu tarea programada! ${task.title}`);
     }
   }, 25_000);
+
+  const viewParam = new URLSearchParams(window.location.search).get("view");
+  if (viewParam === "sharepoint" || viewParam === "sp") {
+    setViewMode("sharepoint");
+  } else if (viewParam === "timeline") {
+    setViewMode("timeline");
+  } else if (viewParam === "table") {
+    setViewMode("table");
+  } else if (viewParam === "kanban") {
+    setViewMode("kanban");
+  }
 
   if (new URLSearchParams(window.location.search).get("join") && !activeUserId) {
     showToast("Inicia sesión con tu cuenta de Google para unirte al canal compartido.");

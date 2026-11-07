@@ -169,8 +169,8 @@ export function renderTeamsCardPreview(container, tasks, summary = "Plan de tare
     <div class="teams-preview__tasks-box">${taskRows}</div>
     ${draft ? `<div class="teams-preview__draft"><strong>Borrador de aclaración:</strong><p>${escapeHtml(draft)}</p></div>` : ""}
     <div class="teams-preview__actions">
-      <button type="button" class="teams-btn">Abrir en TaskFlow</button>
-      <button type="button" class="teams-btn">Ver en SharePoint</button>
+      <button type="button" class="teams-btn" data-teams-action="open-taskflow" title="Cerrar vista previa y ver tareas en el tablero">Abrir en TaskFlow</button>
+      <button type="button" class="teams-btn" data-teams-action="open-sharepoint" title="Cambiar a vista moderna de SharePoint Lists">Ver en SharePoint</button>
     </div>
   `;
 }
