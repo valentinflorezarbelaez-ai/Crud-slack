@@ -16,6 +16,7 @@ export function setupCommandPalette({
   if (!dialog || !searchInput || !resultsList) return;
 
   const defaultCommands = [
+    { id: "daily-digest", label: "?? Resumen Diario Ejecutivo (AI Standup)", category: "Acci?n", icon: "??" },
     { id: "new-task", label: "+ Crear Nueva Tarea", category: "Acción", icon: "➕" },
     { id: "view-cards", label: "Vista Slack Lists", category: "Navegación", icon: "📋" },
     { id: "view-kanban", label: "Vista Tablero Kanban", category: "Navegación", icon: "📌" },
@@ -76,6 +77,9 @@ export function setupCommandPalette({
     }
 
     switch (cmdId) {
+      case "daily-digest":
+        document.getElementById("btn-daily-digest")?.click();
+        break;
       case "new-task":
         openCrudDialog(null);
         break;

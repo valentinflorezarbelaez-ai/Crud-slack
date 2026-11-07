@@ -18,7 +18,7 @@ import {
   taskBoardReducer
 } from "../domain/taskBoardStore.mjs";
 import { analyzeWorkplaceRequest } from "../application/analyzeRequest.mjs";
-import { parseIngestedFile } from "../application/fileIngestor.mjs?v=5.5.4";
+import { parseIngestedFile } from "../application/fileIngestor.mjs?v=5.5.5";
 import {
   exportToJsonContract,
   exportToSharePointCsv,
@@ -33,12 +33,12 @@ import { setupKanbanDragAndDrop } from "./kanbanDragDrop.mjs";
 import { setupVoiceDictation } from "./voiceDictation.mjs";
 import { setupCommandPalette } from "./commandPalette.mjs";
 import { fireConfettiCelebration } from "./confetti.mjs";
-import { renderTableView, renderSharePointListView, renderTeamsCardPreview, renderHourlyTimelineView } from "./taskViews.mjs?v=5.5.4";
+import { renderTableView, renderSharePointListView, renderTeamsCardPreview, renderHourlyTimelineView } from "./taskViews.mjs?v=5.5.5";
 import { playTaskCompletedSound, playAlarmChime } from "./soundFx.mjs";
 import { checkDueAlarms, formatLocalHhMm } from "../application/notificationEngine.mjs";
 import { requestNotificationPermission, triggerTaskNotification } from "../infrastructure/webNotificationAdapter.mjs";
-import { initRealtimeSlack } from "./realtimeSlack.mjs?v=5.5.4";
-import { initTaskThreads } from "./taskThreads.mjs?v=5.5.4";
+import { initRealtimeSlack } from "./realtimeSlack.mjs?v=5.5.5";
+import { initTaskThreads } from "./taskThreads.mjs?v=5.5.5";
 import {
   loadPersistedBoardState,
   removePersistedBoardState,
@@ -48,9 +48,10 @@ import {
   fetchRemoteTasks,
   syncRemoteTasks
 } from "../infrastructure/cloudTaskAdapter.mjs";
-import { WORKPLACE_PRESETS } from "./presets.mjs?v=5.5.4";
-import { initChannels, syncChannelPanels } from "./channels.mjs?v=5.5.4";
-import { initVisualPreferences, nextFridayIso } from "./preferences.mjs?v=5.5.4";
+import { WORKPLACE_PRESETS } from "./presets.mjs?v=5.5.5";
+import { initChannels, syncChannelPanels } from "./channels.mjs?v=5.5.5";
+import { initVisualPreferences, nextFridayIso } from "./preferences.mjs?v=5.5.5";
+import { initExecutiveDigest } from "./executiveDigest.mjs?v=5.5.5";
 
 const NEXT_STATUS_CYCLE = Object.freeze({
   PENDING: "IN_PROGRESS",
@@ -834,6 +835,24 @@ async function bootstrap() {
   });
 
   initPresets(todayIso);
+
+  initExecutiveDigest({
+    getTasks: () => boardState.tasks,
+    onUpdateTasks: (newTasks) => {
+      boardState = {
+        ...boardState,
+        tasks: newTasks,
+        checksum: computeTasksChecksum(newTasks)
+      };
+      renderWorkspace();
+      if (activeChannel?.id) {
+        syncRemoteTasks(activeChannel.id, newTasks, activeUserId, { immediate: true });
+      }
+    },
+    showToast,
+    getActiveChannel: () => activeChannel,
+    getCurrentUser: () => realtimeSlackCtrl?.getCurrentUser?.()
+  });
 
   // Direct Email (.eml) & Chat (.txt, .md) Ingestion Controls (FR-CS-019)
   el.importFileBtn?.addEventListener("click", () => el.importFileInput?.click());

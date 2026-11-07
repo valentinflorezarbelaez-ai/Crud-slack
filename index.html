@@ -2,7 +2,7 @@
 <html lang="es" data-theme="light" data-scale="md">
   <head>
     <meta charset="UTF-8" />
-    <script src="./src/ui/recovery.js?v=5.5.4"></script>
+    <script src="./src/ui/recovery.js?v=5.5.5"></script>
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>TaskFlow AI · Organizador Omnicanal de Tareas con IA &amp; CRUD Verificado</title>
     <meta
@@ -23,23 +23,23 @@
     <link rel="dns-prefetch" href="//fonts.gstatic.com" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="preload" href="./css/styles.css?v=5.5.4" as="style" />
-    <link rel="preload" href="./css/slack-shell.css?v=5.5.4" as="style" />
-    <link rel="stylesheet" href="./css/styles.css?v=5.5.4" />
-    <link rel="stylesheet" href="./css/slack-shell.css?v=5.5.4" />
+    <link rel="preload" href="./css/styles.css?v=5.5.5" as="style" />
+    <link rel="preload" href="./css/slack-shell.css?v=5.5.5" as="style" />
+    <link rel="stylesheet" href="./css/styles.css?v=5.5.5" />
+    <link rel="stylesheet" href="./css/slack-shell.css?v=5.5.5" />
     <link
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap"
       rel="stylesheet"
     />
-    <link rel="modulepreload" href="./src/ui/main.mjs?v=5.5.4" />
-    <link rel="modulepreload" href="./src/ui/slackShell.mjs?v=5.5.4" />
-    <link rel="modulepreload" href="./src/ui/realtimeSlack.mjs?v=5.5.4" />
-    <link rel="modulepreload" href="./src/ui/channels.mjs?v=5.5.4" />
-    <link rel="modulepreload" href="./src/ui/taskThreads.mjs?v=5.5.4" />
-    <link rel="modulepreload" href="./src/application/fileIngestor.mjs?v=5.5.4" />
-    <link rel="modulepreload" href="./src/domain/taskEntities.mjs?v=5.5.4" />
-    <link rel="modulepreload" href="./src/domain/taskBoardStore.mjs?v=5.5.4" />
-    <link rel="modulepreload" href="./src/domain/deterministicNlp.mjs?v=5.5.4" />
+    <link rel="modulepreload" href="./src/ui/main.mjs?v=5.5.5" />
+    <link rel="modulepreload" href="./src/ui/slackShell.mjs?v=5.5.5" />
+    <link rel="modulepreload" href="./src/ui/realtimeSlack.mjs?v=5.5.5" />
+    <link rel="modulepreload" href="./src/ui/channels.mjs?v=5.5.5" />
+    <link rel="modulepreload" href="./src/ui/taskThreads.mjs?v=5.5.5" />
+    <link rel="modulepreload" href="./src/application/fileIngestor.mjs?v=5.5.5" />
+    <link rel="modulepreload" href="./src/domain/taskEntities.mjs?v=5.5.5" />
+    <link rel="modulepreload" href="./src/domain/taskBoardStore.mjs?v=5.5.5" />
+    <link rel="modulepreload" href="./src/domain/deterministicNlp.mjs?v=5.5.5" />
         <script type="application/ld+json">
       {
         "@context": "https://schema.org",
@@ -529,6 +529,9 @@
                 </div>
               </div>
               <div class="toolbar-actions">
+                <button type="button" id="btn-daily-digest" class="btn btn--primary" title="Generar Resumen Diario Ejecutivo con IA y Detecci?n de Conflictos">
+                  ?? Resumen Ejecutivo
+                </button>
                 <button type="button" id="alarm-toggle-btn" class="btn btn--secondary" title="Activar recordatorios y alarmas sonoras">
                   🔔 Notificaciones
                 </button>
@@ -1115,9 +1118,28 @@
 
         
 
+    <!-- ================================================================ -->
+    <!-- EXECUTIVE AI DAILY STANDUP & CONFLICT GUARD (FR-CS-020)           -->
+    <!-- ================================================================ -->
+    <dialog id="dialog-executive-digest" class="crud-dialog" closedby="any" aria-labelledby="digest-dialog-title">
+      <div class="crud-dialog__header">
+        <h2 id="digest-dialog-title" class="crud-dialog__title">?? Resumen Ejecutivo Diario</h2>
+        <button type="button" id="btn-digest-close" class="crud-dialog__close btn btn--ghost btn--sm" aria-label="Cerrar resumen">?</button>
+      </div>
+      <div id="digest-modal-body" class="crud-dialog__body"></div>
+      <div class="crud-dialog__actions">
+        <button type="button" id="btn-digest-speak" class="btn btn--secondary" aria-label="Escuchar resumen de voz">
+          ?? Escuchar Resumen
+        </button>
+        <button type="button" id="btn-digest-copy" class="btn btn--primary" aria-label="Copiar resumen en formato Markdown">
+          ?? Copiar Formato Standup
+        </button>
+      </div>
+    </dialog>
+
     <div id="toast-notification" class="toast" role="status" aria-live="polite" hidden></div>
 
-    <script type="module" src="./src/ui/main.mjs?v=5.5.4"></script>
-    <script type="module" src="./src/ui/slackShell.mjs?v=5.5.4"></script>
+    <script type="module" src="./src/ui/main.mjs?v=5.5.5"></script>
+    <script type="module" src="./src/ui/slackShell.mjs?v=5.5.5"></script>
   </body>
 </html>

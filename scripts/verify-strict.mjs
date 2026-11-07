@@ -118,7 +118,8 @@ execFileSync(
     path.join(root, "test/cloudTaskAdapter.test.mjs"),
     path.join(root, "test/hourlyTask.test.mjs"),
     path.join(root, "test/notificationEngine.test.mjs"),
-    path.join(root, "test/channelInvites.test.mjs")
+    path.join(root, "test/channelInvites.test.mjs"),
+    path.join(root, "test/workloadOptimizer.test.mjs")
   ],
   {
     cwd: root,

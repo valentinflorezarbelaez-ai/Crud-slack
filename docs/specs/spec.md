@@ -147,4 +147,16 @@ ESCENARIO: BDD-CS-011: Ingesta directa de archivos de correo (.eml) y chat (.txt
   DADO un archivo de correo .eml con cabeceras Subject/From y cuerpo Quoted-Printable o un chat exportado de WhatsApp .txt
   CUANDO el usuario lo adjunta o arrastra sobre el compositor
   ENTONCES el sistema extrae el texto limpio, selecciona el canal correspondiente ("email" o "whatsapp") y genera las tareas priorizadas y verificadas.
+
+ESCENARIO: BDD-CS-012: Generaci?n de Resumen Ejecutivo y Resoluci?n de Conflictos de Horario
+  DADO un tablero con tareas activas donde dos entregas coinciden en horario (09:00 y 09:30 con duraciones solapadas)
+  CUANDO el usuario abre el di?logo "?? Resumen Ejecutivo" y pulsa "? Resolver Colisiones Autom?ticamente"
+  ENTONCES el sistema detecta la superposici?n de intervalos, recalcula los horarios escalon?ndolos con un margen de amortiguaci?n
+  Y actualiza el estado de las tareas localmente y en la base de datos sin duplicaciones ni p?rdida de dependencias.
+
+ESCENARIO: BDD-CS-013: Registro de Auditor?a Inmutable por Tarea
+  DADO una tarea existente en el espacio de trabajo
+  CUANDO el usuario cambia su estado de "PENDING" a "IN_PROGRESS" o ajusta su fecha l?mite
+  ENTONCES el sistema registra una entrada inmutable con marca de tiempo, actor, campos modificados y valores previo/nuevo
+  Y la lista de auditor?a renderiza la cronolog?a completa de forma legible y accesible.
 ```
