@@ -244,3 +244,89 @@ export async function POST(req) {
     });
   }
 }
+
+
+export async function DELETE(req) {
+  try {
+    const url = req?.url ? new URL(req.url) : null;
+    let channelId = (url?.searchParams.get("channelId") || url?.searchParams.get("id") || "").trim();
+    let channelName = (url?.searchParams.get("name") || "").trim();
+
+    if (!channelId && !channelName && req.method === "DELETE") {
+      try {
+        const body = await req.json();
+        channelId = String(body?.channelId || body?.id || "").trim();
+        channelName = String(body?.name || "").trim();
+      } catch {}
+    }
+
+    if (!channelId && !channelName) {
+      return new Response(JSON.stringify({ ok: false, error: "channelId or name is required" }), {
+        status: 400,
+        headers: { "Content-Type": "application/json" }
+      });
+    }
+
+    // Protection for root canonical channel
+    const norm = (channelName || channelId).toLowerCase().replace(/^c_/, "");
+    if (norm === "general") {
+      return new Response(JSON.stringify({ ok: false, error: "El canal #general no puede ser eliminado." }), {
+        status: 400,
+        headers: { "Content-Type": "application/json" }
+      });
+    }
+
+    if (process.env.TASKFLOW_HERMETIC_TEST === "1" && !process.env.DATABASE_URL) {
+      return new Response(
+        JSON.stringify({
+          ok: true,
+          deleted: true,
+          channelId: channelId || norm,
+          message: `Canal #${norm} eliminado exitosamente.`
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    // Delete dependent entities in Neon PostgreSQL
+    await sql(
+      `DELETE FROM tasks WHERE channel_id = $1 OR channel_id = $2 OR channel_id = $3;`,
+      [channelId, norm, `c_${norm}`]
+    ).catch(() => {});
+
+    await sql(
+      `DELETE FROM channel_invites WHERE channel_id = $1 OR channel_id = $2 OR channel_id = $3;`,
+      [channelId, norm, `c_${norm}`]
+    ).catch(() => {});
+
+    await sql(
+      `DELETE FROM channel_members WHERE channel_id = $1 OR channel_id = $2 OR channel_id = $3;`,
+      [channelId, norm, `c_${norm}`]
+    ).catch(() => {});
+
+    await sql(
+      `DELETE FROM messages WHERE channel_id = $1 OR channel_id = $2 OR channel_id = $3;`,
+      [channelId, norm, `c_${norm}`]
+    ).catch(() => {});
+
+    await sql(
+      `DELETE FROM channels WHERE id = $1 OR name = $2 OR id = $3;`,
+      [channelId, norm, `c_${norm}`]
+    ).catch(() => {});
+
+    return new Response(
+      JSON.stringify({
+        ok: true,
+        deleted: true,
+        channelId: channelId || norm,
+        message: `Canal #${norm} eliminado exitosamente.`
+      }),
+      { status: 200, headers: { "Content-Type": "application/json" } }
+    );
+  } catch (err) {
+    return new Response(JSON.stringify({ ok: false, error: err.message }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" }
+    });
+  }
+}

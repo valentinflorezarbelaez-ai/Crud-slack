@@ -71,6 +71,7 @@ export function initChannels({ onActivate, onRemoved, showToast }) {
   const submitBtn = $("channel-submit-btn");
   const deleteBtn = $("channel-delete-btn");
   const settingsBtn = $("channel-settings-btn");
+  const deleteHeaderBtn = $("channel-delete-header-btn");
   const members = document.querySelector(".avatar-stack");
 
   const getActive = () => channels.find((c) => c.id === activeId) || channels[0];
@@ -121,6 +122,26 @@ export function initChannels({ onActivate, onRemoved, showToast }) {
       }
       if (ch.unread > 0 && !isActive) btn.append(span("sidebar-item__badge", String(ch.unread)));
 
+      if (ch.id !== "general" && ch.name !== "general") {
+        const delBtn = document.createElement("span");
+        delBtn.className = "sidebar-item__del";
+        delBtn.title = `Eliminar #${ch.name}`;
+        delBtn.setAttribute("aria-label", `Eliminar canal #${ch.name}`);
+        delBtn.setAttribute("role", "button");
+        delBtn.tabIndex = 0;
+        delBtn.textContent = "×";
+        const triggerDel = (ev) => {
+          ev.stopPropagation();
+          ev.preventDefault();
+          performChannelDeletion(ch);
+        };
+        delBtn.addEventListener("click", triggerDel);
+        delBtn.addEventListener("keydown", (ev) => {
+          if (ev.key === "Enter" || ev.key === " ") triggerDel(ev);
+        });
+        btn.append(delBtn);
+      }
+
       li.append(btn);
       list.append(li);
     }
@@ -128,7 +149,9 @@ export function initChannels({ onActivate, onRemoved, showToast }) {
 
   function syncSettingsButton() {
     const active = getActive();
+    const canDelete = active.id !== "general" && active.name !== "general";
     if (settingsBtn) settingsBtn.hidden = active.kind !== "custom";
+    if (deleteHeaderBtn) deleteHeaderBtn.hidden = !canDelete;
     renderMembers(active);
   }
 
@@ -240,21 +263,45 @@ export function initChannels({ onActivate, onRemoved, showToast }) {
   $("channel-cancel-btn")?.addEventListener("click", () => dialog?.close());
   $("channel-close-btn")?.addEventListener("click", () => dialog?.close());
 
-  deleteBtn?.addEventListener("click", () => {
-    const target = channels.find((c) => c.id === editingId);
-    if (!target || target.kind !== "custom") return;
+  async function performChannelDeletion(target) {
+    if (!target || target.id === "general" || target.name === "general") {
+      showToast("El canal #general no puede ser eliminado.");
+      return;
+    }
     const ok = window.confirm(
-      `¿Eliminar #${target.name}?\n\nSe borrarán también las tareas de este canal. Esta acción no se puede deshacer.`
+      `¿Eliminar el canal #${target.name}?\n\nSe borrarán permanentemente sus tareas y mensajes. Esta acción no se puede deshacer.`
     );
     if (!ok) return;
+
     const wasActive = target.id === activeId;
     channels = channels.filter((c) => c.id !== target.id);
     persist();
     dialog?.close();
     onRemoved(target);
+
+    // Call DELETE API to purge from Neon PostgreSQL
+    try {
+      await fetch(`./api/channels?channelId=${encodeURIComponent(target.id)}&name=${encodeURIComponent(target.name)}`, {
+        method: "DELETE"
+      });
+    } catch {
+      // Local removal already succeeded
+    }
+
     if (wasActive) activate("general");
     else render();
-    showToast(`Canal #${target.name} eliminado.`);
+    syncSettingsButton();
+    showToast(`Canal #${target.name} eliminado exitosamente.`);
+  }
+
+  deleteBtn?.addEventListener("click", () => {
+    const target = channels.find((c) => c.id === editingId);
+    if (target) performChannelDeletion(target);
+  });
+
+  deleteHeaderBtn?.addEventListener("click", () => {
+    const active = getActive();
+    if (active) performChannelDeletion(active);
   });
 
   /* ---------- Sidebar + header wiring ---------- */
