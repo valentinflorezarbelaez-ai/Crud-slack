@@ -18,7 +18,7 @@ import {
   taskBoardReducer
 } from "../domain/taskBoardStore.mjs";
 import { analyzeWorkplaceRequest } from "../application/analyzeRequest.mjs";
-import { parseIngestedFile } from "../application/fileIngestor.mjs?v=5.5.0";
+import { parseIngestedFile } from "../application/fileIngestor.mjs?v=5.5.1";
 import {
   exportToJsonContract,
   exportToSharePointCsv,
@@ -31,12 +31,12 @@ import { setupKanbanDragAndDrop } from "./kanbanDragDrop.mjs";
 import { setupVoiceDictation } from "./voiceDictation.mjs";
 import { setupCommandPalette } from "./commandPalette.mjs";
 import { fireConfettiCelebration } from "./confetti.mjs";
-import { renderTableView, renderSharePointListView, renderTeamsCardPreview, renderHourlyTimelineView } from "./taskViews.mjs";
+import { renderTableView, renderSharePointListView, renderTeamsCardPreview, renderHourlyTimelineView } from "./taskViews.mjs?v=5.5.1";
 import { playTaskCompletedSound, playAlarmChime } from "./soundFx.mjs";
 import { checkDueAlarms, formatLocalHhMm } from "../application/notificationEngine.mjs";
 import { requestNotificationPermission, triggerTaskNotification } from "../infrastructure/webNotificationAdapter.mjs";
-import { initRealtimeSlack } from "./realtimeSlack.mjs?v=5.5.0";
-import { initTaskThreads } from "./taskThreads.mjs?v=5.5.0";
+import { initRealtimeSlack } from "./realtimeSlack.mjs?v=5.5.1";
+import { initTaskThreads } from "./taskThreads.mjs?v=5.5.1";
 import {
   loadPersistedBoardState,
   removePersistedBoardState,
@@ -46,9 +46,9 @@ import {
   fetchRemoteTasks,
   syncRemoteTasks
 } from "../infrastructure/cloudTaskAdapter.mjs";
-import { WORKPLACE_PRESETS } from "./presets.mjs?v=5.5.0";
-import { initChannels, syncChannelPanels } from "./channels.mjs?v=5.5.0";
-import { initVisualPreferences, nextFridayIso } from "./preferences.mjs?v=5.5.0";
+import { WORKPLACE_PRESETS } from "./presets.mjs?v=5.5.1";
+import { initChannels, syncChannelPanels } from "./channels.mjs?v=5.5.1";
+import { initVisualPreferences, nextFridayIso } from "./preferences.mjs?v=5.5.1";
 
 const NEXT_STATUS_CYCLE = Object.freeze({
   PENDING: "IN_PROGRESS",
@@ -970,6 +970,13 @@ async function bootstrap() {
 
   el.tasksRenderRoot?.addEventListener("click", (ev) => {
     const target = (ev.target);
+    if (target.id === "sp-cloud-link") {
+      const savedSpUrl = localStorage.getItem("taskflow_custom_sharepoint_url");
+      if (savedSpUrl && savedSpUrl.startsWith("http")) {
+        target.setAttribute("href", savedSpUrl);
+      }
+      return;
+    }
     if (target.id === "sp-new-btn") {
       openCrudDialog(null);
       return;
@@ -1081,7 +1088,9 @@ async function bootstrap() {
       el.teamsCardDialog?.close();
       setActiveTopSection("workspace");
       setViewMode("sharepoint");
-      showToast("Mostrando vista interactiva estilo SharePoint Lists.");
+      const target = document.getElementById("tasks-render-root") || document.querySelector(".panel--results");
+      target?.scrollIntoView({ behavior: "smooth", block: "start" });
+      showToast("?? Mostrando vista interactiva estilo SharePoint Lists.");
     }
   });
   el.copyTeamsJsonBtn?.addEventListener("click", () => {

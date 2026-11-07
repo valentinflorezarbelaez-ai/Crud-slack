@@ -116,9 +116,10 @@ export function renderSharePointListView(tasks) {
   return `
     <div class="sp-list-container">
       <div class="sp-command-bar" role="toolbar" aria-label="Barra de comandos estilo SharePoint Modern">
-        <button type="button" class="sp-command-btn sp-command-btn--primary" id="sp-new-btn">+ Nuevo ítem</button>
+        <button type="button" class="sp-command-btn sp-command-btn--primary" id="sp-new-btn">+ Nuevo ?tem</button>
         <button type="button" class="sp-command-btn" id="sp-export-csv-btn">Exportar a Excel / CSV</button>
-        <button type="button" class="sp-command-btn" id="sp-flow-btn">⚡ Flujo Power Automate</button>
+        <button type="button" class="sp-command-btn" id="sp-flow-btn">? Flujo Power Automate</button>
+        <a href="https://www.office.com/launch/sharepoint" target="_blank" rel="noopener noreferrer" class="sp-command-btn" id="sp-cloud-link" title="Abrir Microsoft 365 SharePoint Online en la nube">?? Abrir Microsoft 365 SharePoint ?</a>
       </div>
       <div class="sp-table-wrap">
         <table class="sp-table">
@@ -169,8 +170,9 @@ export function renderTeamsCardPreview(container, tasks, summary = "Plan de tare
     <div class="teams-preview__tasks-box">${taskRows}</div>
     ${draft ? `<div class="teams-preview__draft"><strong>Borrador de aclaración:</strong><p>${escapeHtml(draft)}</p></div>` : ""}
     <div class="teams-preview__actions">
-      <button type="button" class="teams-btn" data-teams-action="open-taskflow" title="Cerrar vista previa y ver tareas en el tablero">Abrir en TaskFlow</button>
-      <button type="button" class="teams-btn" data-teams-action="open-sharepoint" title="Cambiar a vista moderna de SharePoint Lists">Ver en SharePoint</button>
+      <button type="button" class="teams-btn" data-teams-action="open-taskflow" title="Ver tareas en el tablero TaskFlow">Abrir en TaskFlow</button>
+      <button type="button" class="teams-btn" data-teams-action="open-sharepoint" title="Ver en vista interactiva SharePoint Lists dentro de TaskFlow">Ver en SharePoint (Lista)</button>
+      <a href="https://www.office.com/launch/sharepoint" target="_blank" rel="noopener noreferrer" class="teams-btn teams-btn--cloud" title="Abrir Microsoft 365 SharePoint Online en la nube (nueva pesta?a)">?? SharePoint Online ?</a>
     </div>
   `;
 }

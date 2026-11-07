@@ -1507,3 +1507,18 @@ html[data-theme="dark"] .team-user-avatar {
   line-height: 1.4;
   word-break: break-word;
 }
+
+
+/* Microsoft 365 Cloud Link Button */
+.teams-btn--cloud {
+  background: #0078d4;
+  color: #ffffff !important;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.teams-btn--cloud:hover {
+  background: #106ebe;
+  color: #ffffff !important;
+}
