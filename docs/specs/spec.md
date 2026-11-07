@@ -57,6 +57,18 @@
 ### FR-CS-015: Multi-Tenant Per-User Workspace Personalization, Scoped Channels & Cloud Preferences
 - **Pattern (Event-Driven)**: CUANDO un usuario autenticado con cuenta real inicia sesión, EL SISTEMA personalizará el nombre e iniciales de su espacio de trabajo (`Espacio de <Nombre>`), restaurará sus preferencias visuales (`theme`, `scale`, `layout`) y frase de estado (`status_text`) desde Neon PostgreSQL (`/api/auth/me`), ocultará canales y contactos ficticios de demostración, y filtrará `/api/channels` exclusivamente a los canales creados por ese usuario o a los que se haya unido mediante enlace de invitación (`?join=token`).
 
+### FR-CS-016: Cryptographic Cookie-Only Enforcement for Real OAuth Accounts & Channel Membership Guard
+- **Pattern (Error / Unwanted Condition)**: SI una solicitud hacia `/api/tasks`, `/api/channels`, `/api/messages` o `/api/auth/me` intenta actuar bajo una identidad real de Google (`usr_g_*`) sin presentar una cookie firmada `HttpOnly` HMAC-SHA256 válida (`taskflow_session`), o intenta acceder a un canal privado/personalizado ajeno sin membresía en `channel_members`, ENTONCES EL SISTEMA rechazará la petición con HTTP `401` o `403`.
+
+### FR-CS-017: Real-Time Collaborative Task Board Synchronization
+- **Pattern (State-Driven)**: MIENTRAS el usuario visualice un canal colaborativo compartido sin estar editando una tarea en modal, EL SISTEMA sincronizará periódicamente el tablero contra `/api/tasks` comparando `checksum` para reflejar en tiempo real las tareas creadas, editadas o completadas por otros miembros del canal.
+
+### FR-CS-018: Persistent Task-Level Discussion Threads in PostgreSQL
+- **Pattern (Event-Driven)**: CUANDO el usuario abre el diálogo `💬 Hilo` de una tarea o publica una respuesta, EL SISTEMA recuperará y almacenará los comentarios asociados con `parent_id = task.id` en Neon PostgreSQL (`/api/messages`), excluyéndolos del feed principal del canal para mantener conversaciones enfocadas por tarea.
+
+### FR-CS-019: Direct Email (.eml) & Chat (.txt, .md) File Ingestion + Gemini Hourly Schema
+- **Pattern (Event-Driven)**: CUANDO el usuario adjunta o arrastra un archivo `.eml` (correo electrónico RFC 5322) o `.txt`/`.md` (chat de WhatsApp/Slack/notas) al compositor, EL SISTEMA decodificará cabeceras y cuerpo plano en cliente, seleccionará automáticamente el canal fuente y extraerá tareas y horas programadas (`scheduledTime` `HH:mm`) verificadas contra alucinación temporal.
+
 ---
 
 ## 3. Non-Functional Requirements (NFR)
@@ -118,4 +130,21 @@ ESCENARIO: BDD-CS-008: Personalización multi-usuario e historial independiente 
   CUANDO otro usuario real B inicia sesión en el mismo navegador o en otro dispositivo
   ENTONCES el usuario B ve su propio encabezado "Espacio de <NombreB>", sus propias listas personales vacías, su propio tema visual y cero canales o contactos ajenos
   Y solo accede al canal "#trabajo" del usuario A si abre explícitamente un enlace de invitación válido (?join=token).
+
+ESCENARIO: BDD-CS-009: Blindaje criptográfico Cookie-Only contra suplantación de cuentas Google
+  DADO un atacante externo que conoce el identificador "usr_g_100470499712704597932" pero carece de la cookie firmada HttpOnly taskflow_session
+  CUANDO envía peticiones directas a /api/tasks, /api/channels o /api/auth/me pasando userId="usr_g_100470499712704597932"
+  ENTONCES el servidor rechaza la suplantación con HTTP 401 (o devuelve lista vacía sin exponer canales privados)
+  Y solo autoriza operaciones cuando la firma HMAC-SHA256 de la cookie coincide con dicho usuario.
+
+ESCENARIO: BDD-CS-010: Hilos de discusión persistentes por tarea y sincronización colaborativa
+  DADO un canal compartido donde el usuario A abre "💬 Hilo" en una tarea y publica un acuerdo de seguimiento
+  CUANDO el usuario B abre "💬 Hilo" sobre esa misma tarea o permanece en el canal compartido
+  ENTONCES el comentario aparece persistido bajo parent_id = task.id sin contaminar el chat general del canal
+  Y cualquier cambio de estado en las tareas se refleja automáticamente por comparación de checksum.
+
+ESCENARIO: BDD-CS-011: Ingesta directa de archivos de correo (.eml) y chat (.txt)
+  DADO un archivo de correo .eml con cabeceras Subject/From y cuerpo Quoted-Printable o un chat exportado de WhatsApp .txt
+  CUANDO el usuario lo adjunta o arrastra sobre el compositor
+  ENTONCES el sistema extrae el texto limpio, selecciona el canal correspondiente ("email" o "whatsapp") y genera las tareas priorizadas y verificadas.
 ```

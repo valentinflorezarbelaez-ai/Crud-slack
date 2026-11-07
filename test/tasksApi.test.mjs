@@ -1,7 +1,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 
-describe("Task API Endpoint: api/tasks.js", () => {
+describe("Task API & Persistent Task Discussion Threads: api/tasks.js & api/messages.js", () => {
   it("rejects POST requests with missing channelId or invalid tasks array", async () => {
     const { POST } = await import("../api/tasks.js");
 
@@ -41,7 +41,7 @@ describe("Task API Endpoint: api/tasks.js", () => {
     assert.equal(isPersonalChannelId("general"), false);
   });
 
-  it("handles GET requests returning tasks for canonical channel", async () => {
+  it("handles GET requests returning tasks and deterministic checksum for canonical channel", async () => {
     const { GET } = await import("../api/tasks.js");
 
     const req = new Request("http://localhost/api/tasks?channelId=general");
@@ -49,30 +49,55 @@ describe("Task API Endpoint: api/tasks.js", () => {
     assert.ok(res.status === 200 || res.status === 500);
     const json = await res.json();
     assert.ok(typeof json.ok === "boolean");
+    if (res.status === 200) {
+      assert.equal(typeof json.checksum, "string");
+    }
   });
 
-  it("rejects unauthenticated GET and POST on all personal spaces (BDD-CS-007 & BDD-CS-008)", async () => {
+  it("rejects unauthenticated or spoofed usr_g_* GET/POST on personal spaces, allowing signed cookies (BDD-CS-009)", async () => {
+    if (!process.env.SESSION_SECRET) {
+      process.env.SESSION_SECRET = "test_hermetic_session_secret_32_chars_long_minimum!";
+    }
     const { GET, POST } = await import("../api/tasks.js");
+    const { signSession } = await import("../api/_auth.js");
 
     for (const privSpace of ["personal", "personal-proyectos", "personal-notas"]) {
       const unauthGet = new Request(`http://localhost/api/tasks?channelId=${privSpace}`);
       const getRes = await GET(unauthGet);
       assert.equal(getRes.status, 401);
-      const getJson = await getRes.json();
-      assert.equal(getJson.ok, false);
 
-      const unauthPost = new Request("http://localhost/api/tasks", {
+      // Spoofed Google userId query without cookie must also return 401
+      const spoofGet = new Request(
+        `http://localhost/api/tasks?channelId=${privSpace}&userId=usr_g_100470499712704597932`
+      );
+      const spoofGetRes = await GET(spoofGet);
+      assert.equal(spoofGetRes.status, 401);
+
+      const spoofPost = new Request("http://localhost/api/tasks", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           channelId: privSpace,
-          tasks: [{ title: "Intento sin sesión" }]
+          userId: "usr_g_100470499712704597932",
+          tasks: [{ title: "Intento spoofed sin cookie" }]
         })
       });
-      const postRes = await POST(unauthPost);
-      assert.equal(postRes.status, 401);
-      const postJson = await postRes.json();
-      assert.equal(postJson.ok, false);
+      const spoofPostRes = await POST(spoofPost);
+      assert.equal(spoofPostRes.status, 401);
+    }
+
+    // Signed HttpOnly cookie for usr_g_* succeeds in hermetic mode
+    process.env.TASKFLOW_HERMETIC_TEST = "1";
+    const token = await signSession({ userId: "usr_g_verified", fullName: "Verified User" });
+    const signedGet = new Request("http://localhost/api/tasks?channelId=personal", {
+      headers: { cookie: `taskflow_session=${encodeURIComponent(token)}` }
+    });
+    const signedRes = await GET(signedGet);
+    if (!process.env.DATABASE_URL) {
+      assert.equal(signedRes.status, 200);
+      const signedJson = await signedRes.json();
+      assert.equal(signedJson.ok, true);
+      assert.equal(signedJson.userId, "usr_g_verified");
     }
   });
 
@@ -106,5 +131,63 @@ describe("Task API Endpoint: api/tasks.js", () => {
     );
     const getRes = await GET(getReq);
     assert.ok(getRes.status === 200 || getRes.status === 500);
+  });
+
+  it("supports persistent task-level discussion threads via /api/messages?taskId=... (BDD-CS-010)", async () => {
+    if (!process.env.SESSION_SECRET) {
+      process.env.SESSION_SECRET = "test_hermetic_session_secret_32_chars_long_minimum!";
+    }
+    process.env.TASKFLOW_HERMETIC_TEST = "1";
+    const { GET: getMessages, POST: postMessage } = await import("../api/messages.js");
+    const { signSession } = await import("../api/_auth.js");
+
+    // 1. Unauthenticated private task comments must return 401
+    const unauthThreadGet = await getMessages(
+      new Request("http://localhost/api/messages?taskId=tsk_101&channelId=personal")
+    );
+    assert.equal(unauthThreadGet.status, 401);
+
+    // 2. Unauthenticated comment POST must return 401
+    const unauthThreadPost = await postMessage(
+      new Request("http://localhost/api/messages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ taskId: "tsk_101", channelId: "general", text: "Sin sesión" })
+      })
+    );
+    assert.equal(unauthThreadPost.status, 401);
+
+    // 3. Authenticated comment POST & GET with signed cookie succeeds in hermetic mode
+    const token = await signSession({ userId: "usr_g_thread_tester", fullName: "Thread Tester" });
+    if (!process.env.DATABASE_URL) {
+      const authPost = await postMessage(
+        new Request("http://localhost/api/messages", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            cookie: `taskflow_session=${encodeURIComponent(token)}`
+          },
+          body: JSON.stringify({
+            taskId: "tsk_101",
+            channelId: "personal",
+            text: "Acuerdo confirmado con finanzas."
+          })
+        })
+      );
+      assert.equal(authPost.status, 201);
+      const postJson = await authPost.json();
+      assert.equal(postJson.ok, true);
+      assert.equal(postJson.comment.task_id, "tsk_101");
+
+      const authGet = await getMessages(
+        new Request("http://localhost/api/messages?taskId=tsk_101&channelId=personal", {
+          headers: { cookie: `taskflow_session=${encodeURIComponent(token)}` }
+        })
+      );
+      assert.equal(authGet.status, 200);
+      const getJson = await authGet.json();
+      assert.equal(getJson.ok, true);
+      assert.ok(Array.isArray(getJson.comments));
+    }
   });
 });

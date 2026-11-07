@@ -2,7 +2,8 @@
  * INFRASTRUCTURE ADAPTER: HYBRID CLOUD & LOCALSTORAGE TASK ADAPTER
  * Connects the reactive task board store to Neon PostgreSQL (/api/tasks)
  * with graceful offline fallback to window.localStorage.
- * Enforces strict (userId, channelId) isolation across all personal private spaces.
+ * Enforces strict (userId, channelId) isolation across all personal private spaces
+ * and live collaborative sync across shared channels (FR-CS-017).
  *
  * Governed by EOS Law V (Clean Architecture) and Law VI (Defense in Depth).
  * Zero external runtime dependencies.
@@ -37,28 +38,30 @@ export function isPersonalSpace(canonical, rawChannel = "") {
  * Fetches tasks from Neon PostgreSQL /api/tasks with fallback to localStorage.
  * @param {string} channelId
  * @param {string|null} userId
- * @returns {Promise<{ ok: boolean, tasks: Array<any>, source: "cloud"|"local" }>}
+ * @returns {Promise<{ ok: boolean, tasks: Array<any>, checksum?: string|null, source: "cloud"|"local" }>}
  */
 export async function fetchRemoteTasks(channelId, userId = null) {
-  const canonical = normalizeChannel(channelId);
-  const isPrivate = isPersonalSpace(canonical, channelId);
+  const rawId = String(channelId || "general").trim();
+  const canonical = normalizeChannel(rawId);
+  const isPrivate = isPersonalSpace(canonical, rawId);
+  const isCustomChannel = rawId.startsWith("c_");
 
   // Strict privacy guard: never return private workspace tasks without an authenticated userId
   if (isPrivate && !userId) {
-    return { ok: true, tasks: [], source: "local" };
+    return { ok: true, tasks: [], checksum: null, source: "local" };
   }
 
   // If running in a non-browser environment or fetch is unavailable, return local directly
   if (typeof window === "undefined" || typeof fetch !== "function") {
     const local = loadPersistedBoardState(canonical, userId);
-    return { ok: true, tasks: local?.tasks || [], source: "local" };
+    return { ok: true, tasks: local?.tasks || [], checksum: local?.checksum || null, source: "local" };
   }
 
   try {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 4000);
 
-    const params = new URLSearchParams({ channelId: canonical });
+    const params = new URLSearchParams({ channelId: isCustomChannel ? rawId : canonical });
     if (userId) params.set("userId", userId);
     if (isPrivate) params.set("isPrivate", "true");
 
@@ -76,14 +79,24 @@ export async function fetchRemoteTasks(channelId, userId = null) {
         const entities = json.tasks.map((t, idx) =>
           createTaskEntity({ ...t, isPrivate: isPrivate || Boolean(t.isPrivate), userId: userId || t.userId }, idx)
         );
-        if (entities.length > 0) {
+        if (entities.length > 0 || isCustomChannel) {
           savePersistedBoardState({ tasks: entities }, canonical, userId);
-          return { ok: true, tasks: entities, source: "cloud" };
+          return {
+            ok: true,
+            tasks: entities,
+            checksum: json.checksum || null,
+            source: "cloud"
+          };
         }
         if (isPrivate) {
           const local = loadPersistedBoardState(canonical, userId);
           if (!local || !Array.isArray(local.tasks) || local.tasks.length === 0) {
-            return { ok: true, tasks: [], source: "cloud" };
+            return {
+              ok: true,
+              tasks: [],
+              checksum: json.checksum || null,
+              source: "cloud"
+            };
           }
         }
       }
@@ -94,7 +107,7 @@ export async function fetchRemoteTasks(channelId, userId = null) {
 
   // Fallback to local storage
   const local = loadPersistedBoardState(canonical, userId);
-  return { ok: true, tasks: local?.tasks || [], source: "local" };
+  return { ok: true, tasks: local?.tasks || [], checksum: local?.checksum || null, source: "local" };
 }
 
 /**
@@ -108,8 +121,10 @@ export async function fetchRemoteTasks(channelId, userId = null) {
  * @returns {Promise<boolean>}
  */
 export async function syncRemoteTasks(channelId, tasks, userId = null, options = {}) {
-  const canonical = normalizeChannel(channelId);
-  const isPrivate = isPersonalSpace(canonical, channelId);
+  const rawId = String(channelId || "general").trim();
+  const canonical = normalizeChannel(rawId);
+  const isPrivate = isPersonalSpace(canonical, rawId);
+  const isCustomChannel = rawId.startsWith("c_");
 
   if (isPrivate && !userId) {
     return false;
@@ -149,7 +164,7 @@ export async function syncRemoteTasks(channelId, tasks, userId = null, options =
         credentials: "same-origin",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          channelId: canonical,
+          channelId: isCustomChannel ? rawId : canonical,
           userId: userId || null,
           isPrivate,
           tasks: entities

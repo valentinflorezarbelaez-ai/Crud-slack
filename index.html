@@ -2,7 +2,7 @@
 <html lang="es" data-theme="light" data-scale="md">
   <head>
     <meta charset="UTF-8" />
-    <script src="./src/ui/recovery.js?v=5.4.0"></script>
+    <script src="./src/ui/recovery.js?v=5.5.0"></script>
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>TaskFlow AI · Organizador Omnicanal de Tareas con IA &amp; CRUD Verificado</title>
     <meta
@@ -23,21 +23,23 @@
     <link rel="dns-prefetch" href="//fonts.gstatic.com" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="preload" href="./css/styles.css?v=5.4.0" as="style" />
-    <link rel="preload" href="./css/slack-shell.css?v=5.4.0" as="style" />
-    <link rel="stylesheet" href="./css/styles.css?v=5.4.0" />
-    <link rel="stylesheet" href="./css/slack-shell.css?v=5.4.0" />
+    <link rel="preload" href="./css/styles.css?v=5.5.0" as="style" />
+    <link rel="preload" href="./css/slack-shell.css?v=5.5.0" as="style" />
+    <link rel="stylesheet" href="./css/styles.css?v=5.5.0" />
+    <link rel="stylesheet" href="./css/slack-shell.css?v=5.5.0" />
     <link
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap"
       rel="stylesheet"
     />
-    <link rel="modulepreload" href="./src/ui/main.mjs?v=5.4.0" />
-    <link rel="modulepreload" href="./src/ui/slackShell.mjs?v=5.4.0" />
-    <link rel="modulepreload" href="./src/ui/realtimeSlack.mjs?v=5.4.0" />
-    <link rel="modulepreload" href="./src/ui/channels.mjs?v=5.4.0" />
-    <link rel="modulepreload" href="./src/domain/taskEntities.mjs?v=5.4.0" />
-    <link rel="modulepreload" href="./src/domain/taskBoardStore.mjs?v=5.4.0" />
-    <link rel="modulepreload" href="./src/domain/deterministicNlp.mjs?v=5.4.0" />
+    <link rel="modulepreload" href="./src/ui/main.mjs?v=5.5.0" />
+    <link rel="modulepreload" href="./src/ui/slackShell.mjs?v=5.5.0" />
+    <link rel="modulepreload" href="./src/ui/realtimeSlack.mjs?v=5.5.0" />
+    <link rel="modulepreload" href="./src/ui/channels.mjs?v=5.5.0" />
+    <link rel="modulepreload" href="./src/ui/taskThreads.mjs?v=5.5.0" />
+    <link rel="modulepreload" href="./src/application/fileIngestor.mjs?v=5.5.0" />
+    <link rel="modulepreload" href="./src/domain/taskEntities.mjs?v=5.5.0" />
+    <link rel="modulepreload" href="./src/domain/taskBoardStore.mjs?v=5.5.0" />
+    <link rel="modulepreload" href="./src/domain/deterministicNlp.mjs?v=5.5.0" />
         <script type="application/ld+json">
       {
         "@context": "https://schema.org",
@@ -446,32 +448,22 @@
                   placeholder="Enviar un mensaje a #general o pegar una solicitud..."
                   required
                 ></textarea>
-<div class="slack-composer-toolbar" role="toolbar" aria-label="Herramientas del compositor">
+                <div class="slack-composer-toolbar" role="toolbar" aria-label="Herramientas del compositor">
                   <div class="slack-fmt-group">
                     <button type="button" class="slack-fmt-icon" data-fmt="bold" title="Negrita (Ctrl+B)" aria-label="Negrita"><b>B</b></button>
                     <button type="button" class="slack-fmt-icon" data-fmt="italic" title="Cursiva (Ctrl+I)" aria-label="Cursiva"><i>I</i></button>
                     <button type="button" class="slack-fmt-icon" data-fmt="strike" title="Tachado" aria-label="Tachado"><s>S</s></button>
                     <button type="button" class="slack-fmt-icon" data-fmt="link" title="Enlace" aria-label="Enlace"><svg class="icon" width="15" height="15" aria-hidden="true"><use href="#i-link" /></svg></button>
                     <button type="button" class="slack-fmt-icon" data-fmt="list" title="Lista" aria-label="Lista"><svg class="icon" width="15" height="15" aria-hidden="true"><use href="#i-list" /></svg></button>
-                    <button type="button" class="slack-fmt-icon" data-fmt="code" title="Código" aria-label="Código">&lt;/&gt;</button>
+                    <button type="button" class="slack-fmt-icon" data-fmt="code" title="C?digo" aria-label="C?digo">&lt;/&gt;</button>
                   </div>
                   <div class="slack-fmt-group">
+                    <button type="button" id="import-file-btn" class="slack-fmt-icon" title="Adjuntar correo (.eml) o chat (.txt, .md)" aria-label="Importar archivo de correo o chat">??</button>
+                    <input type="file" id="import-file-input" accept=".eml,.txt,.md" hidden />
                     <button type="button" class="slack-fmt-icon" data-fmt="emoji" title="Emoji" aria-label="Insertar emoji" aria-haspopup="true" aria-expanded="false" aria-controls="emoji-pop"><svg class="icon" width="15" height="15" aria-hidden="true"><use href="#i-smile" /></svg></button>
-                    <button type="button" class="slack-fmt-icon" data-fmt="mention" title="Mención" aria-label="Mencionar a alguien"><svg class="icon" width="15" height="15" aria-hidden="true"><use href="#i-at" /></svg></button>
-                    <button type="button" id="mic-dictate-btn" class="slack-fmt-icon slack-fmt-mic-btn" title="Dictar mensaje por voz" aria-label="Dictar mensaje por voz" aria-pressed="false">🎙️</button>
+                    <button type="button" class="slack-fmt-icon" data-fmt="mention" title="Menci?n" aria-label="Mencionar a alguien"><svg class="icon" width="15" height="15" aria-hidden="true"><use href="#i-at" /></svg></button>
+                    <button type="button" id="mic-dictate-btn" class="slack-fmt-icon slack-fmt-mic-btn" title="Dictar mensaje por voz" aria-label="Dictar mensaje por voz" aria-pressed="false">???</button>
                   </div>
-                </div>                  <div class="slack-fmt-group">
-                    <button type="button" class="slack-fmt-icon" data-fmt="bold" title="Negrita (Ctrl+B)" aria-label="Negrita"><b>B</b></button>
-                    <button type="button" class="slack-fmt-icon" data-fmt="italic" title="Cursiva (Ctrl+I)" aria-label="Cursiva"><i>I</i></button>
-                    <button type="button" class="slack-fmt-icon" data-fmt="strike" title="Tachado" aria-label="Tachado"><s>S</s></button>
-                    <button type="button" class="slack-fmt-icon" data-fmt="link" title="Enlace" aria-label="Enlace"><svg class="icon" width="15" height="15" aria-hidden="true"><use href="#i-link" /></svg></button>
-                    <button type="button" class="slack-fmt-icon" data-fmt="list" title="Lista" aria-label="Lista"><svg class="icon" width="15" height="15" aria-hidden="true"><use href="#i-list" /></svg></button>
-                    <button type="button" class="slack-fmt-icon" data-fmt="code" title="Código" aria-label="Código">&lt;/&gt;</button>
-                  </div>
-                  <div class="slack-fmt-group">
-<button type="button" class="slack-fmt-icon" data-fmt="emoji" title="Emoji" aria-label="Insertar emoji" aria-haspopup="true" aria-expanded="false" aria-controls="emoji-pop"><svg class="icon" width="15" height="15" aria-hidden="true"><use href="#i-smile" /></svg></button>
-                    <button type="button" class="slack-fmt-icon" data-fmt="mention" title="Mención" aria-label="Mencionar a alguien"><svg class="icon" width="15" height="15" aria-hidden="true"><use href="#i-at" /></svg></button>
-                    <button type="button" id="mic-dictate-btn" class="slack-fmt-icon slack-fmt-mic-btn" title="Dictar mensaje por voz" aria-label="Dictar mensaje por voz" aria-pressed="false">🎙️</button>                  </div>
                 </div>
                 <div class="emoji-pop" id="emoji-pop" role="group" aria-label="Emojis" hidden>
                   <button type="button" data-emoji="👍" aria-label="Pulgar arriba">👍</button>
@@ -1043,6 +1035,8 @@
 
         <div class="slack-thread-task-details" id="slack-thread-task-details"></div>
 
+        <div id="slack-thread-comments-list" class="slack-thread-comments" aria-live="polite"></div>
+
         <div class="slack-thread-reply-box">
           <label for="slack-thread-quick-reply" class="sr-only">Escribir una respuesta en el hilo</label>
           <input type="text" id="slack-thread-quick-reply" class="field__control" placeholder="Responder en el hilo de Slack..." />
@@ -1077,7 +1071,7 @@
 
     <div id="toast-notification" class="toast" role="status" aria-live="polite" hidden></div>
 
-    <script type="module" src="./src/ui/main.mjs?v=5.4.0"></script>
-    <script type="module" src="./src/ui/slackShell.mjs?v=5.4.0"></script>
+    <script type="module" src="./src/ui/main.mjs?v=5.5.0"></script>
+    <script type="module" src="./src/ui/slackShell.mjs?v=5.5.0"></script>
   </body>
 </html>

@@ -1,7 +1,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 
-describe("Task 4: Multi-Tenant Channels, Invites, Deletion & User Preferences Endpoints", () => {
+describe("Task 4: Multi-Tenant Channels, Invites, Deletion, Anti-Spoofing & User Preferences Endpoints", () => {
   it("returns empty channels & teammates for unauthenticated GET /api/channels (no cross-user leak)", async () => {
     const { GET: listChannels } = await import("../api/channels.js");
     const res = await listChannels(new Request("http://localhost/api/channels"));
@@ -10,6 +10,15 @@ describe("Task 4: Multi-Tenant Channels, Invites, Deletion & User Preferences En
     assert.equal(json.ok, true);
     assert.deepEqual(json.channels, []);
     assert.deepEqual(json.teammates, []);
+
+    // BDD-CS-009: Spoofed Google userId query without signed cookie must ALSO return empty
+    const spoofRes = await listChannels(
+      new Request("http://localhost/api/channels?userId=usr_g_100470499712704597932")
+    );
+    assert.equal(spoofRes.status, 200);
+    const spoofJson = await spoofRes.json();
+    assert.deepEqual(spoofJson.channels, []);
+    assert.deepEqual(spoofJson.teammates, []);
   });
 
   it("rejects unauthenticated channel creation with 401", async () => {
@@ -62,8 +71,13 @@ describe("Task 4: Multi-Tenant Channels, Invites, Deletion & User Preferences En
     assert.ok(res.status === 200 || res.status === 503);
   });
 
-  it("me.js POST validates authentication and sanitizes user preferences", async () => {
+  it("me.js POST blocks usr_g_* spoofing without cookie and accepts signed cookie session (BDD-CS-009)", async () => {
+    if (!process.env.SESSION_SECRET) {
+      process.env.SESSION_SECRET = "test_hermetic_session_secret_32_chars_long_minimum!";
+    }
     const { POST: updateMe } = await import("../api/auth/me.js");
+    const { signSession } = await import("../api/_auth.js");
+
     const unauthRes = await updateMe(
       new Request("http://localhost/api/auth/me", {
         method: "POST",
@@ -73,13 +87,30 @@ describe("Task 4: Multi-Tenant Channels, Invites, Deletion & User Preferences En
     );
     assert.equal(unauthRes.status, 401);
 
-    process.env.TASKFLOW_HERMETIC_TEST = "1";
-    const authRes = await updateMe(
+    // Attempted usr_g_* spoofing without signed cookie must be rejected (401)
+    const spoofRes = await updateMe(
       new Request("http://localhost/api/auth/me", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           userId: "usr_g_test1",
+          statusText: "Spoofed"
+        })
+      })
+    );
+    assert.equal(spoofRes.status, 401);
+
+    // Valid HMAC-SHA256 HttpOnly session cookie succeeds
+    process.env.TASKFLOW_HERMETIC_TEST = "1";
+    const sessionToken = await signSession({ userId: "usr_g_test1", fullName: "Test User" });
+    const authRes = await updateMe(
+      new Request("http://localhost/api/auth/me", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          cookie: `taskflow_session=${encodeURIComponent(sessionToken)}`
+        },
+        body: JSON.stringify({
           statusText: "Enfoque profundo",
           preferences: { theme: "dark", scale: "xl", layout: "focus", invalidKey: "ignored" }
         })

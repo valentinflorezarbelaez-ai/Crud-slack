@@ -1,11 +1,11 @@
 /**
  * GET & POST CURRENT AUTHENTICATED USER PROFILE + PERSONALIZED PREFERENCES
- * Consolidated in api/auth/me.js to stay within Vercel Hobby 12-function limit.
+ * Enforces Cookie-Only verification for real Google accounts (FR-CS-016).
  * Zero external npm dependencies.
  */
 
 import { sql } from "../_db.js";
-import { getAuthenticatedUser } from "../_auth.js";
+import { getAuthenticatedUser, resolveVerifiedUserId } from "../_auth.js";
 import { sanitizePlainText } from "../../src/domain/taskEntities.mjs";
 
 const ALLOWED_THEMES = new Set(["light", "warm", "dark"]);
@@ -66,12 +66,11 @@ export async function POST(req) {
     } catch {}
     if (!body || typeof body !== "object") body = {};
 
-    const sessionUser = await getAuthenticatedUser(req);
-    const effectiveUserId = sessionUser?.id || sanitizePlainText(String(body.userId || "")).slice(0, 64);
+    const effectiveUserId = await resolveVerifiedUserId(req, body.userId || "");
 
     if (!effectiveUserId) {
       return new Response(
-        JSON.stringify({ ok: false, error: "Autenticación requerida para actualizar tu perfil." }),
+        JSON.stringify({ ok: false, error: "Autenticación criptográfica requerida para actualizar tu perfil." }),
         { status: 401, headers: { "Content-Type": "application/json" } }
       );
     }

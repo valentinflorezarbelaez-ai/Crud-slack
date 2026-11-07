@@ -1,8 +1,8 @@
 /**
- * LAYER-0 SESSION & AUTHENTICATION HELPER
+ * LAYER-0 SESSION, ANTI-SPOOFING & CHANNEL MEMBERSHIP HELPER
  * HMAC-SHA256 session token signer using native Web Crypto API.
+ * Enforces Cookie-Only cryptographic proof for all real Google OAuth accounts (usr_g_*).
  * Zero external npm dependencies.
- * IA-5: SESSION_SECRET must come from environment — no plaintext fallback.
  */
 
 import { sql } from "./_db.js";
@@ -16,6 +16,12 @@ function requireSessionSecret() {
 }
 
 const COOKIE_NAME = "taskflow_session";
+export const PUBLIC_DEMO_USER_IDS = new Set([
+  "usr_valentin",
+  "usr_ana",
+  "usr_carlos",
+  "usr_elena"
+]);
 
 async function getHmacKey() {
   const encoder = new TextEncoder();
@@ -92,6 +98,76 @@ export async function getAuthenticatedUser(req) {
       [session.userId]
     );
     return rows[0] ? { ...rows[0], preferences: {} } : null;
+  }
+}
+
+/**
+ * Resolves a verified userId for API requests (FR-CS-016 / BDD-CS-009).
+ * Real Google accounts (usr_g_*) strictly require a valid HMAC-SHA256 HttpOnly session cookie;
+ * unauthenticated query/body userId spoofing for real accounts is rejected.
+ */
+export async function resolveVerifiedUserId(req, fallbackUserId = "") {
+  const isHermeticNoDb =
+    process.env.TASKFLOW_HERMETIC_TEST === "1" && !process.env.DATABASE_URL;
+
+  try {
+    if (req?.headers) {
+      const sessionUser = await getAuthenticatedUser(req);
+      if (sessionUser?.id) return sessionUser.id;
+    }
+  } catch {
+    // Proceed to fallback rules below
+  }
+
+  const cleanFallback = String(fallbackUserId || "")
+    .replace(/[\u0000-\u001F\u007F]/g, "")
+    .trim()
+    .slice(0, 64);
+
+  if (!cleanFallback) return null;
+
+  // Never allow unauthenticated spoofing of real Google accounts (usr_g_*)
+  if (cleanFallback.startsWith("usr_g_")) {
+    return null;
+  }
+
+  // Allow explicit showcase demo profiles or hermetic unit test IDs
+  if (PUBLIC_DEMO_USER_IDS.has(cleanFallback) || isHermeticNoDb) {
+    return cleanFallback;
+  }
+
+  return null;
+}
+
+/**
+ * Verifies whether a user can read/write a collaborative channel.
+ * Showcase preset channels (general, operaciones, etc.) are open; user-created custom
+ * channels (created_by IS NOT NULL) require creator ownership or channel_members entry.
+ */
+export async function canAccessChannel(rawChannelId, userId) {
+  const ch = String(rawChannelId || "").trim();
+  if (!ch || ch === "general" || ch === "c_general") return true;
+  if (process.env.TASKFLOW_HERMETIC_TEST === "1" && !process.env.DATABASE_URL) return true;
+
+  const candidateId = ch.startsWith("c_") ? ch : `c_${ch}`;
+  try {
+    const rows = await sql(
+      `SELECT id, created_by FROM channels WHERE id = $1 OR id = $2 LIMIT 1;`,
+      [ch, candidateId]
+    );
+    if (rows.length === 0 || !rows[0].created_by) {
+      return true;
+    }
+    if (!userId) return false;
+    if (rows[0].created_by === userId) return true;
+
+    const mem = await sql(
+      `SELECT 1 FROM channel_members WHERE channel_id = $1 AND user_id = $2 LIMIT 1;`,
+      [rows[0].id, userId]
+    );
+    return mem.length > 0;
+  } catch {
+    return true;
   }
 }
 

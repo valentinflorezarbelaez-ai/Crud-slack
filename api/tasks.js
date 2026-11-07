@@ -1,13 +1,14 @@
 /**
  * SERVERLESS TASKS API ENDPOINT (GET & POST)
  * Reads and persists shared task boards and per-user private personal spaces in Neon PostgreSQL.
- * Enforces strict (user_id, channel_id) isolation for all private spaces.
+ * Enforces Cookie-Only HMAC-SHA256 verification for real accounts + channel_members check.
  * Clean / Hexagonal Layer-0: zero external npm dependencies.
  */
 
 import { sql } from "./_db.js";
-import { getAuthenticatedUser } from "./_auth.js";
-import { createTaskEntity, sanitizePlainText } from "../src/domain/taskEntities.mjs";
+import { canAccessChannel, resolveVerifiedUserId } from "./_auth.js";
+import { createTaskEntity } from "../src/domain/taskEntities.mjs";
+import { computeTasksChecksum } from "../src/domain/taskBoardStore.mjs";
 
 let tableEnsured = false;
 
@@ -68,43 +69,27 @@ export function isPersonalChannelId(canonicalChannel, rawChannel = "", explicitP
   );
 }
 
-async function resolvePrivateUserId(req, fallbackUserId) {
-  try {
-    if (req?.headers && !(process.env.TASKFLOW_HERMETIC_TEST === "1" && !process.env.DATABASE_URL)) {
-      const sessionUser = await getAuthenticatedUser(req);
-      if (sessionUser?.id) return sessionUser.id;
-    }
-  } catch {
-    // Fall back to sanitized explicit userId when session lookup is unavailable
-  }
-  const clean = sanitizePlainText(String(fallbackUserId || "")).slice(0, 64);
-  return clean || null;
-}
-
 export async function GET(req) {
   try {
     const url = new URL(req.url);
     const rawChannel = url.searchParams.get("channelId") || "general";
     const canonicalChannel = normalizeChannelId(rawChannel);
-    const rawUserId = url.searchParams.get("userId") || (rawChannel.startsWith("usr_") ? rawChannel : null);
+    const rawUserId = url.searchParams.get("userId") || (rawChannel.startsWith("usr_") ? rawChannel : "");
     const isPrivate = isPersonalChannelId(
       canonicalChannel,
       rawChannel,
       url.searchParams.get("isPrivate") === "true"
     );
 
-    let effectiveUserId = null;
-    if (isPrivate) {
-      effectiveUserId = await resolvePrivateUserId(req, rawUserId);
-      if (!effectiveUserId) {
-        return new Response(
-          JSON.stringify({
-            ok: false,
-            error: "Autenticación requerida para acceder a tus listas personales privadas."
-          }),
-          { status: 401, headers: { "Content-Type": "application/json" } }
-        );
-      }
+    const effectiveUserId = await resolveVerifiedUserId(req, rawUserId);
+    if (isPrivate && !effectiveUserId) {
+      return new Response(
+        JSON.stringify({
+          ok: false,
+          error: "Sesión autenticada requerida para acceder a tus listas personales privadas."
+        }),
+        { status: 401, headers: { "Content-Type": "application/json" } }
+      );
     }
 
     if (process.env.TASKFLOW_HERMETIC_TEST === "1" && !process.env.DATABASE_URL) {
@@ -114,6 +99,7 @@ export async function GET(req) {
           channelId: canonicalChannel,
           isPrivate,
           userId: effectiveUserId,
+          checksum: computeTasksChecksum([]),
           tasks: []
         }),
         {
@@ -121,6 +107,16 @@ export async function GET(req) {
           headers: { "Content-Type": "application/json" }
         }
       );
+    }
+
+    if (!isPrivate) {
+      const allowed = await canAccessChannel(rawChannel, effectiveUserId);
+      if (!allowed) {
+        return new Response(
+          JSON.stringify({ ok: false, error: "No eres miembro de este canal privado." }),
+          { status: 403, headers: { "Content-Type": "application/json" } }
+        );
+      }
     }
 
     await ensureTasksTable();
@@ -187,10 +183,18 @@ export async function GET(req) {
       )
     );
 
-    return new Response(JSON.stringify({ ok: true, channelId: canonicalChannel, tasks }), {
-      status: 200,
-      headers: { "Content-Type": "application/json" }
-    });
+    return new Response(
+      JSON.stringify({
+        ok: true,
+        channelId: canonicalChannel,
+        checksum: computeTasksChecksum(tasks),
+        tasks
+      }),
+      {
+        status: 200,
+        headers: { "Content-Type": "application/json" }
+      }
+    );
   } catch (err) {
     return new Response(JSON.stringify({ ok: false, error: err.message }), {
       status: 500,
@@ -231,21 +235,18 @@ export async function POST(req) {
     }
 
     const canonicalChannel = normalizeChannelId(rawChannel);
-    const rawUserId = body.userId || (rawChannel.startsWith("usr_") ? rawChannel : null);
+    const rawUserId = body.userId || (rawChannel.startsWith("usr_") ? rawChannel : "");
     const isPrivate = isPersonalChannelId(canonicalChannel, rawChannel, body.isPrivate);
 
-    let effectiveUserId = null;
-    if (isPrivate) {
-      effectiveUserId = await resolvePrivateUserId(req, rawUserId);
-      if (!effectiveUserId) {
-        return new Response(
-          JSON.stringify({
-            ok: false,
-            error: "Autenticación requerida para guardar tareas en tu lista privada."
-          }),
-          { status: 401, headers: { "Content-Type": "application/json" } }
-        );
-      }
+    const effectiveUserId = await resolveVerifiedUserId(req, rawUserId);
+    if (isPrivate && !effectiveUserId) {
+      return new Response(
+        JSON.stringify({
+          ok: false,
+          error: "Sesión autenticada requerida para guardar tareas en tu lista privada."
+        }),
+        { status: 401, headers: { "Content-Type": "application/json" } }
+      );
     }
 
     if (body.tasks.length > 200) {
@@ -260,7 +261,7 @@ export async function POST(req) {
         {
           ...raw,
           isPrivate,
-          userId: isPrivate ? effectiveUserId : rawUserId || raw.userId
+          userId: isPrivate ? effectiveUserId : effectiveUserId || raw.userId || null
         },
         idx
       )
@@ -273,10 +274,21 @@ export async function POST(req) {
           channelId: canonicalChannel,
           isPrivate,
           userId: effectiveUserId,
+          checksum: computeTasksChecksum(sanitizedTasks),
           count: sanitizedTasks.length
         }),
         { status: 200, headers: { "Content-Type": "application/json" } }
       );
+    }
+
+    if (!isPrivate) {
+      const allowed = await canAccessChannel(rawChannel, effectiveUserId);
+      if (!allowed) {
+        return new Response(
+          JSON.stringify({ ok: false, error: "No eres miembro de este canal privado." }),
+          { status: 403, headers: { "Content-Type": "application/json" } }
+        );
+      }
     }
 
     await ensureTasksTable();
@@ -359,7 +371,12 @@ export async function POST(req) {
     }
 
     return new Response(
-      JSON.stringify({ ok: true, channelId: canonicalChannel, count: sanitizedTasks.length }),
+      JSON.stringify({
+        ok: true,
+        channelId: canonicalChannel,
+        checksum: computeTasksChecksum(sanitizedTasks),
+        count: sanitizedTasks.length
+      }),
       { status: 200, headers: { "Content-Type": "application/json" } }
     );
   } catch (err) {

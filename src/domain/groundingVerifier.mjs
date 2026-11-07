@@ -1,12 +1,13 @@
 /**
  * LAYER-0 ANTI-HALLUCINATION & NEURO-SYMBOLIC GROUNDING VERIFIER
- * Governed by SPEC-CRUD-SLACK-001 (FR-CS-003, FR-CS-004, BDD-CS-002).
+ * Governed by SPEC-CRUD-SLACK-001 (FR-CS-003, FR-CS-004, FR-CS-019, BDD-CS-002, BDD-CS-011).
  *
  * Audits any candidate AI output against the raw source text to guarantee:
  * 1. Every task maps to real lexical evidence in the original message (Quote Grounding).
  * 2. Zero fabricated calendar dates when no temporal anchor exists in the source text.
- * 3. Zero fabricated assignees when no person/mention appears in the source text.
- * 4. Measurable clause coverage score against deterministic clause detection.
+ * 3. Zero fabricated exact hours (scheduledTime) when no hour expression exists in the source text.
+ * 4. Zero fabricated assignees when no person/mention appears in the source text.
+ * 5. Measurable clause coverage score against deterministic clause detection.
  *
  * Zero external runtime dependencies.
  */
@@ -17,6 +18,9 @@ import {
   extractActionableClauses,
   inspectTemporalSignals
 } from "./deterministicNlp.mjs";
+
+const EXPLICIT_TIME_PATTERN =
+  /(?:\b(?:a\s+las|las)\s+\d{1,2}\b|\b\d{1,2}:\d{2}\b|\b\d{1,2}\s*(?:am|pm|a\.?\s*m\.?|p\.?\s*m\.?|hrs?|horas?)\b|\b(?:mediod[ií]a|medianoche)\b)/i;
 
 /**
  * Normalizes text for accent-insensitive lexical matching.
@@ -63,7 +67,7 @@ export function verifyQuoteGrounding(sourceMessage, sourceQuote, title) {
 
 /**
  * Verifies and sanitizes a candidate AI triage payload against the original source message.
- * Revokes any hallucinated dates or assignees and computes deterministic quality metrics.
+ * Revokes any hallucinated dates, exact hours, or assignees and computes deterministic quality metrics.
  *
  * @param {{
  *   sourceMessage: string,
@@ -79,6 +83,8 @@ export function verifyQuoteGrounding(sourceMessage, sourceQuote, title) {
  */
 export function verifyAndGroundTriage({ sourceMessage, referenceDate, channel, candidate }) {
   const globalTemporal = inspectTemporalSignals(sourceMessage);
+  const hasExplicitHourInSource =
+    Boolean(globalTemporal.exactTime) || EXPLICIT_TIME_PATTERN.test(String(sourceMessage || ""));
   const deterministicClauses = extractActionableClauses(sourceMessage);
   const normSource = normalizeLexical(sourceMessage);
 
@@ -94,8 +100,7 @@ export function verifyAndGroundTriage({ sourceMessage, referenceDate, channel, c
     task.grounded = quoteCheck.grounded;
     if (quoteCheck.grounded) groundedCount++;
 
-    // 2. Temporal Anti-Hallucination Guard:
-    // Case A: Source message has ZERO temporal tokens at all, yet AI emitted a deadlineDate!
+    // 2. Temporal Date Anti-Hallucination Guard:
     const quoteTemporal = inspectTemporalSignals(task.sourceQuote || task.title);
     if (task.deadlineDate && !globalTemporal.hasAnyTemporal) {
       task.deadlineDate = null;
@@ -110,7 +115,6 @@ export function verifyAndGroundTriage({ sourceMessage, referenceDate, channel, c
       globalTemporal.hasAnyTemporal &&
       task.deadlineState === DEADLINE_STATES.CONFIRMED
     ) {
-      // Case B: AI marked CONFIRMED on a sub-task that has no temporal token of its own (only global anchor exists)
       task.deadlineDate = null;
       task.deadlineState = DEADLINE_STATES.MISSING_INFO;
       task.deadlineLabel = "Información faltante (sin fecha propia en el mensaje)";
@@ -120,17 +124,22 @@ export function verifyAndGroundTriage({ sourceMessage, referenceDate, channel, c
       hallucinationsPrevented++;
     } else if (
       task.deadlineDate &&
-      !globalTemporal.exactTime &&
+      !hasExplicitHourInSource &&
       task.deadlineState === DEADLINE_STATES.CONFIRMED
     ) {
-      // Case C: Relative day ("el viernes") without exact hour should be PARTIAL_ANCHOR, not CONFIRMED
       task.deadlineState = DEADLINE_STATES.PARTIAL_ANCHOR;
       if (!task.missingDetails) {
         task.missingDetails = "Se identificó el día de referencia, pero falta especificar la hora exacta.";
       }
     }
 
-    // 3. Assignee Anti-Hallucination Guard:
+    // 3. Scheduled Hour Anti-Hallucination Guard (FR-CS-019):
+    if (task.scheduledTime && !hasExplicitHourInSource) {
+      task.scheduledTime = null;
+      hallucinationsPrevented++;
+    }
+
+    // 4. Assignee Anti-Hallucination Guard:
     if (
       task.assignee &&
       task.assignee !== "Por asignar" &&

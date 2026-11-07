@@ -1427,3 +1427,83 @@ html[data-theme="dark"] .team-user-avatar {
   opacity: 1;
   text-decoration: underline;
 }
+
+
+/* ---------- Persistent Task Discussion Threads & File Dropzone (v5.5.0) ---------- */
+.slack-composer-wrap.is-dragover {
+  outline: 2px dashed #1164a3;
+  outline-offset: 2px;
+  background: rgba(17, 100, 163, 0.06);
+  border-radius: 10px;
+}
+
+.slack-thread-comments {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  max-height: 220px;
+  overflow-y: auto;
+  margin-top: 0.75rem;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid var(--border-subtle, #e4e7ec);
+  border-radius: 10px;
+  background: var(--bg-elevated, rgba(0, 0, 0, 0.02));
+}
+
+.slack-thread-comments__empty {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--text-secondary, #616061);
+}
+
+.slack-thread-comment-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+}
+
+.slack-thread-comment__avatar {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
+  overflow: hidden;
+  background: #1164a3;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.slack-thread-comment__avatar-img {
+  width: 28px;
+  height: 28px;
+  object-fit: cover;
+  display: block;
+}
+
+.slack-thread-comment__body {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.slack-thread-comment__meta {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  font-size: 0.78rem;
+}
+
+.slack-thread-comment__meta time {
+  font-size: 0.72rem;
+  color: var(--text-muted, #6b7280);
+}
+
+.slack-thread-comment__text {
+  margin: 0.15rem 0 0;
+  font-size: 0.85rem;
+  line-height: 1.4;
+  word-break: break-word;
+}

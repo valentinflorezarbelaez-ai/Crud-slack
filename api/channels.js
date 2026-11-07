@@ -2,14 +2,13 @@
  * CHANNELS ENDPOINT (GET, POST & DELETE)
  * Multi-tenant per-user channel registry, invite token generator, join handler,
  * real teammate discovery, and cascade deletion in Neon PostgreSQL.
- * Zero external npm dependencies.
+ * Enforces Cookie-Only HMAC-SHA256 verification for real Google accounts (FR-CS-016).
  */
 
 import crypto from "node:crypto";
 import { sql } from "./_db.js";
-import { getAuthenticatedUser } from "./_auth.js";
+import { PUBLIC_DEMO_USER_IDS, resolveVerifiedUserId } from "./_auth.js";
 
-const DEMO_USER_IDS = new Set(["usr_valentin", "usr_ana", "usr_carlos", "usr_elena"]);
 const PROTECTED_CHANNEL_SLUGS = new Set([
   "general",
   "personal",
@@ -23,19 +22,6 @@ const PROTECTED_CHANNEL_SLUGS = new Set([
 function isProtectedSlug(raw) {
   const norm = String(raw || "").trim().toLowerCase().replace(/^c_/, "");
   return PROTECTED_CHANNEL_SLUGS.has(norm) || norm.startsWith("personal-");
-}
-
-async function resolveRequestUserId(req, explicitUserId = "") {
-  try {
-    if (req?.headers && !(process.env.TASKFLOW_HERMETIC_TEST === "1" && !process.env.DATABASE_URL)) {
-      const sessionUser = await getAuthenticatedUser(req);
-      if (sessionUser?.id) return sessionUser.id;
-    }
-  } catch {
-    // Fall back to explicit userId parameter if session lookup fails
-  }
-  const clean = String(explicitUserId || "").trim().slice(0, 64);
-  return clean || null;
 }
 
 export async function GET(req) {
@@ -77,7 +63,7 @@ export async function GET(req) {
       }
 
       const channelId = rows[0].channel_id;
-      const userId = await resolveRequestUserId(req, url?.searchParams.get("userId") || "");
+      const userId = await resolveVerifiedUserId(req, url?.searchParams.get("userId") || "");
       if (userId) {
         await sql(
           `INSERT INTO channel_members (channel_id, user_id) VALUES ($1, $2) ON CONFLICT DO NOTHING;`,
@@ -103,7 +89,7 @@ export async function GET(req) {
     }
 
     // 2. Scoped Multi-Tenant List Channels & Real Collaborators
-    const effectiveUserId = await resolveRequestUserId(req, url?.searchParams.get("userId") || "");
+    const effectiveUserId = await resolveVerifiedUserId(req, url?.searchParams.get("userId") || "");
     if (!effectiveUserId) {
       return new Response(JSON.stringify({ ok: true, channels: [], teammates: [] }), {
         status: 200,
@@ -118,7 +104,7 @@ export async function GET(req) {
       });
     }
 
-    const isDemoUser = DEMO_USER_IDS.has(effectiveUserId);
+    const isDemoUser = PUBLIC_DEMO_USER_IDS.has(effectiveUserId);
 
     const rows = await sql(
       `
@@ -211,8 +197,8 @@ export async function POST(req) {
         );
       }
 
-      const createdBy =
-        (await resolveRequestUserId(req, body.userId || body.createdBy || "")) || "anonymous";
+      const verifiedUserId = await resolveVerifiedUserId(req, body.userId || body.createdBy || "");
+      const createdBy = verifiedUserId || "anonymous";
       const token = `inv_${crypto.randomBytes(16).toString("hex")}`;
 
       if (process.env.TASKFLOW_HERMETIC_TEST === "1" && !process.env.DATABASE_URL) {
@@ -227,10 +213,17 @@ export async function POST(req) {
         );
       }
 
-      if (createdBy && createdBy !== "anonymous") {
+      if (!verifiedUserId && channelId !== "general" && channelId !== "c_general") {
+        return new Response(
+          JSON.stringify({ ok: false, error: "Inicia sesión para generar invitaciones de tu canal." }),
+          { status: 401, headers: { "Content-Type": "application/json" } }
+        );
+      }
+
+      if (verifiedUserId) {
         await sql(
           `INSERT INTO channel_members (channel_id, user_id) VALUES ($1, $2) ON CONFLICT DO NOTHING;`,
-          [channelId, createdBy]
+          [channelId, verifiedUserId]
         ).catch(() => {});
       }
 
@@ -286,7 +279,7 @@ export async function POST(req) {
       }
 
       const channelId = rows[0].channel_id;
-      const userId = await resolveRequestUserId(req, body.userId || url?.searchParams.get("userId") || "");
+      const userId = await resolveVerifiedUserId(req, body.userId || url?.searchParams.get("userId") || "");
 
       if (userId) {
         await sql(
@@ -336,7 +329,7 @@ export async function POST(req) {
       );
     }
 
-    const creatorId = await resolveRequestUserId(req, body.userId || "");
+    const creatorId = await resolveVerifiedUserId(req, body.userId || "");
     if (!creatorId) {
       return new Response(
         JSON.stringify({ ok: false, error: "Inicia sesión para crear canales en tu espacio." }),
@@ -363,7 +356,6 @@ export async function POST(req) {
       );
     }
 
-    // Check duplicate channel display name ONLY within this user's own workspace
     const dupRows = await sql(
       `
       SELECT c.id FROM channels c
@@ -461,21 +453,26 @@ export async function DELETE(req) {
       );
     }
 
-    const requesterId = await resolveRequestUserId(req, bodyUserId);
+    const requesterId = await resolveVerifiedUserId(req, bodyUserId);
 
-    // Resolve exact target channel ID so deleting #trabajo for User A NEVER touches User B's #trabajo!
     let targetChannelIds = [];
     if (channelId && channelId.startsWith("c_")) {
-      if (requesterId) {
-        const check = await sql(
-          `SELECT id FROM channels c
-           WHERE c.id = $1 AND (
-             c.created_by IS NULL OR c.created_by = $2
-             OR EXISTS (SELECT 1 FROM channel_members cm WHERE cm.channel_id = c.id AND cm.user_id = $2)
-           ) LIMIT 1;`,
+      const check = await sql(
+        `SELECT id, created_by FROM channels WHERE id = $1 LIMIT 1;`,
+        [channelId]
+      );
+      if (check.length > 0 && check[0].created_by) {
+        if (!requesterId) {
+          return new Response(
+            JSON.stringify({ ok: false, error: "Autenticación requerida para eliminar este canal." }),
+            { status: 401, headers: { "Content-Type": "application/json" } }
+          );
+        }
+        const memberRows = await sql(
+          `SELECT 1 FROM channel_members WHERE channel_id = $1 AND user_id = $2 LIMIT 1;`,
           [channelId, requesterId]
         );
-        if (check.length === 0) {
+        if (check[0].created_by !== requesterId && memberRows.length === 0) {
           return new Response(
             JSON.stringify({ ok: false, error: "No tienes permisos para eliminar este canal." }),
             { status: 403, headers: { "Content-Type": "application/json" } }
@@ -502,7 +499,7 @@ export async function DELETE(req) {
         `DELETE FROM tasks WHERE channel_id = ANY($1) AND (is_private = FALSE OR is_private IS NULL);`,
         [targetChannelIds]
       ).catch(() => {});
-
+      await sql(`DELETE FROM task_comments WHERE channel_id = ANY($1);`, [targetChannelIds]).catch(() => {});
       await sql(`DELETE FROM channel_invites WHERE channel_id = ANY($1);`, [targetChannelIds]).catch(() => {});
       await sql(`DELETE FROM channel_members WHERE channel_id = ANY($1);`, [targetChannelIds]).catch(() => {});
       await sql(`DELETE FROM messages WHERE channel_id = ANY($1);`, [targetChannelIds]).catch(() => {});

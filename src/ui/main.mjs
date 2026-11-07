@@ -1,6 +1,6 @@
 /**
  * UI PRESENTATION CONTROLLER — TASKFLOW AI WORKSPACE
- * Governed by SPEC-CRUD-SLACK-001 (FR-CS-006..014).
+ * Governed by SPEC-CRUD-SLACK-001 (FR-CS-006..019).
  *
  * Strictly uses escapeHtml() for all dynamic text rendering (Zero XSS)
  * and zero inline style mutations (Strict CSP compliance).
@@ -18,6 +18,7 @@ import {
   taskBoardReducer
 } from "../domain/taskBoardStore.mjs";
 import { analyzeWorkplaceRequest } from "../application/analyzeRequest.mjs";
+import { parseIngestedFile } from "../application/fileIngestor.mjs?v=5.5.0";
 import {
   exportToJsonContract,
   exportToSharePointCsv,
@@ -34,7 +35,8 @@ import { renderTableView, renderSharePointListView, renderTeamsCardPreview, rend
 import { playTaskCompletedSound, playAlarmChime } from "./soundFx.mjs";
 import { checkDueAlarms, formatLocalHhMm } from "../application/notificationEngine.mjs";
 import { requestNotificationPermission, triggerTaskNotification } from "../infrastructure/webNotificationAdapter.mjs";
-import { initRealtimeSlack } from "./realtimeSlack.mjs?v=5.4.0";
+import { initRealtimeSlack } from "./realtimeSlack.mjs?v=5.5.0";
+import { initTaskThreads } from "./taskThreads.mjs?v=5.5.0";
 import {
   loadPersistedBoardState,
   removePersistedBoardState,
@@ -44,9 +46,9 @@ import {
   fetchRemoteTasks,
   syncRemoteTasks
 } from "../infrastructure/cloudTaskAdapter.mjs";
-import { WORKPLACE_PRESETS } from "./presets.mjs?v=5.4.0";
-import { initChannels, syncChannelPanels } from "./channels.mjs?v=5.4.0";
-import { initVisualPreferences, nextFridayIso } from "./preferences.mjs?v=5.4.0";
+import { WORKPLACE_PRESETS } from "./presets.mjs?v=5.5.0";
+import { initChannels, syncChannelPanels } from "./channels.mjs?v=5.5.0";
+import { initVisualPreferences, nextFridayIso } from "./preferences.mjs?v=5.5.0";
 
 const NEXT_STATUS_CYCLE = Object.freeze({
   PENDING: "IN_PROGRESS",
@@ -56,8 +58,9 @@ const NEXT_STATUS_CYCLE = Object.freeze({
 
 let boardState = createInitialBoardState();
 let activeUserId = null;
-let currentViewMode = "cards"; // "cards" | "timeline" | "table" | "kanban" | "sharepoint"
+let currentViewMode = "cards";
 let toastTimerId = null;
+let lastLocalMutationAt = 0;
 let activeChannel = {
   id: "personal",
   kind: "personal",
@@ -68,6 +71,7 @@ let activeChannel = {
 };
 let channelsCtrl = null;
 let realtimeSlackCtrl = null;
+let taskThreadsCtrl = null;
 let lastCompletionPct = -1;
 
 // DOM References
@@ -82,6 +86,9 @@ const el = {
   engineStatusText: document.getElementById("engine-status-text"),
   presetContainer: document.getElementById("preset-chips-container"),
   analyzeForm: document.getElementById("analyze-form"),
+  composerWrap: document.querySelector(".slack-composer-wrap"),
+  importFileBtn: document.getElementById("import-file-btn"),
+  importFileInput: /** @type {HTMLInputElement|null} */ (document.getElementById("import-file-input")),
   inputChannel: (document.getElementById("input-channel")),
   inputRefDate: (document.getElementById("input-ref-date")),
   inputMessage: (document.getElementById("input-message")),
@@ -169,6 +176,7 @@ function showToast(message) {
 
 function dispatch(action) {
   const previousDone = (boardState.tasks || []).filter((t) => t.status === "COMPLETED").length;
+  lastLocalMutationAt = Date.now();
   boardState = taskBoardReducer(boardState, action);
   if (activeChannel.kind !== "personal" || activeUserId) {
     savePersistedBoardState(boardState, activeChannel.id, activeUserId);
@@ -274,7 +282,7 @@ function renderTaskCardHtml(task) {
           </div>
         </div>
         <div class="task-card__actions">
-          <button type="button" class="btn btn--ghost btn--sm slack-thread-btn" data-action="open-thread" data-id="${escapeHtml(task.id)}" title="Ver hilo de discusión y sustento">
+          <button type="button" class="btn btn--ghost btn--sm slack-thread-btn" data-action="open-thread" data-id="${escapeHtml(task.id)}" title="Abrir hilo de comentarios y acuerdos">
             💬 Hilo
           </button>
           <button type="button" class="btn btn--ghost btn--sm" data-action="cycle-status" data-id="${escapeHtml(task.id)}">
@@ -439,7 +447,6 @@ function renderWorkspace() {
     const scopeLabel = activeChannel.kind === "personal" ? "🔒 Privado" : `#${activeChannel.name}`;
     el.boardChecksumMeta.textContent = `${scopeLabel} · Integridad #${boardState.checksum} · ${metrics.total} tarea(s)`;
   }
-  // Update verification telemetry box
   const analysis = boardState.lastAnalysis;
   if (analysis) {
     const engineLabel =
@@ -460,7 +467,6 @@ function renderWorkspace() {
       el.verifSummaryNote.textContent = analysis.summary;
     }
   }
-  // Missing info panel
   const liveMissingTasks = boardState.tasks.filter((t) => t.deadlineState !== DEADLINE_STATES.CONFIRMED);
   if (el.missingInfoPanel && el.missingGapsList && el.clarificationDraftBox) {
     const gaps = analysis?.missingInfoGaps || [];
@@ -483,14 +489,13 @@ function renderWorkspace() {
         "Por favor confirmar las fechas límite y responsables pendientes de las tareas listadas.";
     }
   }
-  // Render tasks list/table/kanban/timeline
   const filtered = getFilteredTasks();
   if (!el.tasksRenderRoot) return;
   if (filtered.length === 0) {
     const emptyMsg =
       activeChannel.kind === "personal"
-        ? "Tu sección Mi Día (Privado) está lista. Crea tareas con hora programada usando «+ Nueva Tarea» o escribe tu plan diario a la izquierda."
-        : "Crea una con «+ Nueva Tarea» o pega una solicitud para que la IA la organice sin inventar fechas.";
+        ? "Tu sección Mi Día (Privado) está lista. Crea tareas con hora programada usando «+ Nueva Tarea», escribe tu plan diario o adjunta un correo (.eml) / chat (.txt)."
+        : "Crea una con «+ Nueva Tarea», adjunta un archivo (📎 .eml / .txt) o pega una solicitud para que la IA la organice sin inventar fechas.";
     el.tasksRenderRoot.innerHTML = `<div class="empty-state" role="status"><strong>Sin tareas aquí todavía</strong><p>${escapeHtml(emptyMsg)}</p></div>`;
     return;
   }
@@ -599,47 +604,6 @@ function openCrudDialog(task = null) {
   }
   el.crudDialog.showModal();
   el.crudTitle.focus();
-}
-
-function openThreadDialog(task) {
-  const dialog = (document.getElementById("slack-thread-dialog"));
-  if (!dialog) return;
-  const channelEl = document.getElementById("slack-thread-channel-name");
-  const avatarEl = document.getElementById("slack-thread-avatar");
-  const senderEl = document.getElementById("slack-thread-sender");
-  const quoteEl = document.getElementById("slack-thread-parent-quote");
-  const detailsEl = document.getElementById("slack-thread-task-details");
-  const channelVal = activeChannel.kind === "personal" ? "mi-dia" : activeChannel.name || "general";
-  if (channelEl) channelEl.textContent = channelVal;
-  if (avatarEl) avatarEl.textContent = activeChannel.kind === "personal" ? "🔒" : "TF";
-  if (senderEl) {
-    senderEl.textContent =
-      activeChannel.kind === "personal" ? "Mi Día (Espacio Privado)" : "Canal Colaborativo";
-  }
-  if (quoteEl) quoteEl.textContent = `"${task.sourceQuote || el.inputMessage?.value || task.title}"`;
-  const prioMeta = PRIORITIES[task.priority] || PRIORITIES.MEDIUM;
-  const statusMeta = TASK_STATUSES[task.status] || TASK_STATUSES.PENDING;
-  const isConfirmed = task.deadlineState === DEADLINE_STATES.CONFIRMED;
-  if (detailsEl) {
-    detailsEl.innerHTML = `
-      <div class="slack-msg-sender-row">
-        <strong>#${escapeHtml(task.order)} ${escapeHtml(task.title)}</strong>
-        <span class="prio-badge ${escapeHtml(prioMeta.badgeClass)}">${escapeHtml(prioMeta.labelEs)}</span>
-        <span class="meta-badge">${escapeHtml(statusMeta.labelEs)}</span>
-      </div>
-      <p class="task-card__reason">${escapeHtml(task.priorityReason)}</p>
-      ${task.sourceQuote ? `<p class="task-card__quote">💬 Sustento textual: "${escapeHtml(task.sourceQuote)}"</p>` : ""}
-      <div class="task-badges">
-        ${task.scheduledTime ? `<span class="meta-badge">⏰ Hora: ${escapeHtml(task.scheduledTime)}</span>` : ""}
-        <span class="date-badge ${isConfirmed ? "date-confirmed" : "date-missing"}">
-          ${isConfirmed ? "📅 Fecha:" : "⚠️ Falta fecha:"} ${escapeHtml(task.deadlineLabel)}
-        </span>
-        <span class="meta-badge">👤 Asignado: ${escapeHtml(task.assignee)}</span>
-      </div>
-      ${!isConfirmed ? `<p class="task-card__missing">Alerta Anti-Alucinación: ${escapeHtml(task.missingDetails || "Fecha no especificada en el mensaje original.")}</p>` : ""}
-    `;
-  }
-  dialog.showModal();
 }
 
 function triggerDownload(filename, content, mimeType) {
@@ -754,6 +718,33 @@ function initPresets(todayIso) {
   });
 }
 
+async function handleImportedFile(file, todayIso) {
+  if (!file) return;
+  if (file.size > 1_500_000) {
+    showToast("El archivo supera el límite seguro de 1.5 MB.");
+    return;
+  }
+  try {
+    const rawText = await file.text();
+    const parsed = parseIngestedFile({ filename: file.name, content: rawText });
+    if (!parsed.ok) {
+      showToast(parsed.error || "No se pudo leer el archivo importado.");
+      return;
+    }
+    if (el.inputChannel) el.inputChannel.value = parsed.detectedChannel;
+    if (el.inputMessage) el.inputMessage.value = parsed.text;
+    updateCharCounter();
+    showToast(`📎 Archivo importado (${parsed.detectedChannel.toUpperCase()}): organizando tareas...`);
+    await runAnalysisFlow({
+      message: parsed.text,
+      channel: parsed.detectedChannel,
+      referenceDate: el.inputRefDate?.value || todayIso
+    });
+  } catch {
+    showToast("No se pudo procesar el archivo adjunto.");
+  }
+}
+
 async function processPendingJoinForUser(userId) {
   if (!userId) return;
   const joinToken = new URLSearchParams(window.location.search).get("join");
@@ -822,7 +813,38 @@ async function bootstrap() {
     showToast
   });
 
+  taskThreadsCtrl = initTaskThreads({
+    getActiveChannel: () => activeChannel,
+    getCurrentUser: () => realtimeSlackCtrl?.getCurrentUser?.() || null,
+    getFallbackQuote: () => el.inputMessage?.value || "",
+    showAuthGate: () => realtimeSlackCtrl?.showAuthGate?.(),
+    showToast
+  });
+
   initPresets(todayIso);
+
+  // Direct Email (.eml) & Chat (.txt, .md) Ingestion Controls (FR-CS-019)
+  el.importFileBtn?.addEventListener("click", () => el.importFileInput?.click());
+  el.importFileInput?.addEventListener("change", () => {
+    const file = el.importFileInput?.files?.[0];
+    if (file) void handleImportedFile(file, todayIso);
+    if (el.importFileInput) el.importFileInput.value = "";
+  });
+  if (el.composerWrap) {
+    el.composerWrap.addEventListener("dragover", (ev) => {
+      ev.preventDefault();
+      el.composerWrap.classList.add("is-dragover");
+    });
+    el.composerWrap.addEventListener("dragleave", () => {
+      el.composerWrap.classList.remove("is-dragover");
+    });
+    el.composerWrap.addEventListener("drop", (ev) => {
+      ev.preventDefault();
+      el.composerWrap.classList.remove("is-dragover");
+      const file = ev.dataTransfer?.files?.[0];
+      if (file) void handleImportedFile(file, todayIso);
+    });
+  }
 
   // Event Listeners
   el.navWorkspace?.addEventListener("click", () => setActiveTopSection("workspace"));
@@ -839,6 +861,7 @@ async function bootstrap() {
       `¿Asignar la fecha ${friday} (próximo viernes) a ${pending.length} tarea(s) sin fecha?\n\nEs una decisión humana: la IA no inventa fechas. Puedes ajustarlas luego en cada tarjeta.`
     );
     if (!ok) return;
+    lastLocalMutationAt = Date.now();
     for (const t of pending) {
       boardState = taskBoardReducer(boardState, {
         type: "UPDATE_TASK",
@@ -969,7 +992,7 @@ async function bootstrap() {
     const task = boardState.tasks.find((t) => t.id === taskId);
     if (!task) return;
     if (action === "open-thread") {
-      openThreadDialog(task);
+      taskThreadsCtrl?.openThreadDialog(task);
     } else if (action === "quick-friday") {
       const friday = nextFridayIso(el.inputRefDate?.value || todayIso);
       dispatch({ type: "UPDATE_TASK", payload: { id: task.id, deadlineDate: friday } });
@@ -1092,7 +1115,7 @@ async function bootstrap() {
     showToast(`Tarea movida a: ${TASK_STATUSES[targetStatus]?.labelEs || targetStatus}`);
   });
 
-  const micBtn = document.getElementById("mic-dictation-btn");
+  const micBtn = el.micDictateBtn || document.getElementById("mic-dictation-btn");
   if (micBtn) {
     setupVoiceDictation({
       micBtn,
@@ -1146,18 +1169,6 @@ async function bootstrap() {
     });
   });
 
-  const threadDialog = (document.getElementById("slack-thread-dialog"));
-  document.getElementById("close-thread-dialog-btn")?.addEventListener("click", () => threadDialog?.close());
-  document.getElementById("dismiss-thread-dialog-btn")?.addEventListener("click", () => threadDialog?.close());
-  document.getElementById("slack-thread-send-reply-btn")?.addEventListener("click", () => {
-    const replyInput = (document.getElementById("slack-thread-quick-reply"));
-    if (replyInput && replyInput.value.trim()) {
-      showToast("Mensaje registrado en el hilo de Slack.");
-      replyInput.value = "";
-      threadDialog?.close();
-    }
-  });
-
   window.addEventListener("keydown", (ev) => {
     if ((ev.ctrlKey || ev.metaKey) && ev.key === "Enter") {
       ev.preventDefault();
@@ -1187,6 +1198,33 @@ async function bootstrap() {
     }
   });
 
+  // Collaborative Live Task Board Sync Loop (FR-CS-017: polls every 4.5s without interrupting open dialogs)
+  setInterval(async () => {
+    if (document.visibilityState === "hidden") return;
+    if (el.crudDialog?.open) return;
+    if (Date.now() - lastLocalMutationAt < 3500) return;
+    if (activeChannel.kind === "personal" && !activeUserId) return;
+    if (activeChannel.kind === "preset" && !activeUserId) return;
+
+    const snapshotChannelId = activeChannel.id;
+    try {
+      const res = await fetchRemoteTasks(snapshotChannelId, activeUserId);
+      if (!res?.ok || res.source !== "cloud" || activeChannel.id !== snapshotChannelId) return;
+      if (Date.now() - lastLocalMutationAt < 3500) return;
+      const nextChecksum = computeTasksChecksum(res.tasks);
+      if (nextChecksum !== boardState.checksum) {
+        boardState = {
+          ...boardState,
+          tasks: res.tasks,
+          checksum: nextChecksum
+        };
+        renderWorkspace();
+      }
+    } catch {
+      // Offline or transient timeout — keep local board untouched
+    }
+  }, 4500);
+
   // Background Alarm & Audio Notification Loop (runs every 25 seconds)
   const firedAlarms = new Set();
   setInterval(() => {
@@ -1200,12 +1238,10 @@ async function bootstrap() {
     }
   }, 25_000);
 
-  // If ?join=token is present and user is not logged in yet, notify them to sign in first
   if (new URLSearchParams(window.location.search).get("join") && !activeUserId) {
     showToast("Inicia sesión con tu cuenta de Google para unirte al canal compartido.");
   }
 
-  // PWA Recovery: Unregister any legacy Service Worker to ensure clean network execution
   if ("serviceWorker" in navigator) {
     navigator.serviceWorker
       .getRegistrations()
