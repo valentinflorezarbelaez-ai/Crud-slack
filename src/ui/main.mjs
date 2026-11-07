@@ -34,7 +34,7 @@ import { renderTableView, renderSharePointListView, renderTeamsCardPreview, rend
 import { playTaskCompletedSound, playAlarmChime } from "./soundFx.mjs";
 import { checkDueAlarms, formatLocalHhMm } from "../application/notificationEngine.mjs";
 import { requestNotificationPermission, triggerTaskNotification } from "../infrastructure/webNotificationAdapter.mjs";
-import { initRealtimeSlack } from "./realtimeSlack.mjs?v=5.3.0";
+import { initRealtimeSlack } from "./realtimeSlack.mjs?v=5.4.0";
 import {
   loadPersistedBoardState,
   removePersistedBoardState,
@@ -44,9 +44,9 @@ import {
   fetchRemoteTasks,
   syncRemoteTasks
 } from "../infrastructure/cloudTaskAdapter.mjs";
-import { WORKPLACE_PRESETS } from "./presets.mjs?v=5.3.0";
-import { initChannels, syncChannelPanels } from "./channels.mjs?v=5.3.0";
-import { initVisualPreferences, nextFridayIso } from "./preferences.mjs";
+import { WORKPLACE_PRESETS } from "./presets.mjs?v=5.4.0";
+import { initChannels, syncChannelPanels } from "./channels.mjs?v=5.4.0";
+import { initVisualPreferences, nextFridayIso } from "./preferences.mjs?v=5.4.0";
 
 const NEXT_STATUS_CYCLE = Object.freeze({
   PENDING: "IN_PROGRESS",
@@ -338,16 +338,16 @@ async function applyChannel(channel, opts = {}, todayIso = new Date().toISOStrin
   realtimeSlackCtrl?.setActiveChannel(channel.id, channel.name, channel.topic);
 
   if (channel.kind === "personal") {
-    const saved = activeUserId && !opts.rerun ? loadPersistedBoardState("personal", activeUserId) : null;
+    const saved = activeUserId && !opts.rerun ? loadPersistedBoardState(channel.id, activeUserId) : null;
     boardState = saved ?? createInitialBoardState();
     if (el.inputMessage) el.inputMessage.value = "";
     updateCharCounter();
     renderWorkspace();
 
     if (activeUserId) {
-      fetchRemoteTasks("personal", activeUserId)
+      fetchRemoteTasks(channel.id, activeUserId)
         .then((res) => {
-          if (res && res.ok && Array.isArray(res.tasks) && activeChannel.id === "personal") {
+          if (res && res.ok && Array.isArray(res.tasks) && activeChannel.id === channel.id) {
             boardState = {
               ...boardState,
               tasks: res.tasks,
@@ -371,7 +371,7 @@ async function applyChannel(channel, opts = {}, todayIso = new Date().toISOStrin
     renderWorkspace();
     fetchRemoteTasks(channel.id, activeUserId)
       .then((res) => {
-        if (res && res.ok && res.tasks && res.tasks.length > 0 && activeChannel.id === channel.id) {
+        if (res && res.ok && Array.isArray(res.tasks) && (res.source === "cloud" || res.tasks.length > 0) && activeChannel.id === channel.id) {
           boardState = {
             ...boardState,
             tasks: res.tasks,
@@ -754,8 +754,33 @@ function initPresets(todayIso) {
   });
 }
 
+async function processPendingJoinForUser(userId) {
+  if (!userId) return;
+  const joinToken = new URLSearchParams(window.location.search).get("join");
+  if (!joinToken) return;
+  try {
+    const r = await fetch(`/api/channels/join?token=${encodeURIComponent(joinToken)}`, {
+      method: "POST",
+      credentials: "same-origin",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token: joinToken, userId })
+    });
+    const res = await r.json();
+    window.history.replaceState({}, document.title, window.location.pathname);
+    if (res.ok && res.channelId) {
+      const joinedMeta = res.channel || { id: res.channelId, name: res.channelId.replace(/^c_/, "") };
+      showToast(`🎉 Te uniste al canal #${joinedMeta.name || res.channelId} exitosamente.`);
+      channelsCtrl?.upsertJoinedChannel(joinedMeta);
+    } else {
+      showToast(`Error al unirse: ${res.error || "enlace inválido"}`);
+    }
+  } catch {
+    showToast("No se pudo conectar con el servidor de invitaciones.");
+  }
+}
+
 async function bootstrap() {
-  initVisualPreferences(el, showToast);
+  const prefsCtrl = initVisualPreferences(el, showToast);
   const todayIso = new Date().toISOString().slice(0, 10);
   if (el.inputRefDate) el.inputRefDate.value = todayIso;
 
@@ -778,31 +803,26 @@ async function bootstrap() {
     },
     onUserChanged: (user, meta = {}) => {
       activeUserId = user ? user.id : null;
+      prefsCtrl.setUserPreferences(user);
+      if (meta.refreshedPreferences) return;
+
       if (!user) {
-        boardState =
-          activeChannel.kind === "personal"
-            ? createInitialBoardState()
-            : (loadPersistedBoardState(activeChannel.id, null) ?? createInitialBoardState());
+        boardState = createInitialBoardState();
+        channelsCtrl?.setUserContext(null);
         renderWorkspace();
         return;
       }
 
       const hasJoinLink = Boolean(new URLSearchParams(window.location.search).get("join"));
-      if (meta.signedIn && !hasJoinLink && channelsCtrl) {
-        channelsCtrl.activate("personal");
-        return;
-      }
-
-      if (channelsCtrl) {
-        void applyChannel(channelsCtrl.getActive(), { initial: true }, todayIso);
+      channelsCtrl?.setUserContext(user, { forcePersonal: Boolean(meta.signedIn && !hasJoinLink) });
+      if (hasJoinLink) {
+        void processPendingJoinForUser(user.id);
       }
     },
     showToast
   });
 
   initPresets(todayIso);
-
-  await applyChannel(channelsCtrl.getActive(), { initial: true }, todayIso);
 
   // Event Listeners
   el.navWorkspace?.addEventListener("click", () => setActiveTopSection("workspace"));
@@ -904,6 +924,7 @@ async function bootstrap() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           channelId: activeChannel?.id || "general",
+          userId: activeUserId || null,
           createdBy: activeUserId || "anonymous"
         })
       });
@@ -1179,27 +1200,9 @@ async function bootstrap() {
     }
   }, 25_000);
 
-  // Auto-join channel if ?join=token query parameter is present in URL
-  const urlParams = new URLSearchParams(window.location.search);
-  const joinToken = urlParams.get("join");
-  if (joinToken) {
-    fetch(`/api/channels/join?token=${encodeURIComponent(joinToken)}`, {
-      method: "POST",
-      credentials: "same-origin"
-    })
-      .then((r) => r.json())
-      .then((res) => {
-        if (res.ok && res.channelId) {
-          showToast(`🎉 Te has unido al canal #${res.channelId} exitosamente.`);
-          window.history.replaceState({}, document.title, window.location.pathname);
-          if (channelsCtrl) channelsCtrl.activate(res.channelId);
-        } else {
-          showToast(`Error al unirse: ${res.error || "enlace inválido"}`);
-        }
-      })
-      .catch(() => {
-        showToast("No se pudo conectar con el servidor de invitaciones.");
-      });
+  // If ?join=token is present and user is not logged in yet, notify them to sign in first
+  if (new URLSearchParams(window.location.search).get("join") && !activeUserId) {
+    showToast("Inicia sesión con tu cuenta de Google para unirte al canal compartido.");
   }
 
   // PWA Recovery: Unregister any legacy Service Worker to ensure clean network execution

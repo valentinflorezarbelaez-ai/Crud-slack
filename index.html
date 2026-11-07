@@ -2,7 +2,7 @@
 <html lang="es" data-theme="light" data-scale="md">
   <head>
     <meta charset="UTF-8" />
-    <script src="./src/ui/recovery.js?v=5.3.0"></script>
+    <script src="./src/ui/recovery.js?v=5.4.0"></script>
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>TaskFlow AI · Organizador Omnicanal de Tareas con IA &amp; CRUD Verificado</title>
     <meta
@@ -23,21 +23,21 @@
     <link rel="dns-prefetch" href="//fonts.gstatic.com" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="preload" href="./css/styles.css?v=5.3.0" as="style" />
-    <link rel="preload" href="./css/slack-shell.css?v=5.3.0" as="style" />
-    <link rel="stylesheet" href="./css/styles.css?v=5.3.0" />
-    <link rel="stylesheet" href="./css/slack-shell.css?v=5.3.0" />
+    <link rel="preload" href="./css/styles.css?v=5.4.0" as="style" />
+    <link rel="preload" href="./css/slack-shell.css?v=5.4.0" as="style" />
+    <link rel="stylesheet" href="./css/styles.css?v=5.4.0" />
+    <link rel="stylesheet" href="./css/slack-shell.css?v=5.4.0" />
     <link
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap"
       rel="stylesheet"
     />
-    <link rel="modulepreload" href="./src/ui/main.mjs?v=5.3.0" />
-    <link rel="modulepreload" href="./src/ui/slackShell.mjs?v=5.3.0" />
-    <link rel="modulepreload" href="./src/ui/realtimeSlack.mjs?v=5.3.0" />
-    <link rel="modulepreload" href="./src/ui/channels.mjs?v=5.3.0" />
-    <link rel="modulepreload" href="./src/domain/taskEntities.mjs?v=5.3.0" />
-    <link rel="modulepreload" href="./src/domain/taskBoardStore.mjs?v=5.3.0" />
-    <link rel="modulepreload" href="./src/domain/deterministicNlp.mjs?v=5.3.0" />
+    <link rel="modulepreload" href="./src/ui/main.mjs?v=5.4.0" />
+    <link rel="modulepreload" href="./src/ui/slackShell.mjs?v=5.4.0" />
+    <link rel="modulepreload" href="./src/ui/realtimeSlack.mjs?v=5.4.0" />
+    <link rel="modulepreload" href="./src/ui/channels.mjs?v=5.4.0" />
+    <link rel="modulepreload" href="./src/domain/taskEntities.mjs?v=5.4.0" />
+    <link rel="modulepreload" href="./src/domain/taskBoardStore.mjs?v=5.4.0" />
+    <link rel="modulepreload" href="./src/domain/deterministicNlp.mjs?v=5.4.0" />
         <script type="application/ld+json">
       {
         "@context": "https://schema.org",
@@ -253,7 +253,7 @@
                 <svg class="icon" width="12" height="12" aria-hidden="true"><use href="#i-plus" /></svg>
               </button>
             </h2>
-            <ul class="sidebar-list" id="sidebar-channels" role="listbox" aria-label="Canales">
+            <ul class="sidebar-list" id="sidebar-channels" role="listbox" aria-label="Espacios y Canales">
               <li role="presentation">
                 <button type="button" class="slack-channel-pill sidebar-item sidebar-item--personal is-active" data-channel-id="personal" data-channel-name="Mi Día (Privado)" data-topic="Agenda personal privada · solo tú ves tus tareas y alarmas horarias" role="option" aria-selected="true">
                   <span class="sidebar-item__hash" aria-hidden="true"><svg class="icon" width="13" height="13" aria-hidden="true"><use href="#i-lock" /></svg></span>
@@ -261,32 +261,17 @@
                 </button>
               </li>
               <li role="presentation">
-                <button type="button" class="slack-channel-pill sidebar-item is-active" data-preset="reto-oficial-viernes" data-channel-name="general" data-topic="Reunión del viernes · plan accionable sin inventar fechas" role="option" aria-selected="true">
-                  <span class="sidebar-item__hash" aria-hidden="true">#</span>
-                  <span class="sidebar-item__name">general</span>
+                <button type="button" class="slack-channel-pill sidebar-item sidebar-item--personal" data-channel-id="personal-proyectos" data-channel-name="Mis Proyectos" data-topic="Metas, proyectos y entregas privadas de tu cuenta" role="option" aria-selected="false">
+                  <span class="sidebar-item__hash" aria-hidden="true"><svg class="icon" width="13" height="13" aria-hidden="true"><use href="#i-lock" /></svg></span>
+                  <span class="sidebar-item__name">Mis Proyectos</span>
                 </button>
               </li>
               <li role="presentation">
-                <button type="button" class="slack-channel-pill sidebar-item is-unread" data-preset="incidente-slack-prod" data-channel-name="incidentes-prod" data-topic="Alertas urgentes de producción · asignación y notificación a soporte" role="option" aria-selected="false">
-                  <span class="sidebar-item__hash" aria-hidden="true">#</span>
-                  <span class="sidebar-item__name">incidentes-prod</span>
-                  <span class="sidebar-item__badge">3</span>
+                <button type="button" class="slack-channel-pill sidebar-item sidebar-item--personal" data-channel-id="personal-notas" data-channel-name="Notas &amp; Ideas" data-topic="Apuntes rápidos y recordatorios privados de tu espacio" role="option" aria-selected="false">
+                  <span class="sidebar-item__hash" aria-hidden="true"><svg class="icon" width="13" height="13" aria-hidden="true"><use href="#i-lock" /></svg></span>
+                  <span class="sidebar-item__name">Notas &amp; Ideas</span>
                 </button>
               </li>
-              <li role="presentation">
-                <button type="button" class="slack-channel-pill sidebar-item is-unread" data-preset="sharepoint-intranet" data-channel-name="operaciones" data-topic="SharePoint, permisos y entregables de Operaciones" role="option" aria-selected="false">
-                  <span class="sidebar-item__hash" aria-hidden="true">#</span>
-                  <span class="sidebar-item__name">operaciones</span>
-                  <span class="sidebar-item__badge">1</span>
-                </button>
-              </li>
-              <li role="presentation">
-                <button type="button" class="slack-channel-pill sidebar-item" data-preset="sin-fechas-antihalucinacion" data-channel-name="legal-auditoria" data-topic="Mensajes sin fechas · prueba de guardia anti-alucinación" role="option" aria-selected="false">
-                  <span class="sidebar-item__hash" aria-hidden="true">#</span>
-                  <span class="sidebar-item__name">legal-auditoria</span>
-                </button>
-              </li>
-
             </ul>
             <button type="button" id="add-channel-btn" class="sidebar-item sidebar-item--add" aria-haspopup="dialog">
               <span class="sidebar-item__hash sidebar-item__hash--add" aria-hidden="true">
@@ -300,32 +285,10 @@
             <h2 class="sidebar-section__title">
               <button type="button" class="sidebar-section__toggle" aria-expanded="true" aria-controls="sidebar-dms">
                 <svg class="icon" width="12" height="12" aria-hidden="true"><use href="#i-chevron" /></svg>
-                Mensajes directos
+                Contactos en tus canales
               </button>
             </h2>
-            <ul class="sidebar-list" id="sidebar-dms">
-              <li>
-                <button type="button" class="sidebar-item" data-mention="@Jacobo">
-                  <span class="presence presence--on" aria-hidden="true"></span>
-                  <span class="sidebar-item__name">Jacobo Flórez</span>
-                  <span class="sr-only">activo. Mencionar en el mensaje</span>
-                </button>
-              </li>
-              <li>
-                <button type="button" class="sidebar-item" data-mention="@Edison">
-                  <span class="presence presence--away" aria-hidden="true"></span>
-                  <span class="sidebar-item__name">Edison Flórez</span>
-                  <span class="sr-only">ausente. Mencionar en el mensaje</span>
-                </button>
-              </li>
-              <li>
-                <button type="button" class="sidebar-item" data-mention="@Roberto">
-                  <span class="presence" aria-hidden="true"></span>
-                  <span class="sidebar-item__name">Roberto Urrea</span>
-                  <span class="sr-only">desconectado. Mencionar en el mensaje</span>
-                </button>
-              </li>
-            </ul>
+            <ul class="sidebar-list" id="sidebar-dms"></ul>
           </section>
 
           <section class="sidebar-section">
@@ -372,10 +335,10 @@
         <header class="channel-header">
           <div class="channel-header__main">
             <h1 id="workspace-heading" class="channel-header__title">
-              <span class="channel-header__hash" aria-hidden="true">#</span><span id="channel-header-name">general</span>
+              <span class="channel-header__hash" aria-hidden="true">🔒 </span><span id="channel-header-name">Mi Día (Privado)</span>
             </h1>
             <p class="channel-header__topic" id="channel-header-topic">
-              Reunión del viernes · plan accionable sin inventar fechas
+              Agenda personal privada · solo tú ves tus tareas y alarmas horarias
             </p>
           </div>
           <div class="channel-header__side">
@@ -385,8 +348,8 @@
             <button type="button" id="channel-delete-header-btn" class="btn btn--danger btn--sm" title="Eliminar este canal y sus tareas" hidden>
               🗑️ Eliminar canal
             </button>
-            <div class="avatar-stack" role="img" aria-label="7 miembros en el canal">
-              <span>LS</span><span>CR</span><span>EL</span><span class="avatar-stack__more">+4</span>
+            <div class="avatar-stack" role="img" aria-label="Espacio personal privado: solo tú">
+              <span>🔒</span>
             </div>
             <div class="engine-pill" id="engine-status-pill" aria-live="polite">
               <span class="engine-pill__dot" aria-hidden="true"></span>
@@ -406,7 +369,7 @@
               <span class="char-counter" id="char-counter">0 / 4000</span>
             </div>
 
-            <div class="preset-bar" aria-label="Ejemplos rápidos de prueba">
+            <div class="preset-bar" aria-label="Ejemplos rápidos de prueba" hidden>
               <span class="preset-bar__label">Casos rápidos:</span>
               <div class="preset-chips" id="preset-chips-container"></div>
             </div>
@@ -425,12 +388,12 @@
                 <button type="button" class="preset-chip" data-example="A las 08:30 redactar el informe final, a las 15:00 revisar diapositivas con Ana y enviar el borrador el jueves.">Bloques de estudio</button>
               </div>
             </section>
-            <div class="day-divider" id="intake-day-divider" role="separator"><span>Hoy</span></div>
+            <div class="day-divider" id="intake-day-divider" role="separator" hidden><span>Hoy</span></div>
 
             <div id="slack-message-feed" class="slack-message-feed" aria-live="polite"></div>
             <div class="day-divider" role="separator"><span>Hoy</span></div>
 
-            <div class="slack-message-card" id="slack-message-card">
+            <div class="slack-message-card" id="slack-message-card" hidden>
               <div class="slack-msg-header">
                 <div class="slack-avatar" id="slack-avatar">LS</div>
                 <div class="slack-msg-meta">
@@ -1114,7 +1077,7 @@
 
     <div id="toast-notification" class="toast" role="status" aria-live="polite" hidden></div>
 
-    <script type="module" src="./src/ui/main.mjs?v=5.3.0"></script>
-    <script type="module" src="./src/ui/slackShell.mjs?v=5.3.0"></script>
+    <script type="module" src="./src/ui/main.mjs?v=5.4.0"></script>
+    <script type="module" src="./src/ui/slackShell.mjs?v=5.4.0"></script>
   </body>
 </html>

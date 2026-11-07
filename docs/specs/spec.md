@@ -52,7 +52,10 @@
 - **Pattern (Event-Driven)**: CUANDO un visitante nuevo o sin sesión activa accede a la aplicación, EL SISTEMA presentará de inmediato la pantalla modal de inicio de sesión (`#slack-auth-gate`) priorizando la autenticación con Google OIDC (`/api/auth/google`) sin auto-iniciar silenciosamente un perfil interno de demostración, y firmará una cookie `HttpOnly` HMAC-SHA256 verificable en `/api/auth/me`.
 
 ### FR-CS-014: Dedicated Private Daily Workspace ("Mi Día (Privado)") & Per-User Task Isolation
-- **Pattern (Ubiquitous / Permanent)**: EL SISTEMA proveerá una sección dedicada y protegida contra borrado denominada `Mi Día (Privado)` (`channelId = "personal"`, `isPrivate = true`) cuyas tareas locales y en Neon PostgreSQL estarán estrictamente aisladas por `userId` autenticado, rechazando con HTTP `401` cualquier intento de lectura o escritura privada sin identidad de usuario válida.
+- **Pattern (Ubiquitous / Permanent)**: EL SISTEMA proveerá secciones personales privadas protegidas contra borrado (`Mi Día (Privado)` / `personal`, `Mis Proyectos` / `personal-proyectos` y `Notas & Ideas` / `personal-notas`) cuyas tareas locales y en Neon PostgreSQL estarán estrictamente aisladas por la tupla `(userId, channelId)`, rechazando con HTTP `401` cualquier intento de lectura o escritura privada sin identidad de usuario válida.
+
+### FR-CS-015: Multi-Tenant Per-User Workspace Personalization, Scoped Channels & Cloud Preferences
+- **Pattern (Event-Driven)**: CUANDO un usuario autenticado con cuenta real inicia sesión, EL SISTEMA personalizará el nombre e iniciales de su espacio de trabajo (`Espacio de <Nombre>`), restaurará sus preferencias visuales (`theme`, `scale`, `layout`) y frase de estado (`status_text`) desde Neon PostgreSQL (`/api/auth/me`), ocultará canales y contactos ficticios de demostración, y filtrará `/api/channels` exclusivamente a los canales creados por ese usuario o a los que se haya unido mediante enlace de invitación (`?join=token`).
 
 ---
 
@@ -107,6 +110,12 @@ ESCENARIO: BDD-CS-006: Puerta de inicio de sesión obligatoria para visitantes n
 ESCENARIO: BDD-CS-007: Aislamiento estricto por usuario en "Mi Día (Privado)"
   DADO un usuario autenticado A que guarda tareas con hora programada en la sección "Mi Día (Privado)" (channelId = "personal")
   CUANDO otro usuario B consulta "Mi Día (Privado)" o se intenta consultar sin identidad autenticada
-  ENTONCES el endpoint /api/tasks rechaza peticiones sin identidad con HTTP 401 y aísla las filas por user_id
-  Y el espacio "personal" permanece protegido contra eliminación en /api/channels (HTTP 400).
+  ENTONCES el endpoint /api/tasks rechaza peticiones sin identidad con HTTP 401 y aísla las filas por (user_id, channel_id)
+  Y los espacios personales ("personal", "personal-proyectos", "personal-notas") permanecen protegidos contra eliminación en /api/channels (HTTP 400).
+
+ESCENARIO: BDD-CS-008: Personalización multi-usuario e historial independiente por cuenta
+  DADO un usuario real A que inicia sesión con Google, elige tema "dark", crea un canal "#trabajo" y guarda tareas en sus listas privadas
+  CUANDO otro usuario real B inicia sesión en el mismo navegador o en otro dispositivo
+  ENTONCES el usuario B ve su propio encabezado "Espacio de <NombreB>", sus propias listas personales vacías, su propio tema visual y cero canales o contactos ajenos
+  Y solo accede al canal "#trabajo" del usuario A si abre explícitamente un enlace de invitación válido (?join=token).
 ```

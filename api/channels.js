@@ -1,13 +1,42 @@
 /**
  * CHANNELS ENDPOINT (GET, POST & DELETE)
- * Reads, creates, invites, joins, and deletes channels in Neon PostgreSQL.
- * Consolidates channel membership and invitation routing to remain within Vercel function limits.
+ * Multi-tenant per-user channel registry, invite token generator, join handler,
+ * real teammate discovery, and cascade deletion in Neon PostgreSQL.
  * Zero external npm dependencies.
  */
 
 import crypto from "node:crypto";
 import { sql } from "./_db.js";
 import { getAuthenticatedUser } from "./_auth.js";
+
+const DEMO_USER_IDS = new Set(["usr_valentin", "usr_ana", "usr_carlos", "usr_elena"]);
+const PROTECTED_CHANNEL_SLUGS = new Set([
+  "general",
+  "personal",
+  "mi-dia",
+  "personal-proyectos",
+  "mis-proyectos",
+  "personal-notas",
+  "notas-ideas"
+]);
+
+function isProtectedSlug(raw) {
+  const norm = String(raw || "").trim().toLowerCase().replace(/^c_/, "");
+  return PROTECTED_CHANNEL_SLUGS.has(norm) || norm.startsWith("personal-");
+}
+
+async function resolveRequestUserId(req, explicitUserId = "") {
+  try {
+    if (req?.headers && !(process.env.TASKFLOW_HERMETIC_TEST === "1" && !process.env.DATABASE_URL)) {
+      const sessionUser = await getAuthenticatedUser(req);
+      if (sessionUser?.id) return sessionUser.id;
+    }
+  } catch {
+    // Fall back to explicit userId parameter if session lookup fails
+  }
+  const clean = String(explicitUserId || "").trim().slice(0, 64);
+  return clean || null;
+}
 
 export async function GET(req) {
   try {
@@ -26,7 +55,12 @@ export async function GET(req) {
 
       if (process.env.TASKFLOW_HERMETIC_TEST === "1" && !process.env.DATABASE_URL) {
         return new Response(
-          JSON.stringify({ ok: true, channelId: "c_general", message: "Unido al canal exitosamente." }),
+          JSON.stringify({
+            ok: true,
+            channelId: "c_general",
+            channel: { id: "c_general", name: "general", description: "", is_private: false },
+            message: "Unido al canal exitosamente."
+          }),
           { status: 200, headers: { "Content-Type": "application/json" } }
         );
       }
@@ -43,8 +77,7 @@ export async function GET(req) {
       }
 
       const channelId = rows[0].channel_id;
-      const user = await getAuthenticatedUser(req);
-      const userId = user ? user.id : url?.searchParams.get("userId");
+      const userId = await resolveRequestUserId(req, url?.searchParams.get("userId") || "");
       if (userId) {
         await sql(
           `INSERT INTO channel_members (channel_id, user_id) VALUES ($1, $2) ON CONFLICT DO NOTHING;`,
@@ -52,23 +85,83 @@ export async function GET(req) {
         ).catch(() => {});
       }
 
+      const chRows = await sql(
+        `SELECT id, COALESCE(display_name, split_part(name, '--', 1)) AS name, description, is_private
+         FROM channels WHERE id = $1 LIMIT 1;`,
+        [channelId]
+      ).catch(() => []);
+
       return new Response(
-        JSON.stringify({ ok: true, channelId, message: "Te has unido al canal exitosamente." }),
+        JSON.stringify({
+          ok: true,
+          channelId,
+          channel: chRows[0] || null,
+          message: "Te has unido al canal exitosamente."
+        }),
         { status: 200, headers: { "Content-Type": "application/json" } }
       );
     }
 
-    // 2. Default: List Channels
-    const rows = await sql(`
-      SELECT c.id, c.name, c.description, c.is_private, c.created_at,
+    // 2. Scoped Multi-Tenant List Channels & Real Collaborators
+    const effectiveUserId = await resolveRequestUserId(req, url?.searchParams.get("userId") || "");
+    if (!effectiveUserId) {
+      return new Response(JSON.stringify({ ok: true, channels: [], teammates: [] }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" }
+      });
+    }
+
+    if (process.env.TASKFLOW_HERMETIC_TEST === "1" && !process.env.DATABASE_URL) {
+      return new Response(JSON.stringify({ ok: true, channels: [], teammates: [] }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" }
+      });
+    }
+
+    const isDemoUser = DEMO_USER_IDS.has(effectiveUserId);
+
+    const rows = await sql(
+      `
+      SELECT c.id,
+             COALESCE(c.display_name, split_part(c.name, '--', 1)) AS name,
+             c.description,
+             c.is_private,
+             c.created_by,
+             c.created_at,
              COUNT(m.id)::int AS message_count
       FROM channels c
       LEFT JOIN messages m ON m.channel_id = c.id
+      WHERE (
+        c.created_by = $1
+        OR EXISTS (
+          SELECT 1 FROM channel_members cm
+          WHERE cm.channel_id = c.id AND cm.user_id = $1
+        )
+      )
+      AND ($2::boolean = TRUE OR c.id <> 'c_general' OR c.created_by = $1)
       GROUP BY c.id
       ORDER BY c.created_at ASC;
-    `);
+    `,
+      [effectiveUserId, isDemoUser]
+    );
 
-    return new Response(JSON.stringify({ ok: true, channels: rows }), {
+    const teammates = await sql(
+      `
+      SELECT DISTINCT u.id, u.full_name, u.avatar_url, u.status_text
+      FROM channel_members cm_self
+      JOIN channel_members cm_peer
+        ON cm_peer.channel_id = cm_self.channel_id AND cm_peer.user_id <> $1
+      JOIN channels c ON c.id = cm_self.channel_id
+      JOIN users u ON u.id = cm_peer.user_id
+      WHERE cm_self.user_id = $1
+        AND (c.id <> 'c_general' OR c.created_by IS NOT NULL)
+      ORDER BY u.full_name ASC
+      LIMIT 30;
+    `,
+      [effectiveUserId]
+    ).catch(() => []);
+
+    return new Response(JSON.stringify({ ok: true, channels: rows, teammates }), {
       status: 200,
       headers: { "Content-Type": "application/json" }
     });
@@ -101,15 +194,25 @@ export async function POST(req) {
         });
       }
 
-      if (channelId === "personal" || channelId === "mi-dia") {
+      const normInvite = channelId.toLowerCase();
+      if (
+        normInvite === "personal" ||
+        normInvite === "mi-dia" ||
+        normInvite.startsWith("personal-") ||
+        normInvite === "mis-proyectos" ||
+        normInvite === "notas-ideas"
+      ) {
         return new Response(
-          JSON.stringify({ ok: false, error: "Mi Día (Privado) es un espacio personal y no admite enlaces de invitación." }),
+          JSON.stringify({
+            ok: false,
+            error: "Las listas personales privadas son solo tuyas y no admiten enlaces de invitación."
+          }),
           { status: 400, headers: { "Content-Type": "application/json" } }
         );
       }
 
-      const user = await getAuthenticatedUser(req);
-      const createdBy = user ? user.id : String(body.userId || body.createdBy || "anonymous");
+      const createdBy =
+        (await resolveRequestUserId(req, body.userId || body.createdBy || "")) || "anonymous";
       const token = `inv_${crypto.randomBytes(16).toString("hex")}`;
 
       if (process.env.TASKFLOW_HERMETIC_TEST === "1" && !process.env.DATABASE_URL) {
@@ -122,6 +225,13 @@ export async function POST(req) {
           }),
           { status: 200, headers: { "Content-Type": "application/json" } }
         );
+      }
+
+      if (createdBy && createdBy !== "anonymous") {
+        await sql(
+          `INSERT INTO channel_members (channel_id, user_id) VALUES ($1, $2) ON CONFLICT DO NOTHING;`,
+          [channelId, createdBy]
+        ).catch(() => {});
       }
 
       await sql(
@@ -154,7 +264,12 @@ export async function POST(req) {
 
       if (process.env.TASKFLOW_HERMETIC_TEST === "1" && !process.env.DATABASE_URL) {
         return new Response(
-          JSON.stringify({ ok: true, channelId: "c_general", message: "Unido al canal exitosamente." }),
+          JSON.stringify({
+            ok: true,
+            channelId: "c_general",
+            channel: { id: "c_general", name: "general", description: "", is_private: false },
+            message: "Unido al canal exitosamente."
+          }),
           { status: 200, headers: { "Content-Type": "application/json" } }
         );
       }
@@ -171,8 +286,7 @@ export async function POST(req) {
       }
 
       const channelId = rows[0].channel_id;
-      const user = await getAuthenticatedUser(req);
-      const userId = user ? user.id : (body.userId || url?.searchParams.get("userId"));
+      const userId = await resolveRequestUserId(req, body.userId || url?.searchParams.get("userId") || "");
 
       if (userId) {
         await sql(
@@ -181,30 +295,33 @@ export async function POST(req) {
         ).catch(() => {});
       }
 
+      const chRows = await sql(
+        `SELECT id, COALESCE(display_name, split_part(name, '--', 1)) AS name, description, is_private
+         FROM channels WHERE id = $1 LIMIT 1;`,
+        [channelId]
+      ).catch(() => []);
+
       return new Response(
-        JSON.stringify({ ok: true, channelId, message: "Te has unido al canal exitosamente." }),
+        JSON.stringify({
+          ok: true,
+          channelId,
+          channel: chRows[0] || null,
+          message: "Te has unido al canal exitosamente."
+        }),
         { status: 200, headers: { "Content-Type": "application/json" } }
       );
     }
 
-    // 3. Create Channel
-    let user = await getAuthenticatedUser(req);
-    if (!user && body.userId) {
-      const rows = await sql(
-        "SELECT id, google_id, email, full_name, avatar_url, status_text FROM users WHERE id = $1 LIMIT 1",
-        [body.userId]
-      );
-      if (rows.length > 0) user = rows[0];
-    }
-
+    // 3. Create Channel (Scoped to Authenticated Creator)
     let rawName = String(body.name || "").trim().toLowerCase();
-    const description = String(body.description || "").trim();
+    const description = String(body.description || "").trim().slice(0, 160);
+    const isPrivate = Boolean(body.isPrivate);
 
     if (rawName.startsWith("#")) rawName = rawName.slice(1);
 
-    if (rawName === "personal" || rawName === "mi-dia") {
+    if (isProtectedSlug(rawName) && rawName !== "general") {
       return new Response(
-        JSON.stringify({ ok: false, error: "El nombre mi-dia / personal está reservado para tu espacio privado." }),
+        JSON.stringify({ ok: false, error: "Ese nombre está reservado para tus listas personales privadas." }),
         { status: 400, headers: { "Content-Type": "application/json" } }
       );
     }
@@ -219,33 +336,72 @@ export async function POST(req) {
       );
     }
 
-    const channelId = `c_${rawName.replace(/-/g, "_")}_${Date.now().toString(36)}`;
-    const creatorId = user ? user.id : null;
+    const creatorId = await resolveRequestUserId(req, body.userId || "");
+    if (!creatorId) {
+      return new Response(
+        JSON.stringify({ ok: false, error: "Inicia sesión para crear canales en tu espacio." }),
+        { status: 401, headers: { "Content-Type": "application/json" } }
+      );
+    }
 
-    const insertRows = await sql(
+    const randSuffix = `${Date.now().toString(36)}_${crypto.randomBytes(2).toString("hex")}`;
+    const channelId = `c_${rawName.replace(/-/g, "_")}_${randSuffix}`;
+
+    if (process.env.TASKFLOW_HERMETIC_TEST === "1" && !process.env.DATABASE_URL) {
+      return new Response(
+        JSON.stringify({
+          ok: true,
+          channel: {
+            id: channelId,
+            name: rawName,
+            description,
+            is_private: isPrivate,
+            created_by: creatorId
+          }
+        }),
+        { status: 201, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    // Check duplicate channel display name ONLY within this user's own workspace
+    const dupRows = await sql(
       `
-      INSERT INTO channels (id, name, description, created_by)
-      VALUES ($1, $2, $3, $4)
-      ON CONFLICT (name) DO NOTHING
-      RETURNING *;
+      SELECT c.id FROM channels c
+      WHERE COALESCE(c.display_name, split_part(c.name, '--', 1)) = $2
+        AND (
+          c.created_by = $1
+          OR EXISTS (SELECT 1 FROM channel_members cm WHERE cm.channel_id = c.id AND cm.user_id = $1)
+        )
+        AND c.id <> 'c_general'
+      LIMIT 1;
     `,
-      [channelId, rawName, description, creatorId]
+      [creatorId, rawName]
     );
 
-    if (insertRows.length === 0) {
+    if (dupRows.length > 0) {
       return new Response(
-        JSON.stringify({ ok: false, error: `Ya existe un canal con el nombre #${rawName}` }),
+        JSON.stringify({ ok: false, error: `Ya tienes un canal llamado #${rawName} en tu espacio.` }),
         { status: 409, headers: { "Content-Type": "application/json" } }
       );
     }
 
+    const userTag = creatorId.replace(/[^a-zA-Z0-9]/g, "").slice(-10);
+    const uniqueStorageName = `${rawName}--${userTag}_${crypto.randomBytes(2).toString("hex")}`;
+
+    const insertRows = await sql(
+      `
+      INSERT INTO channels (id, name, display_name, description, is_private, created_by)
+      VALUES ($1, $2, $3, $4, $5, $6)
+      RETURNING id, COALESCE(display_name, $3) AS name, description, is_private, created_by, created_at;
+    `,
+      [channelId, uniqueStorageName, rawName, description, isPrivate, creatorId]
+    );
+
     const channel = insertRows[0];
-    if (creatorId) {
-      await sql(
-        `INSERT INTO channel_members (channel_id, user_id) VALUES ($1, $2) ON CONFLICT DO NOTHING;`,
-        [channel.id, creatorId]
-      );
-    }
+    await sql(
+      `INSERT INTO channel_members (channel_id, user_id) VALUES ($1, $2) ON CONFLICT DO NOTHING;`,
+      [channel.id, creatorId]
+    );
 
     return new Response(JSON.stringify({ ok: true, channel }), {
       status: 201,
@@ -264,12 +420,14 @@ export async function DELETE(req) {
     const url = req?.url ? new URL(req.url) : null;
     let channelId = (url?.searchParams.get("channelId") || url?.searchParams.get("id") || "").trim();
     let channelName = (url?.searchParams.get("name") || "").trim();
+    let bodyUserId = url?.searchParams.get("userId") || "";
 
-    if (!channelId && !channelName && req.method === "DELETE") {
+    if (!channelId && !channelName && req?.method === "DELETE") {
       try {
         const body = await req.json();
         channelId = String(body?.channelId || body?.id || "").trim();
         channelName = String(body?.name || "").trim();
+        bodyUserId = String(body?.userId || bodyUserId || "").trim();
       } catch {}
     }
 
@@ -280,18 +438,14 @@ export async function DELETE(req) {
       });
     }
 
-    // Protection for root canonical channel and private daily workspace
     const norm = (channelName || channelId).toLowerCase().replace(/^c_/, "");
-    if (norm === "general" || norm === "personal" || norm === "mi-dia") {
+    if (isProtectedSlug(norm) || channelId === "c_general") {
       return new Response(
         JSON.stringify({
           ok: false,
           error: `El espacio #${norm} está protegido y no puede ser eliminado.`
         }),
-        {
-          status: 400,
-          headers: { "Content-Type": "application/json" }
-        }
+        { status: 400, headers: { "Content-Type": "application/json" } }
       );
     }
 
@@ -307,31 +461,53 @@ export async function DELETE(req) {
       );
     }
 
-    // Delete dependent entities in Neon PostgreSQL (strictly non-private channel tasks)
-    await sql(
-      `DELETE FROM tasks WHERE (channel_id = $1 OR channel_id = $2 OR channel_id = $3) AND (is_private = FALSE OR is_private IS NULL);`,
-      [channelId, norm, `c_${norm}`]
-    ).catch(() => {});
+    const requesterId = await resolveRequestUserId(req, bodyUserId);
 
-    await sql(
-      `DELETE FROM channel_invites WHERE channel_id = $1 OR channel_id = $2 OR channel_id = $3;`,
-      [channelId, norm, `c_${norm}`]
-    ).catch(() => {});
+    // Resolve exact target channel ID so deleting #trabajo for User A NEVER touches User B's #trabajo!
+    let targetChannelIds = [];
+    if (channelId && channelId.startsWith("c_")) {
+      if (requesterId) {
+        const check = await sql(
+          `SELECT id FROM channels c
+           WHERE c.id = $1 AND (
+             c.created_by IS NULL OR c.created_by = $2
+             OR EXISTS (SELECT 1 FROM channel_members cm WHERE cm.channel_id = c.id AND cm.user_id = $2)
+           ) LIMIT 1;`,
+          [channelId, requesterId]
+        );
+        if (check.length === 0) {
+          return new Response(
+            JSON.stringify({ ok: false, error: "No tienes permisos para eliminar este canal." }),
+            { status: 403, headers: { "Content-Type": "application/json" } }
+          );
+        }
+      }
+      targetChannelIds = [channelId, channelId.slice(2)];
+    } else if (requesterId) {
+      const owned = await sql(
+        `SELECT id FROM channels c
+         WHERE COALESCE(c.display_name, split_part(c.name, '--', 1)) = $2
+           AND (c.created_by = $1 OR EXISTS (SELECT 1 FROM channel_members cm WHERE cm.channel_id = c.id AND cm.user_id = $1));`,
+        [requesterId, norm]
+      );
+      for (const r of owned) {
+        targetChannelIds.push(r.id, r.id.replace(/^c_/, ""));
+      }
+    } else {
+      targetChannelIds = [channelId || norm, `c_${norm}`];
+    }
 
-    await sql(
-      `DELETE FROM channel_members WHERE channel_id = $1 OR channel_id = $2 OR channel_id = $3;`,
-      [channelId, norm, `c_${norm}`]
-    ).catch(() => {});
+    if (targetChannelIds.length > 0) {
+      await sql(
+        `DELETE FROM tasks WHERE channel_id = ANY($1) AND (is_private = FALSE OR is_private IS NULL);`,
+        [targetChannelIds]
+      ).catch(() => {});
 
-    await sql(
-      `DELETE FROM messages WHERE channel_id = $1 OR channel_id = $2 OR channel_id = $3;`,
-      [channelId, norm, `c_${norm}`]
-    ).catch(() => {});
-
-    await sql(
-      `DELETE FROM channels WHERE id = $1 OR name = $2 OR id = $3;`,
-      [channelId, norm, `c_${norm}`]
-    ).catch(() => {});
+      await sql(`DELETE FROM channel_invites WHERE channel_id = ANY($1);`, [targetChannelIds]).catch(() => {});
+      await sql(`DELETE FROM channel_members WHERE channel_id = ANY($1);`, [targetChannelIds]).catch(() => {});
+      await sql(`DELETE FROM messages WHERE channel_id = ANY($1);`, [targetChannelIds]).catch(() => {});
+      await sql(`DELETE FROM channels WHERE id = ANY($1);`, [targetChannelIds]).catch(() => {});
+    }
 
     return new Response(
       JSON.stringify({

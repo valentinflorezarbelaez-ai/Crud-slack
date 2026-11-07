@@ -1,25 +1,29 @@
 /**
- * UI VISUAL PREFERENCES — EYE-CARE THEMES, TEXT SCALE & LAYOUT FOCUS
- * Governed by SPEC-CRUD-SLACK-001 (FR-CS-006..009, UI ergonomics).
+ * UI VISUAL PREFERENCES — PER-USER EYE-CARE THEMES, TEXT SCALE & CLOUD SYNC
+ * Governed by SPEC-CRUD-SLACK-001 (FR-CS-006..015, UI ergonomics & per-user personalization).
  *
- * Persists user choices in localStorage and only toggles attributes/classes
- * (zero inline style mutations, strict CSP compliant).
+ * Scopes user visual choices by userId in localStorage and syncs to Neon PostgreSQL
+ * (/api/auth/me) so each user gets their own personalized look across devices.
  */
 
 const THEMES = Object.freeze(["light", "warm", "dark"]);
 const THEME_COLORS = Object.freeze({ light: "#f2f6f9", warm: "#f4f0e4", dark: "#070b14" });
 
-function readPref(key, fallback) {
+function prefKey(baseKey, userId) {
+  return userId ? `${baseKey}__usr_${userId}` : baseKey;
+}
+
+function readPref(baseKey, userId, fallback) {
   try {
-    return localStorage.getItem(key) || fallback;
+    return localStorage.getItem(prefKey(baseKey, userId)) || fallback;
   } catch {
     return fallback;
   }
 }
 
-function writePref(key, value) {
+function writePref(baseKey, userId, value) {
   try {
-    localStorage.setItem(key, value);
+    localStorage.setItem(prefKey(baseKey, userId), value);
   } catch {
     /* storage unavailable (private mode) */
   }
@@ -37,56 +41,79 @@ export function nextFridayIso(refIso) {
 }
 
 /**
- * Wires theme selector, theme cycle button, text scale toggle and layout focus toggle.
- * @param {{ eyeCareSelect?: HTMLSelectElement|null, themeToggleBtn?: HTMLElement|null,
- *   scaleToggleBtn?: HTMLElement|null, layoutFocusBtn?: HTMLElement|null,
- *   workspaceGrid?: Element|null }} refs
- * @param {(msg: string) => void} notify
+ * Wires theme selector, theme cycle button, text scale toggle and layout focus toggle
+ * with per-user local + cloud persistence.
  */
 export function initVisualPreferences(refs, notify) {
   const root = document.documentElement;
+  let activeUserId = null;
 
-  const applyTheme = (theme) => {
+  const syncCloudPrefs = (patch) => {
+    if (!activeUserId || typeof fetch !== "function") return;
+    fetch("./api/auth/me", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId: activeUserId, preferences: patch })
+    }).catch(() => {});
+  };
+
+  const applyTheme = (theme, persistCloud = false) => {
     const safe = THEMES.includes(theme) ? theme : "light";
     root.setAttribute("data-theme", safe);
     if (refs.eyeCareSelect) refs.eyeCareSelect.value = safe;
     document.querySelector('meta[name="theme-color"]')?.setAttribute("content", THEME_COLORS[safe]);
-    writePref("taskflow.theme", safe);
+    writePref("taskflow.theme", activeUserId, safe);
+    if (persistCloud) syncCloudPrefs({ theme: safe });
   };
 
-  const applyScale = (scale) => {
+  const applyScale = (scale, persistCloud = false) => {
     const safe = scale === "xl" ? "xl" : "md";
     root.setAttribute("data-scale", safe);
     if (refs.scaleToggleBtn) {
       refs.scaleToggleBtn.textContent = safe === "xl" ? "🔍 Zoom: XL" : "🔍 Zoom: 100%";
     }
-    writePref("taskflow.scale", safe);
+    writePref("taskflow.scale", activeUserId, safe);
+    if (persistCloud) syncCloudPrefs({ scale: safe });
   };
 
-  const applyLayout = (layout) => {
-    const focus = layout === "focus";
+  const applyLayout = (layout, persistCloud = false) => {
+    const safe = layout === "focus" ? "focus" : "split";
+    const focus = safe === "focus";
     refs.workspaceGrid?.classList.toggle("is-focus-board", focus);
     if (refs.layoutFocusBtn) {
       refs.layoutFocusBtn.textContent = focus ? "📐 1 Col" : "📐 2 Col";
     }
-    writePref("taskflow.layout", focus ? "focus" : "split");
+    writePref("taskflow.layout", activeUserId, safe);
+    if (persistCloud) syncCloudPrefs({ layout: safe });
   };
 
-  applyTheme(readPref("taskflow.theme", "light"));
-  applyScale(readPref("taskflow.scale", "md"));
-  applyLayout(readPref("taskflow.layout", "split"));
+  const setUserPreferences = (user) => {
+    activeUserId = user?.id || null;
+    const cloudPrefs = user?.preferences && typeof user.preferences === "object" ? user.preferences : {};
+    const theme = cloudPrefs.theme || readPref("taskflow.theme", activeUserId, "light");
+    const scale = cloudPrefs.scale || readPref("taskflow.scale", activeUserId, "md");
+    const layout = cloudPrefs.layout || readPref("taskflow.layout", activeUserId, "split");
+    applyTheme(theme, false);
+    applyScale(scale, false);
+    applyLayout(layout, false);
+  };
+
+  setUserPreferences(null);
 
   refs.themeToggleBtn?.addEventListener("click", () => {
     const current = root.getAttribute("data-theme") || "light";
     const next = THEMES[(THEMES.indexOf(current) + 1) % THEMES.length];
-    applyTheme(next);
-    notify(`Perfil visual: ${refs.eyeCareSelect?.selectedOptions[0]?.textContent || next}`);
+    applyTheme(next, true);
+    notify(`Tema guardado en tu perfil: ${refs.eyeCareSelect?.selectedOptions[0]?.textContent || next}`);
   });
-  refs.eyeCareSelect?.addEventListener("change", () => applyTheme(refs.eyeCareSelect.value));
+  refs.eyeCareSelect?.addEventListener("change", () => applyTheme(refs.eyeCareSelect.value, true));
   refs.scaleToggleBtn?.addEventListener("click", () => {
-    applyScale(root.getAttribute("data-scale") === "xl" ? "md" : "xl");
+    applyScale(root.getAttribute("data-scale") === "xl" ? "md" : "xl", true);
   });
   refs.layoutFocusBtn?.addEventListener("click", () => {
-    applyLayout(refs.workspaceGrid?.classList.contains("is-focus-board") ? "split" : "focus");
+    applyLayout(refs.workspaceGrid?.classList.contains("is-focus-board") ? "split" : "focus", true);
   });
+
+  return { setUserPreferences };
 }

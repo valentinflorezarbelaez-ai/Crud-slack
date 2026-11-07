@@ -1,6 +1,7 @@
 /**
  * SERVERLESS TASKS API ENDPOINT (GET & POST)
- * Reads and persists shared task boards and private workspaces in Neon PostgreSQL.
+ * Reads and persists shared task boards and per-user private personal spaces in Neon PostgreSQL.
+ * Enforces strict (user_id, channel_id) isolation for all private spaces.
  * Clean / Hexagonal Layer-0: zero external npm dependencies.
  */
 
@@ -40,7 +41,7 @@ export async function ensureTasksTable() {
         updated_at TIMESTAMPTZ DEFAULT NOW()
       );
       CREATE INDEX IF NOT EXISTS idx_tasks_channel_id ON tasks(channel_id);
-      CREATE INDEX IF NOT EXISTS idx_tasks_private_user ON tasks(user_id) WHERE is_private = TRUE;
+      CREATE INDEX IF NOT EXISTS idx_tasks_private_user_channel ON tasks(user_id, channel_id) WHERE is_private = TRUE;
     `);
     tableEnsured = true;
   } catch {
@@ -52,7 +53,19 @@ export function normalizeChannelId(raw) {
   let ch = String(raw || "general").trim().toLowerCase();
   if (ch.startsWith("c_")) ch = ch.slice(2);
   if (ch === "mi-dia") return "personal";
+  if (ch === "mis-proyectos") return "personal-proyectos";
+  if (ch === "notas-ideas") return "personal-notas";
   return ch || "general";
+}
+
+export function isPersonalChannelId(canonicalChannel, rawChannel = "", explicitPrivate = false) {
+  const c = String(canonicalChannel || "").toLowerCase();
+  return (
+    c === "personal" ||
+    c.startsWith("personal-") ||
+    String(rawChannel || "").startsWith("usr_") ||
+    Boolean(explicitPrivate)
+  );
 }
 
 async function resolvePrivateUserId(req, fallbackUserId) {
@@ -74,10 +87,11 @@ export async function GET(req) {
     const rawChannel = url.searchParams.get("channelId") || "general";
     const canonicalChannel = normalizeChannelId(rawChannel);
     const rawUserId = url.searchParams.get("userId") || (rawChannel.startsWith("usr_") ? rawChannel : null);
-    const isPrivate =
-      canonicalChannel === "personal" ||
-      rawChannel.startsWith("usr_") ||
-      url.searchParams.get("isPrivate") === "true";
+    const isPrivate = isPersonalChannelId(
+      canonicalChannel,
+      rawChannel,
+      url.searchParams.get("isPrivate") === "true"
+    );
 
     let effectiveUserId = null;
     if (isPrivate) {
@@ -86,7 +100,7 @@ export async function GET(req) {
         return new Response(
           JSON.stringify({
             ok: false,
-            error: "Autenticación requerida para acceder a las tareas privadas de Mi Día."
+            error: "Autenticación requerida para acceder a tus listas personales privadas."
           }),
           { status: 401, headers: { "Content-Type": "application/json" } }
         );
@@ -121,11 +135,11 @@ export async function GET(req) {
           assignee, source_quote, depends_on_order, grounded, channel_type,
           scheduled_time, duration_minutes, is_private, user_id, updated_at
         FROM tasks
-        WHERE is_private = TRUE AND user_id = $1
+        WHERE is_private = TRUE AND user_id = $1 AND channel_id = $2
         ORDER BY scheduled_time ASC NULLS LAST, order_idx ASC, created_at ASC
         LIMIT 200;
       `,
-        [effectiveUserId]
+        [effectiveUserId, canonicalChannel]
       );
     } else {
       rows = await sql(
@@ -218,8 +232,7 @@ export async function POST(req) {
 
     const canonicalChannel = normalizeChannelId(rawChannel);
     const rawUserId = body.userId || (rawChannel.startsWith("usr_") ? rawChannel : null);
-    const isPrivate =
-      canonicalChannel === "personal" || rawChannel.startsWith("usr_") || Boolean(body.isPrivate);
+    const isPrivate = isPersonalChannelId(canonicalChannel, rawChannel, body.isPrivate);
 
     let effectiveUserId = null;
     if (isPrivate) {
@@ -228,7 +241,7 @@ export async function POST(req) {
         return new Response(
           JSON.stringify({
             ok: false,
-            error: "Autenticación requerida para guardar tareas en Mi Día (Privado)."
+            error: "Autenticación requerida para guardar tareas en tu lista privada."
           }),
           { status: 401, headers: { "Content-Type": "application/json" } }
         );
@@ -269,7 +282,10 @@ export async function POST(req) {
     await ensureTasksTable();
 
     if (isPrivate && effectiveUserId) {
-      await sql(`DELETE FROM tasks WHERE is_private = TRUE AND user_id = $1;`, [effectiveUserId]);
+      await sql(
+        `DELETE FROM tasks WHERE is_private = TRUE AND user_id = $1 AND channel_id = $2;`,
+        [effectiveUserId, canonicalChannel]
+      );
     } else {
       await sql(
         `DELETE FROM tasks WHERE (channel_id = $1 OR channel_id = $2) AND (is_private = FALSE OR is_private IS NULL);`,

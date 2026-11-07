@@ -2,6 +2,7 @@
  * INFRASTRUCTURE ADAPTER: HYBRID CLOUD & LOCALSTORAGE TASK ADAPTER
  * Connects the reactive task board store to Neon PostgreSQL (/api/tasks)
  * with graceful offline fallback to window.localStorage.
+ * Enforces strict (userId, channelId) isolation across all personal private spaces.
  *
  * Governed by EOS Law V (Clean Architecture) and Law VI (Defense in Depth).
  * Zero external runtime dependencies.
@@ -14,7 +15,7 @@ import { loadPersistedBoardState, savePersistedBoardState } from "./storageAdapt
 const syncDebounceTimers = new Map();
 
 /**
- * Normalizes a channel ID by removing 'c_' prefix and mapping 'mi-dia' to 'personal'.
+ * Normalizes a channel ID by removing 'c_' prefix and mapping personal space slugs.
  * @param {string} raw
  * @returns {string}
  */
@@ -22,7 +23,14 @@ export function normalizeChannel(raw) {
   let ch = String(raw || "general").trim().toLowerCase();
   if (ch.startsWith("c_")) ch = ch.slice(2);
   if (ch === "mi-dia") return "personal";
+  if (ch === "mis-proyectos") return "personal-proyectos";
+  if (ch === "notas-ideas") return "personal-notas";
   return ch || "general";
+}
+
+export function isPersonalSpace(canonical, rawChannel = "") {
+  const c = String(canonical || "").toLowerCase();
+  return c === "personal" || c.startsWith("personal-") || String(rawChannel || "").startsWith("usr_");
 }
 
 /**
@@ -33,7 +41,7 @@ export function normalizeChannel(raw) {
  */
 export async function fetchRemoteTasks(channelId, userId = null) {
   const canonical = normalizeChannel(channelId);
-  const isPrivate = canonical === "personal" || String(channelId || "").startsWith("usr_");
+  const isPrivate = isPersonalSpace(canonical, channelId);
 
   // Strict privacy guard: never return private workspace tasks without an authenticated userId
   if (isPrivate && !userId) {
@@ -101,7 +109,7 @@ export async function fetchRemoteTasks(channelId, userId = null) {
  */
 export async function syncRemoteTasks(channelId, tasks, userId = null, options = {}) {
   const canonical = normalizeChannel(channelId);
-  const isPrivate = canonical === "personal" || String(channelId || "").startsWith("usr_");
+  const isPrivate = isPersonalSpace(canonical, channelId);
 
   if (isPrivate && !userId) {
     return false;

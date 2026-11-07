@@ -1,7 +1,7 @@
 /**
  * GOOGLE OAUTH 2.0 / OPENID CONNECT SIGN-IN HANDLER
- * Validates Google ID Token, registers user in Neon Postgres, sets session cookie.
- * Also provides GET for public client id bootstrap (consolidated endpoint).
+ * Validates Google ID Token, registers isolated per-user profile in Neon Postgres,
+ * restores per-user preferences & custom status, and sets HttpOnly session cookie.
  */
 
 import { sql } from "../_db.js";
@@ -85,8 +85,9 @@ export async function POST(req) {
     const googleId = String(payload.sub).trim();
     const email = String(payload.email).trim().toLowerCase();
     const fullName = String(payload.name || email.split("@")[0]).trim();
-    const avatarUrl = payload.picture || `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(googleId)}`;
-    const statusText = "Cuenta Google · En línea";
+    const avatarUrl =
+      payload.picture || `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(googleId)}`;
+    const defaultStatus = "Espacio personal activo";
 
     const existingRows = await sql(
       `SELECT id FROM users WHERE google_id = $1 OR email = $2 LIMIT 1;`,
@@ -99,28 +100,21 @@ export async function POST(req) {
 
     const upsertRows = await sql(
       `
-      INSERT INTO users (id, google_id, email, full_name, avatar_url, status_text, last_seen_at)
-      VALUES ($1, $2, $3, $4, $5, $6, NOW())
+      INSERT INTO users (id, google_id, email, full_name, avatar_url, status_text, preferences, last_seen_at)
+      VALUES ($1, $2, $3, $4, $5, $6, '{}'::jsonb, NOW())
       ON CONFLICT (id) DO UPDATE
       SET google_id = EXCLUDED.google_id,
           email = EXCLUDED.email,
           full_name = EXCLUDED.full_name,
           avatar_url = EXCLUDED.avatar_url,
           last_seen_at = NOW()
-      RETURNING id, google_id, email, full_name, avatar_url, status_text;
+      RETURNING id, google_id, email, full_name, avatar_url, status_text,
+                COALESCE(preferences, '{}'::jsonb) AS preferences;
     `,
-      [targetUserId, googleId, email, fullName, avatarUrl, statusText]
+      [targetUserId, googleId, email, fullName, avatarUrl, defaultStatus]
     );
 
     const user = upsertRows[0];
-
-    // Automatically add user to #general membership if channel exists
-    await sql(
-      `INSERT INTO channel_members (channel_id, user_id)
-       SELECT id, $1 FROM channels WHERE name = 'general' LIMIT 1
-       ON CONFLICT DO NOTHING;`,
-      [user.id]
-    ).catch(() => {});
 
     const sessionToken = await signSession({
       userId: user.id,
@@ -140,10 +134,11 @@ export async function POST(req) {
           email: user.email,
           full_name: user.full_name,
           avatar_url: user.avatar_url,
-          status_text: user.status_text || statusText,
+          status_text: user.status_text || defaultStatus,
+          preferences: user.preferences || {},
           fullName: user.full_name,
           avatarUrl: user.avatar_url,
-          statusText: user.status_text || statusText
+          statusText: user.status_text || defaultStatus
         }
       }),
       {

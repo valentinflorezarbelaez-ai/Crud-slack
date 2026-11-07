@@ -50,13 +50,13 @@ function initSidebar() {
   const channels = $("sidebar-channels");
   channels?.addEventListener("click", () => setSidebarOpen(false));
 
-  document.querySelectorAll("[data-mention]").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      const field = /** @type {HTMLTextAreaElement|null} */ ($("input-message"));
-      if (!field) return;
-      insertAtCaret(field, `${btn.dataset.mention} `);
-      setSidebarOpen(false);
-    });
+  document.addEventListener("click", (ev) => {
+    const btn = ev.target instanceof Element ? ev.target.closest("[data-mention]") : null;
+    if (!btn) return;
+    const field = /** @type {HTMLTextAreaElement|null} */ ($("input-message"));
+    if (!field) return;
+    insertAtCaret(field, `${btn.getAttribute("data-mention") || ""} `);
+    setSidebarOpen(false);
   });
 }
 

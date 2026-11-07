@@ -1392,3 +1392,38 @@ html[data-theme="dark"] .team-user-avatar {
   overflow-wrap: break-word;
   width: 100%;
 }
+
+.sidebar-sublabel {
+  padding: 0.45rem 0.75rem 0.15rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: rgba(255, 255, 255, 0.52);
+}
+.sidebar-dms-empty {
+  display: block;
+  padding: 0.3rem 0.75rem;
+  font-size: 0.78rem;
+  color: rgba(255, 255, 255, 0.55);
+}
+.slack-sidebar .sidebar-item--muted {
+  opacity: 0.75;
+  font-size: 0.82rem;
+}
+.slack-user-status--btn {
+  display: inline-block;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 0.75rem;
+  text-align: left;
+  cursor: pointer;
+  opacity: 0.88;
+}
+.slack-user-status--btn:hover {
+  opacity: 1;
+  text-decoration: underline;
+}

@@ -1,11 +1,13 @@
 /**
- * CHANNELS — create, switch, edit and delete Slack-style channels + "Mi Día (Privado)".
- * Pure DOM (no innerHTML) so it stays strict-CSP safe. Each channel owns its
- * own task board; "personal" ("Mi Día (Privado)") is strictly isolated per user.
+ * CHANNELS — Multi-user personalized sidebar, private spaces & collaborative channels.
+ * Pure DOM (no innerHTML) so it stays strict-CSP safe.
+ * Scopes personal spaces ("Mi Día", "Mis Proyectos", "Notas & Ideas"), custom channels,
+ * workspace title, avatar initials, and direct contacts strictly per authenticated user.
  */
 
 import {
   MAX_CHANNEL_NAME,
+  isDemoProfileId,
   loadActiveChannelId,
   loadChannels,
   saveActiveChannelId,
@@ -15,6 +17,12 @@ import {
 
 const $ = (id) => document.getElementById(id);
 const SVG_NS = "http://www.w3.org/2000/svg";
+
+const DEMO_CONTACTS = Object.freeze([
+  { name: "Jacobo Flórez", mention: "@Jacobo", presence: "presence--on" },
+  { name: "Edison Flórez", mention: "@Edison", presence: "presence--away" },
+  { name: "Roberto Urrea", mention: "@Roberto", presence: "" }
+]);
 
 function icon(id, size = 14) {
   const svg = document.createElementNS(SVG_NS, "svg");
@@ -35,20 +43,39 @@ function span(className, text) {
   return node;
 }
 
+function extractInitials(rawName) {
+  const clean = String(rawName || "").trim();
+  if (!clean) return "TF";
+  const parts = clean.split(/\s+/).filter(Boolean);
+  if (parts.length >= 2) {
+    return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+  }
+  return clean.slice(0, 2).toUpperCase();
+}
+
+function extractFirstName(user) {
+  const full = String(user?.full_name || user?.fullName || user?.email || "").trim();
+  if (!full) return "TaskFlow";
+  const first = full.split(/[\s@]+/)[0] || "Usuario";
+  return first.slice(0, 22);
+}
+
 export function isProtectedChannel(ch) {
   if (!ch) return true;
   return (
     ch.id === "general" ||
     ch.name === "general" ||
-    ch.id === "personal" ||
     ch.kind === "personal" ||
-    ch.name === "mi-dia"
+    String(ch.id || "").startsWith("personal") ||
+    ch.name === "mi-dia" ||
+    ch.name === "mis-proyectos" ||
+    ch.name === "notas-ideas"
   );
 }
 
 /** Shows the empty-state welcome and hides preset-only or chat panels on personal/custom channels. */
 export function syncChannelPanels(channel, isEmpty) {
-  const isPersonal = channel.kind === "personal" || channel.id === "personal";
+  const isPersonal = channel.kind === "personal" || String(channel.id || "").startsWith("personal");
   const isCustom = channel.kind === "custom";
   const hidePresets = isCustom || isPersonal;
 
@@ -59,23 +86,37 @@ export function syncChannelPanels(channel, isEmpty) {
   const feed = $("slack-message-feed");
 
   if (intakeHeading) {
-    intakeHeading.textContent = isPersonal
-      ? "Mi Día (Privado) · Planificador por Horas"
-      : "Canal Slack & Mensaje Recibido";
+    if (channel.id === "personal-proyectos") {
+      intakeHeading.textContent = "Mis Proyectos (Privado) · Entregas y Metas";
+    } else if (channel.id === "personal-notas") {
+      intakeHeading.textContent = "Notas & Ideas (Privado) · Captura Rápida";
+    } else if (isPersonal) {
+      intakeHeading.textContent = "Mi Día (Privado) · Planificador por Horas";
+    } else {
+      intakeHeading.textContent = `Canal #${channel.name} · Chat y Tareas Compartidas`;
+    }
   }
 
   if (welcomeTitle && welcomeText) {
-    if (isPersonal) {
+    if (channel.id === "personal-proyectos") {
+      welcomeTitle.textContent = "🔒 Mis Proyectos · Solo visible en tu cuenta";
+      welcomeText.textContent =
+        "Organiza aquí tus proyectos de mediano plazo, estudios o entregables con fechas límite y seguimiento Kanban propio.";
+    } else if (channel.id === "personal-notas") {
+      welcomeTitle.textContent = "🔒 Notas & Ideas · Tu bloc personal privado";
+      welcomeText.textContent =
+        "Escribe ideas, pendientes sueltos o recordatorios rápidos; la IA los convierte en ítems accionables aislados en tu cuenta.";
+    } else if (isPersonal) {
       welcomeTitle.textContent = "🔒 Mi Día (Privado) · Solo para tus propias tareas";
       welcomeText.textContent =
-        "Todo lo que agregues aquí es 100% privado de tu cuenta. Escribe tu plan con horas (ej. «A las 09:00 revisar correos, a las 11:30 reunión de avance y a las 16:00 entregar reporte») para activar tu agenda horaria y notificaciones.";
+        "Todo lo que agregues aquí es 100% privado de tu cuenta. Escribe tu plan con horas (ej. «A las 09:00 revisar correos, a las 11:30 reunión de avance y a las 16:00 entregar reporte») para activar tu agenda horaria y alarmas.";
     } else {
       welcomeTitle.replaceChildren(
-        document.createTextNode("Este es el comienzo del canal "),
+        document.createTextNode("Este es el comienzo de tu canal "),
         Object.assign(span("", `#${channel.name}`), { id: "channel-welcome-name" })
       );
       welcomeText.textContent =
-        "Pega o escribe un mensaje abajo y la IA lo convertirá en tareas para este canal. Cada canal tiene su propia lista.";
+        "Solo tú y las personas a quienes envíes el botón «🔗 Invitar» ven los mensajes y tareas de este canal.";
     }
   }
 
@@ -96,12 +137,17 @@ export function syncChannelPanels(channel, isEmpty) {
  * }} hooks
  */
 export function initChannels({ onActivate, onRemoved, showToast }) {
-  let channels = loadChannels();
-  let activeId = loadActiveChannelId();
+  let currentUser = null;
+  let realTeammates = [];
+  let channels = loadChannels(null);
+  let activeId = loadActiveChannelId(null);
   if (!channels.some((c) => c.id === activeId)) activeId = "personal";
   let editingId = null;
 
   const list = $("sidebar-channels");
+  const dmsList = $("sidebar-dms");
+  const workspaceNameEl = document.querySelector(".sidebar-workspace__name");
+  const railBadgeEl = document.querySelector(".rail-workspace");
   const dialog = /** @type {HTMLDialogElement|null} */ ($("channel-dialog"));
   const form = /** @type {HTMLFormElement|null} */ ($("channel-form"));
   const nameInput = /** @type {HTMLInputElement|null} */ ($("channel-name-input"));
@@ -119,29 +165,117 @@ export function initChannels({ onActivate, onRemoved, showToast }) {
   const members = document.querySelector(".avatar-stack");
 
   const getActive = () => channels.find((c) => c.id === activeId) || channels[0];
-  const persist = () => saveChannels(channels);
+  const persist = () => saveChannels(channels, currentUser?.id || null);
+
+  function syncWorkspaceIdentity() {
+    if (workspaceNameEl) {
+      workspaceNameEl.textContent = currentUser
+        ? `Espacio de ${extractFirstName(currentUser)}`
+        : "TaskFlow AI";
+    }
+    if (railBadgeEl) {
+      railBadgeEl.textContent = currentUser
+        ? extractInitials(currentUser.full_name || currentUser.email)
+        : "TF";
+    }
+  }
+
+  function renderTeammates() {
+    if (!dmsList) return;
+    dmsList.replaceChildren();
+
+    if (!currentUser) {
+      const li = document.createElement("li");
+      const emptyNote = span("sidebar-dms-empty", "Inicia sesión para ver contactos");
+      li.append(emptyNote);
+      dmsList.append(li);
+      return;
+    }
+
+    if (isDemoProfileId(currentUser.id)) {
+      for (const peer of DEMO_CONTACTS) {
+        const li = document.createElement("li");
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "sidebar-item";
+        btn.dataset.mention = peer.mention;
+        const dot = span(`presence ${peer.presence}`.trim());
+        dot.setAttribute("aria-hidden", "true");
+        btn.append(dot, span("sidebar-item__name", peer.name));
+        li.append(btn);
+        dmsList.append(li);
+      }
+      return;
+    }
+
+    if (realTeammates.length === 0) {
+      const li = document.createElement("li");
+      const hintBtn = document.createElement("button");
+      hintBtn.type = "button";
+      hintBtn.className = "sidebar-item sidebar-item--muted";
+      hintBtn.title = "Crea un canal y usa 🔗 Invitar para colaborar con otra persona";
+      hintBtn.append(
+        span("sidebar-item__hash", "+"),
+        span("sidebar-item__name", "Invita personas en un #canal")
+      );
+      hintBtn.addEventListener("click", () => {
+        const active = getActive();
+        if (active && active.kind === "custom") {
+          $("invite-channel-btn")?.click();
+        } else {
+          openDialog(null);
+        }
+      });
+      li.append(hintBtn);
+      dmsList.append(li);
+      return;
+    }
+
+    for (const mate of realTeammates) {
+      const li = document.createElement("li");
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "sidebar-item";
+      const firstName = String(mate.full_name || "Usuario").split(/\s+/)[0];
+      btn.dataset.mention = `@${firstName}`;
+      btn.title = mate.status_text || "Colaborador en canal compartido";
+      const dot = span("presence presence--on");
+      dot.setAttribute("aria-hidden", "true");
+      btn.append(dot, span("sidebar-item__name", mate.full_name || "Colaborador"));
+      li.append(btn);
+      dmsList.append(li);
+    }
+  }
 
   function renderMembers(channel) {
     if (!members) return;
     members.replaceChildren();
-    if (channel.kind === "personal" || channel.id === "personal") {
+    const selfInit = currentUser ? extractInitials(currentUser.full_name || currentUser.email) : "TÚ";
+    if (channel.kind === "personal" || String(channel.id || "").startsWith("personal")) {
       members.setAttribute("aria-label", "Espacio personal privado: solo tú");
-      members.append(span("", "🔒"));
+      members.append(span("", "🔒"), span("", selfInit));
       return;
     }
     if (channel.kind === "custom") {
-      members.setAttribute("aria-label", "Canal colaborativo");
-      members.append(span("", "EQ"));
+      members.setAttribute("aria-label", "Miembros del canal");
+      members.append(span("", selfInit));
+      for (const mate of realTeammates.slice(0, 3)) {
+        members.append(span("", extractInitials(mate.full_name)));
+      }
       return;
     }
-    members.setAttribute("aria-label", "4 miembros en el canal");
+    members.setAttribute("aria-label", "4 miembros en modo demostración");
     members.append(span("", "VF"), span("", "JF"), span("", "EF"), span("", "RU"));
   }
 
   function render() {
     if (!list) return;
     list.replaceChildren();
-    for (const ch of channels) {
+
+    const personalItems = channels.filter((c) => c.kind === "personal");
+    const sharedItems = channels.filter((c) => c.kind !== "personal");
+
+    const appendChannelItem = (ch) => {
       const li = document.createElement("li");
       li.setAttribute("role", "presentation");
 
@@ -169,8 +303,7 @@ export function initChannels({ onActivate, onRemoved, showToast }) {
       btn.append(hash, span("sidebar-item__name", ch.label || ch.name));
 
       if (ch.isPrivate) {
-        const sr = span("sr-only", "espacio privado");
-        btn.append(sr);
+        btn.append(span("sr-only", "espacio privado"));
       }
       if (ch.unread > 0 && !isActive) btn.append(span("sidebar-item__badge", String(ch.unread)));
 
@@ -196,13 +329,26 @@ export function initChannels({ onActivate, onRemoved, showToast }) {
 
       li.append(btn);
       list.append(li);
+    };
+
+    for (const ch of personalItems) appendChannelItem(ch);
+
+    if (sharedItems.length > 0) {
+      const sep = document.createElement("li");
+      sep.className = "sidebar-sublabel";
+      sep.setAttribute("role", "presentation");
+      sep.textContent = isDemoProfileId(currentUser?.id)
+        ? "Canales de demostración"
+        : "Tus canales compartidos";
+      list.append(sep);
+      for (const ch of sharedItems) appendChannelItem(ch);
     }
   }
 
   function syncSettingsButton() {
     const active = getActive();
     const canDelete = !isProtectedChannel(active);
-    const isPersonal = active.kind === "personal" || active.id === "personal";
+    const isPersonal = active.kind === "personal" || String(active.id || "").startsWith("personal");
 
     if (headerName) headerName.textContent = active.label || active.name;
     if (headerTopic) headerTopic.textContent = active.topic || "Canal colaborativo de tareas.";
@@ -217,15 +363,124 @@ export function initChannels({ onActivate, onRemoved, showToast }) {
   function activate(id, opts = {}) {
     const normalizedTarget = String(id || "").replace(/^c_/, "");
     const next =
-      channels.find((c) => c.id === id || c.id === normalizedTarget || c.name === normalizedTarget) || null;
+      channels.find(
+        (c) => c.id === id || c.id === normalizedTarget || c.name === normalizedTarget
+      ) || null;
     if (!next) return;
     activeId = next.id;
     next.unread = 0;
-    saveActiveChannelId(activeId);
+    saveActiveChannelId(activeId, currentUser?.id || null);
     persist();
     render();
     syncSettingsButton();
     onActivate(next, opts);
+  }
+
+  async function refreshRemoteUserChannels() {
+    if (!currentUser?.id || typeof fetch !== "function") return;
+    const requestedUserId = currentUser.id;
+    try {
+      const res = await fetch(`./api/channels?userId=${encodeURIComponent(requestedUserId)}`, {
+        credentials: "same-origin"
+      });
+      const json = await res.json();
+      if (!currentUser || currentUser.id !== requestedUserId) return;
+
+      if (json.ok) {
+        realTeammates = Array.isArray(json.teammates) ? json.teammates : [];
+        renderTeammates();
+
+        if (Array.isArray(json.channels)) {
+          let changed = false;
+          for (const rem of json.channels) {
+            if (!rem || !rem.name || isProtectedChannel({ id: rem.id, name: rem.name, kind: "custom" })) {
+              if (rem?.name !== "general") continue;
+              if (!isDemoProfileId(requestedUserId)) continue;
+            }
+            if (rem.name === "general" && isDemoProfileId(requestedUserId)) continue;
+
+            const existing = channels.find((c) => c.id === rem.id || (c.kind === "custom" && c.name === rem.name));
+            if (!existing) {
+              channels.push({
+                id: rem.id || rem.name,
+                name: rem.name,
+                label: rem.name,
+                topic: rem.description || "",
+                kind: "custom",
+                presetId: null,
+                isPrivate: Boolean(rem.is_private),
+                unread: 0
+              });
+              changed = true;
+            } else if (rem.id && existing.id !== rem.id && existing.kind === "custom") {
+              const wasActive = activeId === existing.id;
+              existing.id = rem.id;
+              if (wasActive) {
+                activeId = rem.id;
+                saveActiveChannelId(activeId, currentUser.id);
+              }
+              changed = true;
+            }
+          }
+          if (changed) {
+            persist();
+            render();
+          }
+        }
+        syncSettingsButton();
+      }
+    } catch {
+      // Offline fallback: local user-scoped channels remain intact
+    }
+  }
+
+  function setUserContext(user, opts = {}) {
+    currentUser = user || null;
+    realTeammates = [];
+    syncWorkspaceIdentity();
+
+    channels = loadChannels(currentUser?.id || null);
+    const savedActive = loadActiveChannelId(currentUser?.id || null);
+    if (opts.forcePersonal || !channels.some((c) => c.id === savedActive)) {
+      activeId = "personal";
+    } else {
+      activeId = savedActive;
+    }
+
+    render();
+    renderTeammates();
+    syncSettingsButton();
+    onActivate(getActive(), { initial: true });
+
+    if (currentUser?.id) {
+      void refreshRemoteUserChannels();
+    }
+  }
+
+  function upsertJoinedChannel(channelMeta) {
+    if (!channelMeta) return;
+    const chId = String(channelMeta.id || channelMeta.channelId || "").trim();
+    const rawName = String(channelMeta.name || chId.replace(/^c_/, "").split("_")[0] || "canal").trim();
+    if (!chId) return;
+
+    let existing = channels.find((c) => c.id === chId);
+    if (!existing) {
+      existing = {
+        id: chId,
+        name: rawName,
+        label: rawName,
+        topic: channelMeta.description || "Canal compartido por invitación",
+        kind: "custom",
+        presetId: null,
+        isPrivate: Boolean(channelMeta.is_private),
+        unread: 0
+      };
+      channels = [...channels, existing];
+      persist();
+      render();
+    }
+    activate(existing.id);
+    void refreshRemoteUserChannels();
   }
 
   /* ---------- Dialog ---------- */
@@ -238,11 +493,17 @@ export function initChannels({ onActivate, onRemoved, showToast }) {
 
   function validateName(slug) {
     if (!slug) return "Escribe un nombre para el canal.";
-    if (slug === "personal" || slug === "mi-dia") {
-      return "Ese nombre está reservado para tu sección privada Mi Día.";
+    if (
+      slug === "personal" ||
+      slug === "mi-dia" ||
+      slug.startsWith("personal-") ||
+      slug === "mis-proyectos" ||
+      slug === "notas-ideas"
+    ) {
+      return "Ese nombre está reservado para tus secciones personales privadas.";
     }
     const clash = channels.some((c) => c.name === slug && c.id !== editingId);
-    if (clash) return `Ya existe un canal llamado #${slug}.`;
+    if (clash) return `Ya tienes un canal llamado #${slug} en tu espacio.`;
     return "";
   }
 
@@ -251,7 +512,7 @@ export function initChannels({ onActivate, onRemoved, showToast }) {
     editingId = channel ? channel.id : null;
     form.reset();
     setError("");
-    if (title) title.textContent = channel ? "Editar canal" : "Crear un canal";
+    if (title) title.textContent = channel ? "Editar canal" : "Crear un canal en tu espacio";
     if (submitBtn) submitBtn.textContent = channel ? "Guardar cambios" : "Crear canal";
     if (deleteBtn) deleteBtn.hidden = !channel || isProtectedChannel(channel);
     nameInput.value = channel ? channel.name : "";
@@ -271,7 +532,7 @@ export function initChannels({ onActivate, onRemoved, showToast }) {
     if (errorBox && !errorBox.hidden) setError(validateName(slug));
   });
 
-  form?.addEventListener("submit", (ev) => {
+  form?.addEventListener("submit", async (ev) => {
     ev.preventDefault();
     if (!nameInput || !topicInput) return;
     const slug = slugifyChannelName(nameInput.value);
@@ -298,32 +559,51 @@ export function initChannels({ onActivate, onRemoved, showToast }) {
         syncSettingsButton();
         showToast(`Canal #${slug} actualizado.`);
       }
-    } else {
-      const created = {
-        id: slug,
-        name: slug,
-        label: slug,
-        topic,
-        kind: "custom",
-        presetId: null,
-        isPrivate,
-        unread: 0
-      };
-      channels = [...channels, created];
-      persist();
       dialog?.close();
-      activate(created.id, { created: true });
-      showToast(`Canal #${slug} creado en PostgreSQL. Ya puedes chatear y organizar tareas.`);
-
-      // Persist to Neon PostgreSQL in background
-      fetch("./api/channels", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: slug, description: topic })
-      }).catch(() => {});
       return;
     }
+
+    let remoteId = `c_${slug.replace(/-/g, "_")}_${Date.now().toString(36)}`;
+    try {
+      const res = await fetch("./api/channels", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: slug,
+          description: topic,
+          isPrivate,
+          userId: currentUser?.id || null
+        })
+      });
+      const json = await res.json().catch(() => null);
+      if (res.status === 409 && json?.error) {
+        setError(json.error);
+        nameInput.focus();
+        return;
+      }
+      if (json?.ok && json.channel?.id) {
+        remoteId = json.channel.id;
+      }
+    } catch {
+      // Offline fallback uses unique client-generated channel ID
+    }
+
+    const created = {
+      id: remoteId,
+      name: slug,
+      label: slug,
+      topic,
+      kind: "custom",
+      presetId: null,
+      isPrivate,
+      unread: 0
+    };
+    channels = [...channels, created];
+    persist();
     dialog?.close();
+    activate(created.id, { created: true });
+    showToast(`Canal #${slug} creado en tu espacio. Usa 🔗 Invitar si deseas compartirlo.`);
   });
 
   $("channel-cancel-btn")?.addEventListener("click", () => dialog?.close());
@@ -331,7 +611,7 @@ export function initChannels({ onActivate, onRemoved, showToast }) {
 
   async function performChannelDeletion(target) {
     if (!target || isProtectedChannel(target)) {
-      showToast("Este espacio está protegido y no puede ser eliminado.");
+      showToast("Las listas personales privadas están protegidas y no pueden eliminarse.");
       return;
     }
     const ok = window.confirm(
@@ -345,19 +625,24 @@ export function initChannels({ onActivate, onRemoved, showToast }) {
     dialog?.close();
     onRemoved(target);
 
-    // Call DELETE API to purge from Neon PostgreSQL
     try {
-      await fetch(`./api/channels?channelId=${encodeURIComponent(target.id)}&name=${encodeURIComponent(target.name)}`, {
-        method: "DELETE"
+      const params = new URLSearchParams({
+        channelId: target.id,
+        name: target.name
+      });
+      if (currentUser?.id) params.set("userId", currentUser.id);
+      await fetch(`./api/channels?${params.toString()}`, {
+        method: "DELETE",
+        credentials: "same-origin"
       });
     } catch {
       // Local removal already succeeded
     }
 
-    if (wasActive) activate("general");
+    if (wasActive) activate("personal");
     else render();
     syncSettingsButton();
-    showToast(`Canal #${target.name} eliminado exitosamente.`);
+    showToast(`Canal #${target.name} eliminado de tu espacio.`);
   }
 
   deleteBtn?.addEventListener("click", () => {
@@ -385,43 +670,18 @@ export function initChannels({ onActivate, onRemoved, showToast }) {
     if (active.kind === "custom") openDialog(active);
   });
 
-  // Fetch channels from Neon PostgreSQL and merge remote ones
-  fetch("./api/channels")
-    .then((r) => r.json())
-    .then((json) => {
-      if (json.ok && Array.isArray(json.channels)) {
-        let added = false;
-        for (const rem of json.channels) {
-          if (rem.name === "personal" || rem.name === "mi-dia") continue;
-          if (!channels.some((c) => c.name === rem.name)) {
-            channels.push({
-              id: rem.name,
-              name: rem.name,
-              label: rem.name,
-              topic: rem.description || "",
-              kind: "custom",
-              presetId: null,
-              isPrivate: Boolean(rem.is_private),
-              unread: 0
-            });
-            added = true;
-          }
-        }
-        if (added) {
-          persist();
-          render();
-        }
-      }
-    })
-    .catch(() => {});
-
+  syncWorkspaceIdentity();
   render();
+  renderTeammates();
   syncSettingsButton();
 
   return {
     getActive,
     getChannels: () => channels,
     activate,
+    setUserContext,
+    upsertJoinedChannel,
+    refreshRemoteUserChannels,
     findByPresetId: (presetId) => channels.find((c) => c.presetId === presetId) || null,
     openCreateDialog: () => openDialog(null),
     openEditDialog: () => {

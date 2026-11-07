@@ -1,7 +1,7 @@
 /**
- * REAL-TIME SLACK, FIRST-VISIT GOOGLE AUTH GATE & CHAT CONTROLLER
+ * REAL-TIME SLACK, FIRST-VISIT GOOGLE AUTH GATE, USER STATUS PERSONALIZATION & CHAT CONTROLLER
  * Connects directly to Neon PostgreSQL serverless endpoints (/api/channels, /api/messages, /api/auth/*).
- * Enforces First-Visit Authentication Gate (FR-CS-013) with Google OIDC primary CTA.
+ * Enforces First-Visit Authentication Gate (FR-CS-013) & Per-User Personalization (FR-CS-015).
  */
 
 import { escapeHtml } from "../domain/taskEntities.mjs";
@@ -63,14 +63,19 @@ export const TEAM_PROFILES = Object.freeze({
   }
 });
 
+function isPersonalChannel(channelId) {
+  const ch = String(channelId || "");
+  return ch === "personal" || ch.startsWith("personal-");
+}
+
 export function initRealtimeSlack({
   onExtractTasksFromMessage,
   onUserChanged,
   showToast
 }) {
   let currentUser = null;
-  let activeChannelId = "general";
-  let activeChannelName = "general";
+  let activeChannelId = "personal";
+  let activeChannelName = "mi-dia";
   let pollIntervalId = null;
   let googleReady = false;
 
@@ -128,14 +133,18 @@ export function initRealtimeSlack({
       const res = await fetch("./api/auth/me", { credentials: "same-origin" });
       const json = await res.json();
       if (json.ok && json.user) {
-        const hadUser = Boolean(currentUser);
+        const previousId = currentUser?.id || null;
         currentUser = json.user;
         try {
           localStorage.setItem("taskflow_slack_user", JSON.stringify(currentUser));
         } catch {}
         hideAuthGate();
         renderUserStatus();
-        onUserChanged?.(currentUser, { restoredFromCookie: !hadUser });
+        if (previousId !== currentUser.id) {
+          onUserChanged?.(currentUser, { restoredFromCookie: true });
+        } else {
+          onUserChanged?.(currentUser, { refreshedPreferences: true });
+        }
       }
     } catch {
       // Offline or unauthenticated: keep current state
@@ -163,16 +172,18 @@ export function initRealtimeSlack({
     hideAuthGate();
     renderUserStatus();
     onUserChanged?.(currentUser, { signedIn: true });
-    showToast(`¡Bienvenido, ${currentUser.full_name}! Tus tareas en Mi Día son privadas.`);
+    showToast(`¡Bienvenido, ${currentUser.full_name}! Tu espacio personal está listo.`);
     fetchMessages();
 
-    // Persist session cookie in background
+    // Persist session cookie in background and hydrate stored preferences
     fetch("./api/auth/team", {
       method: "POST",
       credentials: "same-origin",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ userId: user.id })
-    }).catch(() => {});
+    })
+      .then(() => checkAuthSession())
+      .catch(() => {});
   }
 
   // Click on any team user profile card
@@ -201,7 +212,7 @@ export function initRealtimeSlack({
   authGate?.addEventListener("click", (ev) => {
     if (ev.target === authGate) {
       if (currentUser) hideAuthGate();
-      else showToast("Inicia sesión con Google para entrar a tu espacio privado.");
+      else showToast("Inicia sesión con Google para abrir tu propio espacio personalizado.");
     }
   });
 
@@ -210,6 +221,33 @@ export function initRealtimeSlack({
       if (currentUser) hideAuthGate();
     }
   });
+
+  async function handleEditCustomStatus() {
+    if (!currentUser) return;
+    const nextStatus = window.prompt(
+      "Personaliza tu frase de estado (se guarda en tu cuenta):",
+      currentUser.status_text || "Enfoque profundo"
+    );
+    if (nextStatus === null) return;
+    const trimmed = nextStatus.trim().slice(0, 80) || "En línea";
+    currentUser = { ...currentUser, status_text: trimmed };
+    try {
+      localStorage.setItem("taskflow_slack_user", JSON.stringify(currentUser));
+    } catch {}
+    renderUserStatus();
+    showToast(`Estado actualizado: «${trimmed}»`);
+
+    try {
+      await fetch("./api/auth/me", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: currentUser.id, statusText: trimmed })
+      });
+    } catch {
+      // Saved locally if offline
+    }
+  }
 
   function renderUserStatus() {
     if (!userSlot) return;
@@ -230,13 +268,18 @@ export function initRealtimeSlack({
         </div>
         <div class="slack-user-details">
           <strong class="slack-user-name">${escapeHtml(currentUser.full_name)}</strong>
-          <span class="slack-user-status">${escapeHtml(currentUser.status_text || "En línea")}</span>
+          <button type="button" id="slack-edit-status-btn" class="slack-user-status slack-user-status--btn" title="Haz clic para personalizar tu estado">
+            ✏️ ${escapeHtml(currentUser.status_text || "Personalizar estado")}
+          </button>
         </div>
         <button type="button" id="slack-switch-user-btn" class="slack-switch-user-btn" title="Cambiar cuenta">Cuenta</button>
         <button type="button" id="slack-logout-btn" class="btn btn--ghost btn--sm" title="Cerrar sesión">Salir</button>
       </div>
     `;
 
+    document.getElementById("slack-edit-status-btn")?.addEventListener("click", () => {
+      void handleEditCustomStatus();
+    });
     document.getElementById("slack-switch-user-btn")?.addEventListener("click", () => showAuthGate());
     document.getElementById("slack-logout-btn")?.addEventListener("click", handleLogout);
   }
@@ -277,7 +320,7 @@ export function initRealtimeSlack({
 
       if (googleStatusTip) {
         googleStatusTip.textContent =
-          "Tus tareas en «Mi Día (Privado)» quedan aisladas en tu propia cuenta de Google.";
+          "Cada cuenta tiene su propio espacio, historial, canales, tema visual y listas privadas independientes.";
       }
 
       await ensureGoogleGsiScript();
@@ -358,7 +401,7 @@ export function initRealtimeSlack({
   async function handleGoogleCredentialResponse(response) {
     if (!response?.credential) return;
 
-    showToast("Verificando inicio de sesión con Google...");
+    showToast("Verificando tu cuenta de Google...");
     try {
       const res = await fetch("./api/auth/google", {
         method: "POST",
@@ -378,7 +421,8 @@ export function initRealtimeSlack({
         email: json.user.email,
         full_name: json.user.full_name || json.user.fullName || json.user.email,
         avatar_url: json.user.avatar_url || json.user.avatarUrl || "",
-        status_text: json.user.status_text || json.user.statusText || "Cuenta Google · En línea"
+        status_text: json.user.status_text || json.user.statusText || "Espacio personal activo",
+        preferences: json.user.preferences || {}
       };
       try {
         localStorage.setItem("taskflow_slack_user", JSON.stringify(currentUser));
@@ -387,7 +431,7 @@ export function initRealtimeSlack({
       hideAuthGate();
       renderUserStatus();
       onUserChanged?.(currentUser, { signedIn: true });
-      showToast(`¡Bienvenido, ${currentUser.full_name}! Tu sección Mi Día (Privado) está lista.`);
+      showToast(`¡Hola, ${currentUser.full_name}! Cargamos tu propio espacio e historial.`);
       fetchMessages();
     } catch (err) {
       showToast(`Error de autenticación: ${err.message}`);
@@ -402,10 +446,11 @@ export function initRealtimeSlack({
     currentUser = null;
     googleBootPromise = null;
     googleReady = false;
+    if (messageFeed) messageFeed.replaceChildren();
     renderUserStatus();
     onUserChanged?.(null, { loggedOut: true });
     showAuthGate();
-    showToast("Sesión cerrada correctamente.");
+    showToast("Sesión cerrada. Cada cuenta mantiene sus propios datos separados.");
   }
 
   // 2. ACTIVE CHANNEL SWITCHING
@@ -413,22 +458,29 @@ export function initRealtimeSlack({
     activeChannelId = channelId;
     activeChannelName = channelName;
 
-    if (channelHeading) channelHeading.textContent = channelId === "personal" ? "🔒 Mi Día" : `#${channelName}`;
+    if (channelHeading) {
+      channelHeading.textContent = isPersonalChannel(channelId) ? `🔒 ${channelName}` : `#${channelName}`;
+    }
     if (activeChannelTitle) activeChannelTitle.textContent = `#${channelName}`;
     if (activeChannelDesc) {
       activeChannelDesc.textContent = channelTopic || "Canal de discusión y tareas en tiempo real.";
     }
 
-    if (channelId !== "personal") {
+    if (!isPersonalChannel(channelId)) {
       fetchMessages();
+    } else if (messageFeed) {
+      messageFeed.replaceChildren();
     }
   }
 
   // 3. MESSAGES FEED & REAL-TIME POLLING
   async function fetchMessages() {
-    if (!messageFeed || activeChannelId === "personal") return;
+    if (!messageFeed || !currentUser || isPersonalChannel(activeChannelId)) return;
     try {
-      const res = await fetch(`./api/messages?channelId=${encodeURIComponent(activeChannelId)}`);
+      const res = await fetch(
+        `./api/messages?channelId=${encodeURIComponent(activeChannelId)}`,
+        { credentials: "same-origin" }
+      );
       const json = await res.json();
       if (json.ok && Array.isArray(json.messages)) {
         renderMessages(json.messages);
@@ -444,9 +496,9 @@ export function initRealtimeSlack({
     if (messages.length === 0) {
       messageFeed.innerHTML = `
         <div class="slack-feed-empty" role="status">
-          <p class="slack-feed-empty__title">Canal colaborativo listo</p>
-          <p>Escribe una solicitud en <strong>#${escapeHtml(activeChannelName)}</strong> y TaskFlow la convertirá en tareas priorizadas.</p>
-          <p><small>Tip: usa 🔗 Invitar arriba para compartir este canal con otras personas.</small></p>
+          <p class="slack-feed-empty__title">Historial limpio en #${escapeHtml(activeChannelName)}</p>
+          <p>Escribe un mensaje en este canal y TaskFlow organizará sus tareas automáticamente.</p>
+          <p><small>Solo tú y quienes invites con «🔗 Invitar» tienen acceso a este canal.</small></p>
         </div>
       `;
       return;
@@ -559,7 +611,7 @@ export function initRealtimeSlack({
 
   // Sending Real Message from Slack Composer (collaborative channels only)
   async function sendMessage(text) {
-    if (activeChannelId === "personal") return true;
+    if (isPersonalChannel(activeChannelId)) return true;
     if (!currentUser) {
       showAuthGate();
       return false;
@@ -592,7 +644,6 @@ export function initRealtimeSlack({
   }
 
   // First-Visit Auth Gate Enforcement (FR-CS-013):
-  // Never silently auto-login as an internal profile when no session exists!
   let storedUser = null;
   try {
     const raw = localStorage.getItem("taskflow_slack_user");

@@ -1,8 +1,30 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 
-describe("Task 4: Channel Invites, Deletion & Auth Consolidation Endpoints", () => {
-  it("rejects invite creation without channelId or for personal private workspace", async () => {
+describe("Task 4: Multi-Tenant Channels, Invites, Deletion & User Preferences Endpoints", () => {
+  it("returns empty channels & teammates for unauthenticated GET /api/channels (no cross-user leak)", async () => {
+    const { GET: listChannels } = await import("../api/channels.js");
+    const res = await listChannels(new Request("http://localhost/api/channels"));
+    assert.equal(res.status, 200);
+    const json = await res.json();
+    assert.equal(json.ok, true);
+    assert.deepEqual(json.channels, []);
+    assert.deepEqual(json.teammates, []);
+  });
+
+  it("rejects unauthenticated channel creation with 401", async () => {
+    const { POST: createChannel } = await import("../api/channels.js");
+    const res = await createChannel(
+      new Request("http://localhost/api/channels", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: "trabajo" })
+      })
+    );
+    assert.equal(res.status, 401);
+  });
+
+  it("rejects invite creation without channelId or for any personal private space", async () => {
     const { POST: createInvite } = await import("../api/channels.js");
 
     const req = new Request("http://localhost/api/channels?action=invite", {
@@ -15,13 +37,15 @@ describe("Task 4: Channel Invites, Deletion & Auth Consolidation Endpoints", () 
     const json = await res.json();
     assert.equal(json.ok, false);
 
-    const personalInviteReq = new Request("http://localhost/api/channels?action=invite", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ channelId: "personal" })
-    });
-    const personalInviteRes = await createInvite(personalInviteReq);
-    assert.equal(personalInviteRes.status, 400);
+    for (const priv of ["personal", "personal-proyectos", "personal-notas"]) {
+      const personalInviteReq = new Request("http://localhost/api/channels?action=invite", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ channelId: priv })
+      });
+      const personalInviteRes = await createInvite(personalInviteReq);
+      assert.equal(personalInviteRes.status, 400);
+    }
   });
 
   it("rejects join attempt with missing token", async () => {
@@ -38,10 +62,50 @@ describe("Task 4: Channel Invites, Deletion & Auth Consolidation Endpoints", () 
     assert.ok(res.status === 200 || res.status === 503);
   });
 
-  it("rejects channel deletion for #general and Mi Día (personal / mi-dia)", async () => {
+  it("me.js POST validates authentication and sanitizes user preferences", async () => {
+    const { POST: updateMe } = await import("../api/auth/me.js");
+    const unauthRes = await updateMe(
+      new Request("http://localhost/api/auth/me", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ preferences: { theme: "dark" } })
+      })
+    );
+    assert.equal(unauthRes.status, 401);
+
+    process.env.TASKFLOW_HERMETIC_TEST = "1";
+    const authRes = await updateMe(
+      new Request("http://localhost/api/auth/me", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: "usr_g_test1",
+          statusText: "Enfoque profundo",
+          preferences: { theme: "dark", scale: "xl", layout: "focus", invalidKey: "ignored" }
+        })
+      })
+    );
+    if (!process.env.DATABASE_URL) {
+      assert.equal(authRes.status, 200);
+      const authJson = await authRes.json();
+      assert.equal(authJson.ok, true);
+      assert.equal(authJson.user.status_text, "Enfoque profundo");
+      assert.deepEqual(authJson.user.preferences, { theme: "dark", scale: "xl", layout: "focus" });
+    }
+  });
+
+  it("rejects channel deletion for #general and all personal spaces", async () => {
     const { DELETE: deleteChannel } = await import("../api/channels.js");
 
-    for (const protectedId of ["general", "personal", "mi-dia"]) {
+    for (const protectedId of [
+      "general",
+      "personal",
+      "mi-dia",
+      "personal-proyectos",
+      "mis-proyectos",
+      "personal-notas",
+      "notas-ideas"
+    ]) {
       const req = new Request(`http://localhost/api/channels?channelId=${protectedId}`, {
         method: "DELETE"
       });

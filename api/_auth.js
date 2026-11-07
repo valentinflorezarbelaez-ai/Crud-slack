@@ -57,7 +57,7 @@ export async function verifySession(token) {
 }
 
 export function getSessionCookie(req) {
-  const cookieHeader = req.headers.get("cookie") || "";
+  const cookieHeader = req?.headers?.get?.("cookie") || "";
   const match = cookieHeader.match(new RegExp(`(?:^|; )${COOKIE_NAME}=([^;]*)`));
   return match ? decodeURIComponent(match[1]) : null;
 }
@@ -67,11 +67,32 @@ export async function getAuthenticatedUser(req) {
   if (!token) return null;
   const session = await verifySession(token);
   if (!session || !session.userId) return null;
-  const rows = await sql(
-    "SELECT id, google_id, email, full_name, avatar_url, status_text FROM users WHERE id = $1 LIMIT 1",
-    [session.userId]
-  );
-  return rows[0] || null;
+  if (process.env.TASKFLOW_HERMETIC_TEST === "1" && !process.env.DATABASE_URL) {
+    return {
+      id: session.userId,
+      google_id: session.googleId || null,
+      email: session.email || "",
+      full_name: session.fullName || "Usuario",
+      avatar_url: session.avatarUrl || "",
+      status_text: "En línea",
+      preferences: {}
+    };
+  }
+  try {
+    const rows = await sql(
+      `SELECT id, google_id, email, full_name, avatar_url, status_text,
+              COALESCE(preferences, '{}'::jsonb) AS preferences
+       FROM users WHERE id = $1 LIMIT 1`,
+      [session.userId]
+    );
+    return rows[0] || null;
+  } catch {
+    const rows = await sql(
+      "SELECT id, google_id, email, full_name, avatar_url, status_text FROM users WHERE id = $1 LIMIT 1",
+      [session.userId]
+    );
+    return rows[0] ? { ...rows[0], preferences: {} } : null;
+  }
 }
 
 export function createSessionCookieHeader(token, maxAgeSeconds = 2592000) {
