@@ -18,7 +18,7 @@ import {
   taskBoardReducer
 } from "../domain/taskBoardStore.mjs";
 import { analyzeWorkplaceRequest } from "../application/analyzeRequest.mjs";
-import { parseIngestedFile } from "../application/fileIngestor.mjs?v=5.5.2";
+import { parseIngestedFile } from "../application/fileIngestor.mjs?v=5.5.3";
 import {
   exportToJsonContract,
   exportToSharePointCsv,
@@ -33,12 +33,12 @@ import { setupKanbanDragAndDrop } from "./kanbanDragDrop.mjs";
 import { setupVoiceDictation } from "./voiceDictation.mjs";
 import { setupCommandPalette } from "./commandPalette.mjs";
 import { fireConfettiCelebration } from "./confetti.mjs";
-import { renderTableView, renderSharePointListView, renderTeamsCardPreview, renderHourlyTimelineView } from "./taskViews.mjs?v=5.5.2";
+import { renderTableView, renderSharePointListView, renderTeamsCardPreview, renderHourlyTimelineView } from "./taskViews.mjs?v=5.5.3";
 import { playTaskCompletedSound, playAlarmChime } from "./soundFx.mjs";
 import { checkDueAlarms, formatLocalHhMm } from "../application/notificationEngine.mjs";
 import { requestNotificationPermission, triggerTaskNotification } from "../infrastructure/webNotificationAdapter.mjs";
-import { initRealtimeSlack } from "./realtimeSlack.mjs?v=5.5.2";
-import { initTaskThreads } from "./taskThreads.mjs?v=5.5.2";
+import { initRealtimeSlack } from "./realtimeSlack.mjs?v=5.5.3";
+import { initTaskThreads } from "./taskThreads.mjs?v=5.5.3";
 import {
   loadPersistedBoardState,
   removePersistedBoardState,
@@ -48,9 +48,9 @@ import {
   fetchRemoteTasks,
   syncRemoteTasks
 } from "../infrastructure/cloudTaskAdapter.mjs";
-import { WORKPLACE_PRESETS } from "./presets.mjs?v=5.5.2";
-import { initChannels, syncChannelPanels } from "./channels.mjs?v=5.5.2";
-import { initVisualPreferences, nextFridayIso } from "./preferences.mjs?v=5.5.2";
+import { WORKPLACE_PRESETS } from "./presets.mjs?v=5.5.3";
+import { initChannels, syncChannelPanels } from "./channels.mjs?v=5.5.3";
+import { initVisualPreferences, nextFridayIso } from "./preferences.mjs?v=5.5.3";
 
 const NEXT_STATUS_CYCLE = Object.freeze({
   PENDING: "IN_PROGRESS",

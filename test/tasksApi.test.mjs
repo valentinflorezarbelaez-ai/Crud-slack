@@ -108,16 +108,16 @@ describe("Task API & Persistent Task Discussion Threads: api/tasks.js & api/mess
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        channelId: "personal-proyectos",
-        userId: "usr_valentin",
+        channelId: "personal-test-sandbox",
+        userId: "usr_test_hermetic",
         tasks: [
           {
-            id: "tsk_priv_1",
-            title: "Mi entrega privada de las 09:30",
+            id: "tsk_priv_test_hermetic",
+            title: "Hermetic Isolated Test Task",
             scheduledTime: "09:30",
             durationMinutes: 45,
             isPrivate: true,
-            userId: "usr_valentin"
+            userId: "usr_test_hermetic"
           }
         ]
       })
@@ -127,7 +127,7 @@ describe("Task API & Persistent Task Discussion Threads: api/tasks.js & api/mess
     assert.ok(postRes.status === 200 || postRes.status === 500);
 
     const getReq = new Request(
-      "http://localhost/api/tasks?channelId=personal-proyectos&userId=usr_valentin"
+      "http://localhost/api/tasks?channelId=personal-test-sandbox&userId=usr_test_hermetic"
     );
     const getRes = await GET(getReq);
     assert.ok(getRes.status === 200 || getRes.status === 500);

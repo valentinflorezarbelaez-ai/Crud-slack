@@ -76,10 +76,12 @@ export async function fetchRemoteTasks(channelId, userId = null) {
     if (res.ok) {
       const json = await res.json().catch(() => null);
       if (json && json.ok && Array.isArray(json.tasks)) {
-        const entities = json.tasks.map((t, idx) =>
-          createTaskEntity({ ...t, isPrivate: isPrivate || Boolean(t.isPrivate), userId: userId || t.userId }, idx)
-        );
-        if (entities.length > 0 || isCustomChannel) {
+        const entities = json.tasks
+          .filter((t) => t && t.id !== "tsk_priv_1" && !String(t.title || "").includes("Mi entrega privada"))
+          .map((t, idx) =>
+            createTaskEntity({ ...t, isPrivate: isPrivate || Boolean(t.isPrivate), userId: userId || t.userId }, idx)
+          );
+        if (entities.length > 0 || isCustomChannel || isPrivate) {
           savePersistedBoardState({ tasks: entities }, canonical, userId);
           return {
             ok: true,
@@ -87,17 +89,6 @@ export async function fetchRemoteTasks(channelId, userId = null) {
             checksum: json.checksum || null,
             source: "cloud"
           };
-        }
-        if (isPrivate) {
-          const local = loadPersistedBoardState(canonical, userId);
-          if (!local || !Array.isArray(local.tasks) || local.tasks.length === 0) {
-            return {
-              ok: true,
-              tasks: [],
-              checksum: json.checksum || null,
-              source: "cloud"
-            };
-          }
         }
       }
     }

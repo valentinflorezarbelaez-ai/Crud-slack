@@ -5,10 +5,10 @@
   "stagesPassed": "7/7",
   "exitCode": 0,
   "artifactCount": 82,
-  "sbomMerkleRoot": "sha256:77b902d7f11fbd08ba0ed68fd46c8d0327103d143ebcb1f986e695fff895d39b",
+  "sbomMerkleRoot": "sha256:2b488307483ca275fc533622f23ba03c61ca7c886bcf5525d67aad9b032cd73f",
   "budgets": {
     "cssKilobytes": 43.5,
-    "uiJsKilobytes": 53.2,
+    "uiJsKilobytes": 54.5,
     "runtimeDependencies": 0
   },
   "verifiedEndpoints": [

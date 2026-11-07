@@ -28,7 +28,9 @@ export function loadPersistedBoardState(channelId, userId = null) {
     const parsed = JSON.parse(raw);
     if (!parsed || !Array.isArray(parsed.tasks)) return null;
 
-    const tasks = parsed.tasks.map((t, idx) => createTaskEntity(t, idx));
+    const tasks = parsed.tasks
+      .filter((t) => t && t.id !== "tsk_priv_1" && !String(t.title || "").includes("Mi entrega privada"))
+      .map((t, idx) => createTaskEntity(t, idx));
     return {
       tasks,
       lastAnalysis: parsed.lastAnalysis || null,
