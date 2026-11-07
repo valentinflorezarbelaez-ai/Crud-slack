@@ -362,3 +362,34 @@ export function generateMailtoClarificationUrl({
   return `mailto:${encodeURIComponent(senderEmail)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 }
 
+
+
+/**
+ * Generates a direct compose URL for Gmail Web (mail.google.com).
+ * @param {{ to?: string, subject?: string, body?: string }} params
+ * @returns {string}
+ */
+export function generateGmailComposeUrl({ to = "", subject = "", body = "" } = {}) {
+  const params = new URLSearchParams({
+    view: "cm",
+    fs: "1",
+    to: to.trim(),
+    su: subject.trim(),
+    body: body.trim()
+  });
+  return `https://mail.google.com/mail/?${params.toString()}`;
+}
+
+/**
+ * Generates a direct compose URL for Microsoft 365 Outlook Web (outlook.office.com).
+ * @param {{ to?: string, subject?: string, body?: string }} params
+ * @returns {string}
+ */
+export function generateOutlookWebComposeUrl({ to = "", subject = "", body = "" } = {}) {
+  const params = new URLSearchParams({
+    to: to.trim(),
+    subject: subject.trim(),
+    body: body.trim()
+  });
+  return `https://outlook.office.com/mail/deeplink/compose?${params.toString()}`;
+}

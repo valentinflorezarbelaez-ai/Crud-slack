@@ -18,25 +18,27 @@ import {
   taskBoardReducer
 } from "../domain/taskBoardStore.mjs";
 import { analyzeWorkplaceRequest } from "../application/analyzeRequest.mjs";
-import { parseIngestedFile } from "../application/fileIngestor.mjs?v=5.5.1";
+import { parseIngestedFile } from "../application/fileIngestor.mjs?v=5.5.2";
 import {
   exportToJsonContract,
   exportToSharePointCsv,
   exportToSlackMarkdown,
   exportToTeamsAdaptiveCard,
   exportToICalendar,
-  generateMailtoClarificationUrl
+  generateMailtoClarificationUrl,
+  generateGmailComposeUrl,
+  generateOutlookWebComposeUrl
 } from "../application/exportTasks.mjs";
 import { setupKanbanDragAndDrop } from "./kanbanDragDrop.mjs";
 import { setupVoiceDictation } from "./voiceDictation.mjs";
 import { setupCommandPalette } from "./commandPalette.mjs";
 import { fireConfettiCelebration } from "./confetti.mjs";
-import { renderTableView, renderSharePointListView, renderTeamsCardPreview, renderHourlyTimelineView } from "./taskViews.mjs?v=5.5.1";
+import { renderTableView, renderSharePointListView, renderTeamsCardPreview, renderHourlyTimelineView } from "./taskViews.mjs?v=5.5.2";
 import { playTaskCompletedSound, playAlarmChime } from "./soundFx.mjs";
 import { checkDueAlarms, formatLocalHhMm } from "../application/notificationEngine.mjs";
 import { requestNotificationPermission, triggerTaskNotification } from "../infrastructure/webNotificationAdapter.mjs";
-import { initRealtimeSlack } from "./realtimeSlack.mjs?v=5.5.1";
-import { initTaskThreads } from "./taskThreads.mjs?v=5.5.1";
+import { initRealtimeSlack } from "./realtimeSlack.mjs?v=5.5.2";
+import { initTaskThreads } from "./taskThreads.mjs?v=5.5.2";
 import {
   loadPersistedBoardState,
   removePersistedBoardState,
@@ -46,9 +48,9 @@ import {
   fetchRemoteTasks,
   syncRemoteTasks
 } from "../infrastructure/cloudTaskAdapter.mjs";
-import { WORKPLACE_PRESETS } from "./presets.mjs?v=5.5.1";
-import { initChannels, syncChannelPanels } from "./channels.mjs?v=5.5.1";
-import { initVisualPreferences, nextFridayIso } from "./preferences.mjs?v=5.5.1";
+import { WORKPLACE_PRESETS } from "./presets.mjs?v=5.5.2";
+import { initChannels, syncChannelPanels } from "./channels.mjs?v=5.5.2";
+import { initVisualPreferences, nextFridayIso } from "./preferences.mjs?v=5.5.2";
 
 const NEXT_STATUS_CYCLE = Object.freeze({
   PENDING: "IN_PROGRESS",
@@ -160,7 +162,17 @@ const el = {
   topbarSearchBtn: document.getElementById("topbar-search-btn"),
   commandPaletteDialog: (document.getElementById("command-palette-dialog")),
   cmdPaletteInput: (document.getElementById("cmd-palette-input")),
-  cmdPaletteResults: document.getElementById("cmd-palette-results")
+  cmdPaletteResults: document.getElementById("cmd-palette-results"),
+  emailClarificationDialog: (document.getElementById("email-clarification-dialog")),
+  emailModalTo: (document.getElementById("email-modal-to")),
+  emailModalSubject: (document.getElementById("email-modal-subject")),
+  emailModalBody: (document.getElementById("email-modal-body")),
+  emailOpenGmailBtn: document.getElementById("email-open-gmail-btn"),
+  emailOpenOutlookBtn: document.getElementById("email-open-outlook-btn"),
+  emailOpenMailtoBtn: document.getElementById("email-open-mailto-btn"),
+  emailCopyAllBtn: document.getElementById("email-copy-all-btn"),
+  closeEmailDialogBtn: document.getElementById("close-email-dialog-btn"),
+  dismissEmailDialogBtn: document.getElementById("dismiss-email-dialog-btn")
 };
 
 function showToast(message) {

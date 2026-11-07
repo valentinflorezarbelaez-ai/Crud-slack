@@ -2,7 +2,7 @@
 <html lang="es" data-theme="light" data-scale="md">
   <head>
     <meta charset="UTF-8" />
-    <script src="./src/ui/recovery.js?v=5.5.1"></script>
+    <script src="./src/ui/recovery.js?v=5.5.2"></script>
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>TaskFlow AI · Organizador Omnicanal de Tareas con IA &amp; CRUD Verificado</title>
     <meta
@@ -23,23 +23,23 @@
     <link rel="dns-prefetch" href="//fonts.gstatic.com" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="preload" href="./css/styles.css?v=5.5.1" as="style" />
-    <link rel="preload" href="./css/slack-shell.css?v=5.5.1" as="style" />
-    <link rel="stylesheet" href="./css/styles.css?v=5.5.1" />
-    <link rel="stylesheet" href="./css/slack-shell.css?v=5.5.1" />
+    <link rel="preload" href="./css/styles.css?v=5.5.2" as="style" />
+    <link rel="preload" href="./css/slack-shell.css?v=5.5.2" as="style" />
+    <link rel="stylesheet" href="./css/styles.css?v=5.5.2" />
+    <link rel="stylesheet" href="./css/slack-shell.css?v=5.5.2" />
     <link
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap"
       rel="stylesheet"
     />
-    <link rel="modulepreload" href="./src/ui/main.mjs?v=5.5.1" />
-    <link rel="modulepreload" href="./src/ui/slackShell.mjs?v=5.5.1" />
-    <link rel="modulepreload" href="./src/ui/realtimeSlack.mjs?v=5.5.1" />
-    <link rel="modulepreload" href="./src/ui/channels.mjs?v=5.5.1" />
-    <link rel="modulepreload" href="./src/ui/taskThreads.mjs?v=5.5.1" />
-    <link rel="modulepreload" href="./src/application/fileIngestor.mjs?v=5.5.1" />
-    <link rel="modulepreload" href="./src/domain/taskEntities.mjs?v=5.5.1" />
-    <link rel="modulepreload" href="./src/domain/taskBoardStore.mjs?v=5.5.1" />
-    <link rel="modulepreload" href="./src/domain/deterministicNlp.mjs?v=5.5.1" />
+    <link rel="modulepreload" href="./src/ui/main.mjs?v=5.5.2" />
+    <link rel="modulepreload" href="./src/ui/slackShell.mjs?v=5.5.2" />
+    <link rel="modulepreload" href="./src/ui/realtimeSlack.mjs?v=5.5.2" />
+    <link rel="modulepreload" href="./src/ui/channels.mjs?v=5.5.2" />
+    <link rel="modulepreload" href="./src/ui/taskThreads.mjs?v=5.5.2" />
+    <link rel="modulepreload" href="./src/application/fileIngestor.mjs?v=5.5.2" />
+    <link rel="modulepreload" href="./src/domain/taskEntities.mjs?v=5.5.2" />
+    <link rel="modulepreload" href="./src/domain/taskBoardStore.mjs?v=5.5.2" />
+    <link rel="modulepreload" href="./src/domain/deterministicNlp.mjs?v=5.5.2" />
         <script type="application/ld+json">
       {
         "@context": "https://schema.org",
@@ -976,6 +976,52 @@
     </dialog>
 
     <!-- ================================================================ -->
+    <!-- EMAIL CLARIFICATION COMPOSER MODAL (GMAIL, OUTLOOK, MAILTO)      -->
+    <!-- ================================================================ -->
+    <dialog id="email-clarification-dialog" class="crud-dialog email-dialog" closedby="any" aria-labelledby="email-dialog-title">
+      <div class="crud-dialog__header">
+        <h2 id="email-dialog-title" class="crud-dialog__title">?? Enviar Correo de Aclaraci?n</h2>
+        <button type="button" id="close-email-dialog-btn" class="btn btn--ghost btn--sm" aria-label="Cerrar ventana">
+          ?
+        </button>
+      </div>
+      <div class="crud-dialog__body">
+        <div class="field">
+          <label for="email-modal-to" class="field__label">Destinatario (Para:)</label>
+          <input type="email" id="email-modal-to" class="field__control" placeholder="ejemplo@empresa.com" value="coordinacion@empresa.com" />
+        </div>
+        <div class="field">
+          <label for="email-modal-subject" class="field__label">Asunto</label>
+          <input type="text" id="email-modal-subject" class="field__control" value="TaskFlow AI ? Aclaraci?n de fechas y entregables de la solicitud" />
+        </div>
+        <div class="field">
+          <label for="email-modal-body" class="field__label">Cuerpo del correo</label>
+          <textarea id="email-modal-body" rows="6" class="field__control field__textarea"></textarea>
+        </div>
+        <div class="email-send-options">
+          <span class="eyebrow">Elige c?mo deseas abrir y enviar este correo:</span>
+          <div class="email-send-buttons-grid">
+            <button type="button" id="email-open-gmail-btn" class="btn btn--secondary email-provider-btn" title="Abrir en Gmail Web en nueva pesta?a">
+              ?? Abrir en Gmail Web
+            </button>
+            <button type="button" id="email-open-outlook-btn" class="btn btn--secondary email-provider-btn" title="Abrir en Outlook Web / Microsoft 365">
+              ?? Abrir en Outlook Web (M365)
+            </button>
+            <button type="button" id="email-open-mailto-btn" class="btn btn--ghost email-provider-btn" title="Abrir en aplicaci?n de correo local (Outlook Desktop / Mail de Windows)">
+              ?? App de Correo Local
+            </button>
+            <button type="button" id="email-copy-all-btn" class="btn btn--ghost email-provider-btn" title="Copiar texto completo al portapapeles">
+              ?? Copiar al Portapapeles
+            </button>
+          </div>
+        </div>
+      </div>
+      <div class="crud-dialog__actions">
+        <button type="button" id="dismiss-email-dialog-btn" class="btn btn--ghost">Cerrar</button>
+      </div>
+    </dialog>
+
+    <!-- ================================================================ -->
     <!-- MICROSOFT TEAMS ADAPTIVE CARD PREVIEW DIALOG                     -->
     <!-- ================================================================ -->
     <dialog id="teams-card-dialog" class="crud-dialog teams-dialog" closedby="any" aria-labelledby="teams-dialog-title">
@@ -1071,7 +1117,7 @@
 
     <div id="toast-notification" class="toast" role="status" aria-live="polite" hidden></div>
 
-    <script type="module" src="./src/ui/main.mjs?v=5.5.1"></script>
-    <script type="module" src="./src/ui/slackShell.mjs?v=5.5.1"></script>
+    <script type="module" src="./src/ui/main.mjs?v=5.5.2"></script>
+    <script type="module" src="./src/ui/slackShell.mjs?v=5.5.2"></script>
   </body>
 </html>

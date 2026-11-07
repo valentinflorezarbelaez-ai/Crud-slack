@@ -1522,3 +1522,26 @@ html[data-theme="dark"] .team-user-avatar {
   background: #106ebe;
   color: #ffffff !important;
 }
+
+
+/* Email Clarification Send Options Modal */
+.email-send-options {
+  margin-top: 1rem;
+  padding: 0.85rem;
+  border-radius: 8px;
+  background: var(--bg-surface-secondary, rgba(0, 0, 0, 0.03));
+  border: 1px solid var(--border-subtle, #e4e7ec);
+}
+
+.email-send-buttons-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.6rem;
+  margin-top: 0.6rem;
+}
+
+.email-provider-btn {
+  text-align: center;
+  justify-content: center;
+  white-space: nowrap;
+}
