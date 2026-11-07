@@ -14,13 +14,14 @@ import { loadPersistedBoardState, savePersistedBoardState } from "./storageAdapt
 const syncDebounceTimers = new Map();
 
 /**
- * Normalizes a channel ID by removing 'c_' prefix.
+ * Normalizes a channel ID by removing 'c_' prefix and mapping 'mi-dia' to 'personal'.
  * @param {string} raw
  * @returns {string}
  */
 export function normalizeChannel(raw) {
   let ch = String(raw || "general").trim().toLowerCase();
   if (ch.startsWith("c_")) ch = ch.slice(2);
+  if (ch === "mi-dia") return "personal";
   return ch || "general";
 }
 
@@ -32,6 +33,12 @@ export function normalizeChannel(raw) {
  */
 export async function fetchRemoteTasks(channelId, userId = null) {
   const canonical = normalizeChannel(channelId);
+  const isPrivate = canonical === "personal" || String(channelId || "").startsWith("usr_");
+
+  // Strict privacy guard: never return private workspace tasks without an authenticated userId
+  if (isPrivate && !userId) {
+    return { ok: true, tasks: [], source: "local" };
+  }
 
   // If running in a non-browser environment or fetch is unavailable, return local directly
   if (typeof window === "undefined" || typeof fetch !== "function") {
@@ -43,24 +50,37 @@ export async function fetchRemoteTasks(channelId, userId = null) {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 4000);
 
-    const res = await fetch(`/api/tasks?channelId=${encodeURIComponent(canonical)}`, {
+    const params = new URLSearchParams({ channelId: canonical });
+    if (userId) params.set("userId", userId);
+    if (isPrivate) params.set("isPrivate", "true");
+
+    const res = await fetch(`/api/tasks?${params.toString()}`, {
       method: "GET",
+      credentials: "same-origin",
       signal: controller.signal,
-      headers: { "Accept": "application/json" }
+      headers: { Accept: "application/json" }
     });
     clearTimeout(timeoutId);
 
     if (res.ok) {
       const json = await res.json().catch(() => null);
       if (json && json.ok && Array.isArray(json.tasks)) {
-        if (json.tasks.length > 0) {
-          const entities = json.tasks.map((t, idx) => createTaskEntity(t, idx));
+        const entities = json.tasks.map((t, idx) =>
+          createTaskEntity({ ...t, isPrivate: isPrivate || Boolean(t.isPrivate), userId: userId || t.userId }, idx)
+        );
+        if (entities.length > 0) {
           savePersistedBoardState({ tasks: entities }, canonical, userId);
           return { ok: true, tasks: entities, source: "cloud" };
         }
+        if (isPrivate) {
+          const local = loadPersistedBoardState(canonical, userId);
+          if (!local || !Array.isArray(local.tasks) || local.tasks.length === 0) {
+            return { ok: true, tasks: [], source: "cloud" };
+          }
+        }
       }
     }
-  } catch (err) {
+  } catch {
     // Network failure, timeout, or server unavailable -> fallback to local
   }
 
@@ -81,9 +101,26 @@ export async function fetchRemoteTasks(channelId, userId = null) {
  */
 export async function syncRemoteTasks(channelId, tasks, userId = null, options = {}) {
   const canonical = normalizeChannel(channelId);
-  const entities = Array.isArray(tasks) ? tasks.map((t, idx) => createTaskEntity(t, idx)) : [];
+  const isPrivate = canonical === "personal" || String(channelId || "").startsWith("usr_");
 
-  // 1. Immediate local persistence
+  if (isPrivate && !userId) {
+    return false;
+  }
+
+  const entities = Array.isArray(tasks)
+    ? tasks.map((t, idx) =>
+        createTaskEntity(
+          {
+            ...t,
+            isPrivate: isPrivate || Boolean(t.isPrivate),
+            userId: isPrivate ? userId : userId || t.userId || null
+          },
+          idx
+        )
+      )
+    : [];
+
+  // 1. Immediate local persistence scoped to (channel, userId)
   savePersistedBoardState({ tasks: entities }, canonical, userId);
 
   // 2. If non-browser environment, stop here
@@ -91,19 +128,22 @@ export async function syncRemoteTasks(channelId, tasks, userId = null, options =
     return true;
   }
 
-  // Clear existing debounce timer for this channel
-  if (syncDebounceTimers.has(canonical)) {
-    clearTimeout(syncDebounceTimers.get(canonical));
-    syncDebounceTimers.delete(canonical);
+  const timerKey = `${canonical}__${userId || "public"}`;
+  if (syncDebounceTimers.has(timerKey)) {
+    clearTimeout(syncDebounceTimers.get(timerKey));
+    syncDebounceTimers.delete(timerKey);
   }
 
   const performSync = async () => {
     try {
       const res = await fetch("/api/tasks", {
         method: "POST",
+        credentials: "same-origin",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           channelId: canonical,
+          userId: userId || null,
+          isPrivate,
           tasks: entities
         })
       });
@@ -119,10 +159,10 @@ export async function syncRemoteTasks(channelId, tasks, userId = null, options =
 
   return new Promise((resolve) => {
     const timer = setTimeout(async () => {
-      syncDebounceTimers.delete(canonical);
+      syncDebounceTimers.delete(timerKey);
       const success = await performSync();
       resolve(success);
     }, 300);
-    syncDebounceTimers.set(canonical, timer);
+    syncDebounceTimers.set(timerKey, timer);
   });
 }

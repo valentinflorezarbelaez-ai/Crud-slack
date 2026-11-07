@@ -2,7 +2,7 @@
 <html lang="es" data-theme="light" data-scale="md">
   <head>
     <meta charset="UTF-8" />
-    <script src="./src/ui/recovery.js?v=5.2.1"></script>
+    <script src="./src/ui/recovery.js?v=5.3.0"></script>
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>TaskFlow AI · Organizador Omnicanal de Tareas con IA &amp; CRUD Verificado</title>
     <meta
@@ -23,21 +23,21 @@
     <link rel="dns-prefetch" href="//fonts.gstatic.com" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="preload" href="./css/styles.css?v=5.2.1" as="style" />
-    <link rel="preload" href="./css/slack-shell.css?v=5.2.1" as="style" />
-    <link rel="stylesheet" href="./css/styles.css?v=5.2.1" />
-    <link rel="stylesheet" href="./css/slack-shell.css?v=5.2.1" />
+    <link rel="preload" href="./css/styles.css?v=5.3.0" as="style" />
+    <link rel="preload" href="./css/slack-shell.css?v=5.3.0" as="style" />
+    <link rel="stylesheet" href="./css/styles.css?v=5.3.0" />
+    <link rel="stylesheet" href="./css/slack-shell.css?v=5.3.0" />
     <link
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap"
       rel="stylesheet"
     />
-    <link rel="modulepreload" href="./src/ui/main.mjs?v=5.2.1" />
-    <link rel="modulepreload" href="./src/ui/slackShell.mjs?v=5.2.1" />
-    <link rel="modulepreload" href="./src/ui/realtimeSlack.mjs?v=5.2.1" />
-    <link rel="modulepreload" href="./src/ui/channels.mjs?v=5.2.1" />
-    <link rel="modulepreload" href="./src/domain/taskEntities.mjs?v=5.2.1" />
-    <link rel="modulepreload" href="./src/domain/taskBoardStore.mjs?v=5.2.1" />
-    <link rel="modulepreload" href="./src/domain/deterministicNlp.mjs?v=5.2.1" />
+    <link rel="modulepreload" href="./src/ui/main.mjs?v=5.3.0" />
+    <link rel="modulepreload" href="./src/ui/slackShell.mjs?v=5.3.0" />
+    <link rel="modulepreload" href="./src/ui/realtimeSlack.mjs?v=5.3.0" />
+    <link rel="modulepreload" href="./src/ui/channels.mjs?v=5.3.0" />
+    <link rel="modulepreload" href="./src/domain/taskEntities.mjs?v=5.3.0" />
+    <link rel="modulepreload" href="./src/domain/taskBoardStore.mjs?v=5.3.0" />
+    <link rel="modulepreload" href="./src/domain/deterministicNlp.mjs?v=5.3.0" />
         <script type="application/ld+json">
       {
         "@context": "https://schema.org",
@@ -81,6 +81,7 @@
     <!-- ================================================================ -->
     <div id="slack-auth-gate" class="slack-auth-gate" hidden>
       <div class="slack-auth-modal" role="dialog" aria-labelledby="slack-auth-title" aria-modal="true">
+        <button type="button" id="slack-auth-close-btn" class="slack-auth-close" aria-label="Cerrar ventana" hidden>×</button>
         <div class="slack-auth-logo">
           <svg class="slack-hash-icon" width="44" height="44" viewBox="0 0 128 128" aria-hidden="true">
             <path d="M26.7 82.5c0 7.4-6 13.4-13.4 13.4s-13.4-6-13.4-13.4 6-13.4 13.4-13.4h13.4v13.4zm6.7 0c0-7.4 6-13.4 13.4-13.4s13.4 6 13.4 13.4v33.4c0 7.4-6 13.4-13.4 13.4s-13.4-6-13.4-13.4V82.5z" fill="#E01E5A"/>
@@ -89,20 +90,20 @@
             <path d="M82.5 101.3c7.4 0 13.4 6 13.4 13.4s-6 13.4-13.4 13.4-13.4-6-13.4-13.4v-13.4h13.4zm0-6.7c-7.4 0-13.4-6-13.4-13.4s6-13.4 13.4-13.4h33.4c7.4 0 13.4 6 13.4 13.4s-6 13.4-13.4 13.4H82.5z" fill="#ECB22E"/>
           </svg>
         </div>
-        <h1 class="slack-auth-title" id="slack-auth-title">TaskFlow AI</h1>
-        <p class="slack-auth-subtitle">Elige tu perfil de equipo para entrar al espacio Slack Lists, o continúa con Google.</p>
-
-        <div class="slack-auth-section">
-          <span class="slack-auth-label">Equipo autorizado · 4 perfiles</span>
-          <div class="team-users-grid" id="team-users-grid" role="list" aria-label="Perfiles de equipo"></div>
-        </div>
-
-        <div class="slack-auth-divider"><span>o continúa con Google</span></div>
+        <h1 class="slack-auth-title" id="slack-auth-title">Iniciar Sesión en TaskFlow AI</h1>
+        <p class="slack-auth-subtitle">Entra con tu cuenta de Google para gestionar tus propias tareas por horas en <strong>Mi Día (Privado)</strong> y colaborar en canales compartidos.</p>
 
         <div class="slack-auth-section slack-auth-google-box">
           <div id="gate-google-btn" class="gate-google-btn-slot" aria-label="Iniciar sesión con Google"></div>
-          <p class="slack-auth-tip">Tu sesión queda vinculada de forma segura. Sin secretos en el navegador.</p>
+          <p class="slack-auth-tip" id="gate-google-status">Tus tareas en «Mi Día (Privado)» quedan aisladas en tu propia cuenta.</p>
         </div>
+
+        <div class="slack-auth-divider"><span>o modo demostración / equipo</span></div>
+
+        <details id="auth-demo-details" class="slack-auth-demo">
+          <summary class="slack-auth-demo__summary">Entrar con perfil rápido de equipo (4 perfiles)</summary>
+          <div class="team-users-grid" id="team-users-grid" role="list" aria-label="Perfiles de equipo"></div>
+        </details>
       </div>
     </div>
 
@@ -253,6 +254,12 @@
               </button>
             </h2>
             <ul class="sidebar-list" id="sidebar-channels" role="listbox" aria-label="Canales">
+              <li role="presentation">
+                <button type="button" class="slack-channel-pill sidebar-item sidebar-item--personal is-active" data-channel-id="personal" data-channel-name="Mi Día (Privado)" data-topic="Agenda personal privada · solo tú ves tus tareas y alarmas horarias" role="option" aria-selected="true">
+                  <span class="sidebar-item__hash" aria-hidden="true"><svg class="icon" width="13" height="13" aria-hidden="true"><use href="#i-lock" /></svg></span>
+                  <span class="sidebar-item__name">Mi Día (Privado)</span>
+                </button>
+              </li>
               <li role="presentation">
                 <button type="button" class="slack-channel-pill sidebar-item is-active" data-preset="reto-oficial-viernes" data-channel-name="general" data-topic="Reunión del viernes · plan accionable sin inventar fechas" role="option" aria-selected="true">
                   <span class="sidebar-item__hash" aria-hidden="true">#</span>
@@ -413,9 +420,9 @@
                 Pega o escribe un mensaje abajo y la IA lo convertirá en tareas para este canal. Cada canal tiene su propia lista.
               </p>
               <div class="channel-welcome__examples" role="group" aria-label="Mensajes de ejemplo">
-                <button type="button" class="preset-chip" data-example="Hay que comprar el regalo de cumpleaños de mamá, reservar la mesa del restaurante y avisar a todos los invitados antes del sábado.">Cumpleaños familiar</button>
-                <button type="button" class="preset-chip" data-example="Necesitamos pagar la factura de la luz, llamar al plomero y organizar las compras de la semana. Lo de la luz es urgente, vence mañana.">Tareas del hogar</button>
-                <button type="button" class="preset-chip" data-example="Para el proyecto hay que escribir el informe final, revisar las diapositivas con Ana y enviar el borrador al profesor el jueves.">Proyecto de estudio</button>
+                <button type="button" class="preset-chip" data-example="A las 09:00 revisar correos urgentes, a las 11:30 reunión de avance con el equipo y a las 16:00 entregar el reporte del día.">Agenda del día por horas</button>
+                <button type="button" class="preset-chip" data-example="Hay que comprar el regalo de cumpleaños a las 10:00, reservar el restaurante a las 14:00 y confirmar invitados antes del sábado.">Plan personal con alarmas</button>
+                <button type="button" class="preset-chip" data-example="A las 08:30 redactar el informe final, a las 15:00 revisar diapositivas con Ana y enviar el borrador el jueves.">Bloques de estudio</button>
               </div>
             </section>
             <div class="day-divider" id="intake-day-divider" role="separator"><span>Hoy</span></div>
@@ -1107,7 +1114,7 @@
 
     <div id="toast-notification" class="toast" role="status" aria-live="polite" hidden></div>
 
-    <script type="module" src="./src/ui/main.mjs?v=5.2.1"></script>
-    <script type="module" src="./src/ui/slackShell.mjs?v=5.2.1"></script>
+    <script type="module" src="./src/ui/main.mjs?v=5.3.0"></script>
+    <script type="module" src="./src/ui/slackShell.mjs?v=5.3.0"></script>
   </body>
 </html>

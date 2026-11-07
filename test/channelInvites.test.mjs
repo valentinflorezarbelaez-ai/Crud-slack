@@ -2,7 +2,7 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 
 describe("Task 4: Channel Invites, Deletion & Auth Consolidation Endpoints", () => {
-  it("rejects invite creation without channelId", async () => {
+  it("rejects invite creation without channelId or for personal private workspace", async () => {
     const { POST: createInvite } = await import("../api/channels.js");
 
     const req = new Request("http://localhost/api/channels?action=invite", {
@@ -14,6 +14,14 @@ describe("Task 4: Channel Invites, Deletion & Auth Consolidation Endpoints", () 
     assert.equal(res.status, 400);
     const json = await res.json();
     assert.equal(json.ok, false);
+
+    const personalInviteReq = new Request("http://localhost/api/channels?action=invite", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ channelId: "personal" })
+    });
+    const personalInviteRes = await createInvite(personalInviteReq);
+    assert.equal(personalInviteRes.status, 400);
   });
 
   it("rejects join attempt with missing token", async () => {
@@ -30,16 +38,18 @@ describe("Task 4: Channel Invites, Deletion & Auth Consolidation Endpoints", () 
     assert.ok(res.status === 200 || res.status === 503);
   });
 
-  it("rejects channel deletion for #general", async () => {
+  it("rejects channel deletion for #general and Mi Día (personal / mi-dia)", async () => {
     const { DELETE: deleteChannel } = await import("../api/channels.js");
 
-    const req = new Request("http://localhost/api/channels?channelId=general", {
-      method: "DELETE"
-    });
-    const res = await deleteChannel(req);
-    assert.equal(res.status, 400);
-    const json = await res.json();
-    assert.equal(json.ok, false);
+    for (const protectedId of ["general", "personal", "mi-dia"]) {
+      const req = new Request(`http://localhost/api/channels?channelId=${protectedId}`, {
+        method: "DELETE"
+      });
+      const res = await deleteChannel(req);
+      assert.equal(res.status, 400, `Expected 400 for protected channel ${protectedId}`);
+      const json = await res.json();
+      assert.equal(json.ok, false);
+    }
   });
 
   it("rejects channel deletion with missing channelId", async () => {

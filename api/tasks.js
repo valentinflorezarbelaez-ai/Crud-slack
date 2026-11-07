@@ -5,6 +5,7 @@
  */
 
 import { sql } from "./_db.js";
+import { getAuthenticatedUser } from "./_auth.js";
 import { createTaskEntity, sanitizePlainText } from "../src/domain/taskEntities.mjs";
 
 let tableEnsured = false;
@@ -39,9 +40,10 @@ export async function ensureTasksTable() {
         updated_at TIMESTAMPTZ DEFAULT NOW()
       );
       CREATE INDEX IF NOT EXISTS idx_tasks_channel_id ON tasks(channel_id);
+      CREATE INDEX IF NOT EXISTS idx_tasks_private_user ON tasks(user_id) WHERE is_private = TRUE;
     `);
     tableEnsured = true;
-  } catch (err) {
+  } catch {
     // If DB is offline or table already initializing in parallel, proceed gracefully
   }
 }
@@ -49,7 +51,21 @@ export async function ensureTasksTable() {
 export function normalizeChannelId(raw) {
   let ch = String(raw || "general").trim().toLowerCase();
   if (ch.startsWith("c_")) ch = ch.slice(2);
+  if (ch === "mi-dia") return "personal";
   return ch || "general";
+}
+
+async function resolvePrivateUserId(req, fallbackUserId) {
+  try {
+    if (req?.headers && !(process.env.TASKFLOW_HERMETIC_TEST === "1" && !process.env.DATABASE_URL)) {
+      const sessionUser = await getAuthenticatedUser(req);
+      if (sessionUser?.id) return sessionUser.id;
+    }
+  } catch {
+    // Fall back to sanitized explicit userId when session lookup is unavailable
+  }
+  const clean = sanitizePlainText(String(fallbackUserId || "")).slice(0, 64);
+  return clean || null;
 }
 
 export async function GET(req) {
@@ -57,20 +73,46 @@ export async function GET(req) {
     const url = new URL(req.url);
     const rawChannel = url.searchParams.get("channelId") || "general";
     const canonicalChannel = normalizeChannelId(rawChannel);
-    const userId = url.searchParams.get("userId") || (rawChannel.startsWith("usr_") ? rawChannel : null);
-    const isPrivate = canonicalChannel === "personal" || rawChannel.startsWith("usr_");
+    const rawUserId = url.searchParams.get("userId") || (rawChannel.startsWith("usr_") ? rawChannel : null);
+    const isPrivate =
+      canonicalChannel === "personal" ||
+      rawChannel.startsWith("usr_") ||
+      url.searchParams.get("isPrivate") === "true";
+
+    let effectiveUserId = null;
+    if (isPrivate) {
+      effectiveUserId = await resolvePrivateUserId(req, rawUserId);
+      if (!effectiveUserId) {
+        return new Response(
+          JSON.stringify({
+            ok: false,
+            error: "Autenticación requerida para acceder a las tareas privadas de Mi Día."
+          }),
+          { status: 401, headers: { "Content-Type": "application/json" } }
+        );
+      }
+    }
 
     if (process.env.TASKFLOW_HERMETIC_TEST === "1" && !process.env.DATABASE_URL) {
-      return new Response(JSON.stringify({ ok: true, channelId: canonicalChannel, tasks: [] }), {
-        status: 200,
-        headers: { "Content-Type": "application/json" }
-      });
+      return new Response(
+        JSON.stringify({
+          ok: true,
+          channelId: canonicalChannel,
+          isPrivate,
+          userId: effectiveUserId,
+          tasks: []
+        }),
+        {
+          status: 200,
+          headers: { "Content-Type": "application/json" }
+        }
+      );
     }
 
     await ensureTasksTable();
 
     let rows;
-    if (isPrivate && userId) {
+    if (isPrivate && effectiveUserId) {
       rows = await sql(
         `
         SELECT 
@@ -83,7 +125,7 @@ export async function GET(req) {
         ORDER BY scheduled_time ASC NULLS LAST, order_idx ASC, created_at ASC
         LIMIT 200;
       `,
-        [userId]
+        [effectiveUserId]
       );
     } else {
       rows = await sql(
@@ -112,7 +154,7 @@ export async function GET(req) {
           priority: row.priority,
           priorityReason: row.priority_reason,
           status: row.status,
-          deadlineDate: row.deadline_date,
+          deadlineDate: row.deadline_date ? String(row.deadline_date).slice(0, 10) : null,
           deadlineLabel: row.deadline_label,
           deadlineState: row.deadline_state,
           missingDetails: row.missing_details,
@@ -175,8 +217,23 @@ export async function POST(req) {
     }
 
     const canonicalChannel = normalizeChannelId(rawChannel);
-    const userId = body.userId || (rawChannel.startsWith("usr_") ? rawChannel : null);
-    const isPrivate = canonicalChannel === "personal" || rawChannel.startsWith("usr_") || Boolean(body.isPrivate);
+    const rawUserId = body.userId || (rawChannel.startsWith("usr_") ? rawChannel : null);
+    const isPrivate =
+      canonicalChannel === "personal" || rawChannel.startsWith("usr_") || Boolean(body.isPrivate);
+
+    let effectiveUserId = null;
+    if (isPrivate) {
+      effectiveUserId = await resolvePrivateUserId(req, rawUserId);
+      if (!effectiveUserId) {
+        return new Response(
+          JSON.stringify({
+            ok: false,
+            error: "Autenticación requerida para guardar tareas en Mi Día (Privado)."
+          }),
+          { status: 401, headers: { "Content-Type": "application/json" } }
+        );
+      }
+    }
 
     if (body.tasks.length > 200) {
       return new Response(JSON.stringify({ ok: false, error: "Exceeded maximum of 200 tasks per channel." }), {
@@ -190,7 +247,7 @@ export async function POST(req) {
         {
           ...raw,
           isPrivate,
-          userId: userId || raw.userId
+          userId: isPrivate ? effectiveUserId : rawUserId || raw.userId
         },
         idx
       )
@@ -198,15 +255,21 @@ export async function POST(req) {
 
     if (process.env.TASKFLOW_HERMETIC_TEST === "1" && !process.env.DATABASE_URL) {
       return new Response(
-        JSON.stringify({ ok: true, channelId: canonicalChannel, count: sanitizedTasks.length }),
+        JSON.stringify({
+          ok: true,
+          channelId: canonicalChannel,
+          isPrivate,
+          userId: effectiveUserId,
+          count: sanitizedTasks.length
+        }),
         { status: 200, headers: { "Content-Type": "application/json" } }
       );
     }
 
     await ensureTasksTable();
 
-    if (isPrivate && userId) {
-      await sql(`DELETE FROM tasks WHERE is_private = TRUE AND user_id = $1;`, [userId]);
+    if (isPrivate && effectiveUserId) {
+      await sql(`DELETE FROM tasks WHERE is_private = TRUE AND user_id = $1;`, [effectiveUserId]);
     } else {
       await sql(
         `DELETE FROM tasks WHERE (channel_id = $1 OR channel_id = $2) AND (is_private = FALSE OR is_private IS NULL);`,
@@ -250,7 +313,8 @@ export async function POST(req) {
           duration_minutes = EXCLUDED.duration_minutes,
           is_private = EXCLUDED.is_private,
           user_id = EXCLUDED.user_id,
-          updated_at = NOW();
+          updated_at = NOW()
+        WHERE tasks.user_id IS NOT DISTINCT FROM EXCLUDED.user_id;
       `,
         [
           t.id,

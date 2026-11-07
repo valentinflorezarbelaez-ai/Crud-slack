@@ -1,7 +1,8 @@
 /**
  * INFRASTRUCTURE ADAPTER: CHANNEL REGISTRY PERSISTENCE
  * Stores the channel list and the active channel. Each channel keeps its own
- * task board (see storageAdapter.mjs), exactly like Slack Lists per channel.
+ * task board (see storageAdapter.mjs), while "personal" ("Mi Día (Privado)")
+ * provides a dedicated per-user private daily agenda.
  */
 
 const CHANNELS_KEY = "crud_slack_taskflow_channels_v1";
@@ -10,10 +11,23 @@ const ACTIVE_KEY = "crud_slack_taskflow_active_channel_v1";
 export const MAX_CHANNEL_NAME = 40;
 export const MAX_CHANNEL_TOPIC = 120;
 
+export const PERSONAL_CHANNEL = Object.freeze({
+  id: "personal",
+  name: "mi-dia",
+  label: "Mi Día (Privado)",
+  topic: "Agenda personal privada · solo tú ves tus tareas y alarmas horarias",
+  kind: "personal",
+  presetId: null,
+  isPrivate: true,
+  unread: 0
+});
+
 export const DEFAULT_CHANNELS = Object.freeze([
+  PERSONAL_CHANNEL,
   {
     id: "general",
     name: "general",
+    label: "general",
     topic: "Reunión del viernes · plan accionable sin inventar fechas",
     kind: "preset",
     presetId: "reto-oficial-viernes",
@@ -23,6 +37,7 @@ export const DEFAULT_CHANNELS = Object.freeze([
   {
     id: "incidentes-prod",
     name: "incidentes-prod",
+    label: "incidentes-prod",
     topic: "Alertas urgentes de producción · asignación y notificación a soporte",
     kind: "preset",
     presetId: "incidente-slack-prod",
@@ -32,6 +47,7 @@ export const DEFAULT_CHANNELS = Object.freeze([
   {
     id: "operaciones",
     name: "operaciones",
+    label: "operaciones",
     topic: "SharePoint, permisos y entregables de Operaciones",
     kind: "preset",
     presetId: "sharepoint-intranet",
@@ -41,6 +57,7 @@ export const DEFAULT_CHANNELS = Object.freeze([
   {
     id: "legal-auditoria",
     name: "legal-auditoria",
+    label: "legal-auditoria",
     topic: "Mensajes sin fechas · prueba de guardia anti-alucinación",
     kind: "preset",
     presetId: "sin-fechas-antihalucinacion",
@@ -74,7 +91,7 @@ function isValidChannel(c) {
     c.id.length > 0 &&
     typeof c.name === "string" &&
     c.name.length > 0 &&
-    (c.kind === "preset" || c.kind === "custom")
+    (c.kind === "personal" || c.kind === "preset" || c.kind === "custom")
   );
 }
 
@@ -91,13 +108,17 @@ export function loadChannels() {
     const valid = parsed.filter(isValidChannel).map((c) => ({
       id: c.id,
       name: c.name,
+      label: typeof c.label === "string" && c.label ? c.label : c.id === "personal" ? PERSONAL_CHANNEL.label : c.name,
       topic: typeof c.topic === "string" ? c.topic : "",
       kind: c.kind,
       presetId: c.presetId || null,
-      isPrivate: Boolean(c.isPrivate),
+      isPrivate: c.id === "personal" ? true : Boolean(c.isPrivate),
       unread: Number.isFinite(c.unread) ? Math.max(0, c.unread) : 0
     }));
     if (!valid.some((c) => c.id === "general")) return cloneDefaults();
+    if (!valid.some((c) => c.id === "personal")) {
+      return [{ ...PERSONAL_CHANNEL }, ...valid];
+    }
     return valid;
   } catch {
     return cloneDefaults();
@@ -114,9 +135,9 @@ export function saveChannels(channels) {
 
 export function loadActiveChannelId() {
   try {
-    return window.localStorage.getItem(ACTIVE_KEY) || "general";
+    return window.localStorage.getItem(ACTIVE_KEY) || "personal";
   } catch {
-    return "general";
+    return "personal";
   }
 }
 

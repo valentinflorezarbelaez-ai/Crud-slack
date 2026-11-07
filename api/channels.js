@@ -1,6 +1,6 @@
 /**
- * CHANNELS ENDPOINT (GET & POST)
- * Reads, creates, invites, and joins channels in Neon PostgreSQL.
+ * CHANNELS ENDPOINT (GET, POST & DELETE)
+ * Reads, creates, invites, joins, and deletes channels in Neon PostgreSQL.
  * Consolidates channel membership and invitation routing to remain within Vercel function limits.
  * Zero external npm dependencies.
  */
@@ -101,8 +101,15 @@ export async function POST(req) {
         });
       }
 
+      if (channelId === "personal" || channelId === "mi-dia") {
+        return new Response(
+          JSON.stringify({ ok: false, error: "Mi Día (Privado) es un espacio personal y no admite enlaces de invitación." }),
+          { status: 400, headers: { "Content-Type": "application/json" } }
+        );
+      }
+
       const user = await getAuthenticatedUser(req);
-      const createdBy = user ? user.id : String(body.userId || "anonymous");
+      const createdBy = user ? user.id : String(body.userId || body.createdBy || "anonymous");
       const token = `inv_${crypto.randomBytes(16).toString("hex")}`;
 
       if (process.env.TASKFLOW_HERMETIC_TEST === "1" && !process.env.DATABASE_URL) {
@@ -195,6 +202,13 @@ export async function POST(req) {
 
     if (rawName.startsWith("#")) rawName = rawName.slice(1);
 
+    if (rawName === "personal" || rawName === "mi-dia") {
+      return new Response(
+        JSON.stringify({ ok: false, error: "El nombre mi-dia / personal está reservado para tu espacio privado." }),
+        { status: 400, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
     if (!/^[a-z0-9-_]{2,30}$/.test(rawName)) {
       return new Response(
         JSON.stringify({
@@ -245,7 +259,6 @@ export async function POST(req) {
   }
 }
 
-
 export async function DELETE(req) {
   try {
     const url = req?.url ? new URL(req.url) : null;
@@ -267,13 +280,19 @@ export async function DELETE(req) {
       });
     }
 
-    // Protection for root canonical channel
+    // Protection for root canonical channel and private daily workspace
     const norm = (channelName || channelId).toLowerCase().replace(/^c_/, "");
-    if (norm === "general") {
-      return new Response(JSON.stringify({ ok: false, error: "El canal #general no puede ser eliminado." }), {
-        status: 400,
-        headers: { "Content-Type": "application/json" }
-      });
+    if (norm === "general" || norm === "personal" || norm === "mi-dia") {
+      return new Response(
+        JSON.stringify({
+          ok: false,
+          error: `El espacio #${norm} está protegido y no puede ser eliminado.`
+        }),
+        {
+          status: 400,
+          headers: { "Content-Type": "application/json" }
+        }
+      );
     }
 
     if (process.env.TASKFLOW_HERMETIC_TEST === "1" && !process.env.DATABASE_URL) {
@@ -288,9 +307,9 @@ export async function DELETE(req) {
       );
     }
 
-    // Delete dependent entities in Neon PostgreSQL
+    // Delete dependent entities in Neon PostgreSQL (strictly non-private channel tasks)
     await sql(
-      `DELETE FROM tasks WHERE channel_id = $1 OR channel_id = $2 OR channel_id = $3;`,
+      `DELETE FROM tasks WHERE (channel_id = $1 OR channel_id = $2 OR channel_id = $3) AND (is_private = FALSE OR is_private IS NULL);`,
       [channelId, norm, `c_${norm}`]
     ).catch(() => {});
 

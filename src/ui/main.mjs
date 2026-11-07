@@ -1,6 +1,6 @@
 /**
  * UI PRESENTATION CONTROLLER — TASKFLOW AI WORKSPACE
- * Governed by SPEC-CRUD-SLACK-001 (FR-CS-006..009).
+ * Governed by SPEC-CRUD-SLACK-001 (FR-CS-006..014).
  *
  * Strictly uses escapeHtml() for all dynamic text rendering (Zero XSS)
  * and zero inline style mutations (Strict CSP compliance).
@@ -13,6 +13,7 @@ import {
 } from "../domain/taskEntities.mjs";
 import {
   computeBoardMetrics,
+  computeTasksChecksum,
   createInitialBoardState,
   taskBoardReducer
 } from "../domain/taskBoardStore.mjs";
@@ -33,8 +34,7 @@ import { renderTableView, renderSharePointListView, renderTeamsCardPreview, rend
 import { playTaskCompletedSound, playAlarmChime } from "./soundFx.mjs";
 import { checkDueAlarms, formatLocalHhMm } from "../application/notificationEngine.mjs";
 import { requestNotificationPermission, triggerTaskNotification } from "../infrastructure/webNotificationAdapter.mjs";
-// soundFx imported above
-import { initRealtimeSlack } from "./realtimeSlack.mjs?v=5.2.1";
+import { initRealtimeSlack } from "./realtimeSlack.mjs?v=5.3.0";
 import {
   loadPersistedBoardState,
   removePersistedBoardState,
@@ -44,21 +44,32 @@ import {
   fetchRemoteTasks,
   syncRemoteTasks
 } from "../infrastructure/cloudTaskAdapter.mjs";
-import { WORKPLACE_PRESETS } from "./presets.mjs?v=5.2.1";
-import { initChannels, syncChannelPanels } from "./channels.mjs?v=5.2.1";
+import { WORKPLACE_PRESETS } from "./presets.mjs?v=5.3.0";
+import { initChannels, syncChannelPanels } from "./channels.mjs?v=5.3.0";
 import { initVisualPreferences, nextFridayIso } from "./preferences.mjs";
+
 const NEXT_STATUS_CYCLE = Object.freeze({
   PENDING: "IN_PROGRESS",
   IN_PROGRESS: "COMPLETED",
   COMPLETED: "PENDING"
 });
+
 let boardState = createInitialBoardState();
 let activeUserId = null;
-let currentViewMode = "cards"; // "cards" | "table" | "kanban"
+let currentViewMode = "cards"; // "cards" | "timeline" | "table" | "kanban" | "sharepoint"
 let toastTimerId = null;
-let activeChannel = { id: "general", kind: "preset", name: "general", presetId: WORKPLACE_PRESETS[0].id };
+let activeChannel = {
+  id: "personal",
+  kind: "personal",
+  name: "mi-dia",
+  label: "Mi Día (Privado)",
+  isPrivate: true,
+  presetId: null
+};
 let channelsCtrl = null;
+let realtimeSlackCtrl = null;
 let lastCompletionPct = -1;
+
 // DOM References
 const el = {
   navWorkspace: document.getElementById("nav-btn-workspace"),
@@ -144,6 +155,7 @@ const el = {
   cmdPaletteInput: (document.getElementById("cmd-palette-input")),
   cmdPaletteResults: document.getElementById("cmd-palette-results")
 };
+
 function showToast(message) {
   if (!el.toast) return;
   el.toast.textContent = message;
@@ -154,11 +166,14 @@ function showToast(message) {
     el.toast.hidden = true;
   }, 3200);
 }
+
 function dispatch(action) {
   const previousDone = (boardState.tasks || []).filter((t) => t.status === "COMPLETED").length;
   boardState = taskBoardReducer(boardState, action);
-  savePersistedBoardState(boardState, activeChannel.id, activeUserId);
-  syncRemoteTasks(activeChannel.id, boardState.tasks, activeUserId);
+  if (activeChannel.kind !== "personal" || activeUserId) {
+    savePersistedBoardState(boardState, activeChannel.id, activeUserId);
+    syncRemoteTasks(activeChannel.id, boardState.tasks, activeUserId);
+  }
   renderWorkspace();
 
   const currentDone = (boardState.tasks || []).filter((t) => t.status === "COMPLETED").length;
@@ -169,10 +184,12 @@ function dispatch(action) {
     }
   }
 }
+
 function updateCharCounter() {
   if (!el.charCounter || !el.inputMessage) return;
   el.charCounter.textContent = `${el.inputMessage.value.length} / 4000`;
 }
+
 function getFilteredTasks() {
   const prioFilter = el.filterPriority?.value || "ALL";
   const dateFilter = el.filterDeadline?.value || "ALL";
@@ -185,32 +202,40 @@ function getFilteredTasks() {
     return true;
   });
 }
+
 function renderQuickBar(task) {
   const id = escapeHtml(task.id);
   const isConfirmed = task.deadlineState === DEADLINE_STATES.CONFIRMED;
   const isDone = task.status === "COMPLETED";
   return `
     <div class="task-quick-bar">
-      <span class="task-quick-bar__label">Acciones rápidas:</span>
+      <span class="task-quick-bar__label">Agenda:</span>
       <label class="sr-only" for="qd-${id}">Fecha límite de ${escapeHtml(task.title)}</label>
       <input type="date" id="qd-${id}" class="field__control field__control--sm quick-date" data-action="quick-date" data-id="${id}" value="${escapeHtml(task.deadlineDate || "")}" />
-      ${isConfirmed ? "" : `<button type="button" class="btn btn--ghost btn--sm" data-action="quick-friday" data-id="${id}">📅 Próximo viernes</button>`}
+      <label class="sr-only" for="qt-${id}">Hora programada de ${escapeHtml(task.title)}</label>
+      <input type="time" id="qt-${id}" class="field__control field__control--sm quick-date" data-action="quick-time" data-id="${id}" value="${escapeHtml(task.scheduledTime || "")}" title="Hora exacta con alarma" />
+      ${isConfirmed ? "" : `<button type="button" class="btn btn--ghost btn--sm" data-action="quick-friday" data-id="${id}">📅 Viernes</button>`}
       ${isDone ? "" : `<button type="button" class="btn btn--secondary btn--sm" data-action="quick-complete" data-id="${id}">✅ Completar</button>`}
     </div>
   `;
 }
+
 function renderTaskBadges(task) {
   const prioMeta = PRIORITIES[task.priority] || PRIORITIES.MEDIUM;
   const statusMeta = TASK_STATUSES[task.status] || TASK_STATUSES.PENDING;
   const isDateConfirmed = task.deadlineState === DEADLINE_STATES.CONFIRMED;
   const dateBadgeClass = isDateConfirmed ? "date-confirmed" : "date-missing";
   const datePrefix = isDateConfirmed ? "Fecha:" : "Fecha pendiente:";
+  const timeBadge = task.scheduledTime
+    ? `<span class="meta-badge">⏰ ${escapeHtml(task.scheduledTime)}</span>`
+    : "";
   const depBadge = task.dependsOnOrder
     ? `<span class="meta-badge">Depende de #${escapeHtml(task.dependsOnOrder)}</span>`
     : "";
   return `
     <div class="task-badges">
       <span class="prio-badge ${escapeHtml(prioMeta.badgeClass)}">${escapeHtml(prioMeta.labelEs)}</span>
+      ${timeBadge}
       <span class="date-badge ${dateBadgeClass}">${datePrefix} ${escapeHtml(task.deadlineLabel)}</span>
       <span class="meta-badge">Estado: ${escapeHtml(statusMeta.labelEs)}</span>
       <span class="meta-badge">Resp: ${escapeHtml(task.assignee)}</span>
@@ -218,6 +243,7 @@ function renderTaskBadges(task) {
     </div>
   `;
 }
+
 function renderTaskCardHtml(task) {
   const isCompleted = task.status === "COMPLETED";
   const completedClass = isCompleted ? "is-completed" : "";
@@ -309,14 +335,53 @@ function renderTeamsCardPreviewHelper() {
 
 async function applyChannel(channel, opts = {}, todayIso = new Date().toISOString().slice(0, 10)) {
   activeChannel = channel;
+  realtimeSlackCtrl?.setActiveChannel(channel.id, channel.name, channel.topic);
+
+  if (channel.kind === "personal") {
+    const saved = activeUserId && !opts.rerun ? loadPersistedBoardState("personal", activeUserId) : null;
+    boardState = saved ?? createInitialBoardState();
+    if (el.inputMessage) el.inputMessage.value = "";
+    updateCharCounter();
+    renderWorkspace();
+
+    if (activeUserId) {
+      fetchRemoteTasks("personal", activeUserId)
+        .then((res) => {
+          if (res && res.ok && Array.isArray(res.tasks) && activeChannel.id === "personal") {
+            boardState = {
+              ...boardState,
+              tasks: res.tasks,
+              checksum: computeTasksChecksum(res.tasks)
+            };
+            renderWorkspace();
+          }
+        })
+        .catch(() => {});
+    }
+    if (!opts.initial && el.inputMessage) el.inputMessage.focus();
+    return;
+  }
+
   const saved = opts.rerun ? null : loadPersistedBoardState(channel.id, activeUserId);
   boardState = saved ?? createInitialBoardState();
 
   if (channel.kind === "custom") {
-    el.inputMessage.value = "";
+    if (el.inputMessage) el.inputMessage.value = "";
     updateCharCounter();
     renderWorkspace();
-    if (!opts.initial) el.inputMessage.focus();
+    fetchRemoteTasks(channel.id, activeUserId)
+      .then((res) => {
+        if (res && res.ok && res.tasks && res.tasks.length > 0 && activeChannel.id === channel.id) {
+          boardState = {
+            ...boardState,
+            tasks: res.tasks,
+            checksum: computeTasksChecksum(res.tasks)
+          };
+          renderWorkspace();
+        }
+      })
+      .catch(() => {});
+    if (!opts.initial && el.inputMessage) el.inputMessage.focus();
     return;
   }
 
@@ -332,18 +397,20 @@ async function applyChannel(channel, opts = {}, todayIso = new Date().toISOStrin
   renderWorkspace();
 
   if (!opts.rerun) {
-    fetchRemoteTasks(channel.id, activeUserId).then((res) => {
-      if (res && res.ok && res.tasks && res.tasks.length > 0 && activeChannel.id === channel.id) {
-        boardState = {
-          ...boardState,
-          tasks: res.tasks,
-          checksum: computeTasksChecksum(res.tasks)
-        };
-        renderWorkspace();
-        const syncEl = document.getElementById("cloud-sync-status");
-        if (syncEl) syncEl.textContent = "☁️ En la nube";
-      }
-    }).catch(() => {});
+    fetchRemoteTasks(channel.id, activeUserId)
+      .then((res) => {
+        if (res && res.ok && res.tasks && res.tasks.length > 0 && activeChannel.id === channel.id) {
+          boardState = {
+            ...boardState,
+            tasks: res.tasks,
+            checksum: computeTasksChecksum(res.tasks)
+          };
+          renderWorkspace();
+          const syncEl = document.getElementById("cloud-sync-status");
+          if (syncEl) syncEl.textContent = "☁️ En la nube";
+        }
+      })
+      .catch(() => {});
   }
 
   if (boardState.tasks.length > 0) return;
@@ -369,7 +436,8 @@ function renderWorkspace() {
   }
   lastCompletionPct = metrics.completionPct;
   if (el.boardChecksumMeta) {
-    el.boardChecksumMeta.textContent = `Integridad CRUD: #${boardState.checksum} · ${metrics.total} tarea(s)`;
+    const scopeLabel = activeChannel.kind === "personal" ? "🔒 Privado" : `#${activeChannel.name}`;
+    el.boardChecksumMeta.textContent = `${scopeLabel} · Integridad #${boardState.checksum} · ${metrics.total} tarea(s)`;
   }
   // Update verification telemetry box
   const analysis = boardState.lastAnalysis;
@@ -396,9 +464,7 @@ function renderWorkspace() {
   const liveMissingTasks = boardState.tasks.filter((t) => t.deadlineState !== DEADLINE_STATES.CONFIRMED);
   if (el.missingInfoPanel && el.missingGapsList && el.clarificationDraftBox) {
     const gaps = analysis?.missingInfoGaps || [];
-    if (liveMissingTasks.length === 0 && gaps.length === 0) {
-      el.missingInfoPanel.hidden = true;
-    } else if (liveMissingTasks.length === 0) {
+    if (liveMissingTasks.length === 0) {
       el.missingInfoPanel.hidden = true;
     } else {
       el.missingInfoPanel.hidden = false;
@@ -417,11 +483,15 @@ function renderWorkspace() {
         "Por favor confirmar las fechas límite y responsables pendientes de las tareas listadas.";
     }
   }
-  // Render tasks list/table/kanban
+  // Render tasks list/table/kanban/timeline
   const filtered = getFilteredTasks();
   if (!el.tasksRenderRoot) return;
   if (filtered.length === 0) {
-    el.tasksRenderRoot.innerHTML = `<div class="empty-state" role="status"><strong>Sin tareas aquí todavía</strong><p>Crea una con “+ Nueva Tarea” o pega una solicitud para que la IA la organice sin inventar fechas.</p></div>`;
+    const emptyMsg =
+      activeChannel.kind === "personal"
+        ? "Tu sección Mi Día (Privado) está lista. Crea tareas con hora programada usando «+ Nueva Tarea» o escribe tu plan diario a la izquierda."
+        : "Crea una con «+ Nueva Tarea» o pega una solicitud para que la IA la organice sin inventar fechas.";
+    el.tasksRenderRoot.innerHTML = `<div class="empty-state" role="status"><strong>Sin tareas aquí todavía</strong><p>${escapeHtml(emptyMsg)}</p></div>`;
     return;
   }
   if (currentViewMode === "table") {
@@ -436,6 +506,7 @@ function renderWorkspace() {
     el.tasksRenderRoot.innerHTML = `<div class="task-stack">${filtered.map(renderTaskCardHtml).join("")}</div>`;
   }
 }
+
 async function runAnalysisFlow(payload) {
   const originChannelId = activeChannel.id;
   if (el.formErrorBanner) el.formErrorBanner.hidden = true;
@@ -445,7 +516,6 @@ async function runAnalysisFlow(payload) {
   }
   try {
     let resultData = null;
-    // Attempt server-side /api/analyze (Gemini 3.8 Flash + L0 Grounding Verifier)
     try {
       const res = await fetch("./api/analyze", {
         method: "POST",
@@ -467,7 +537,6 @@ async function runAnalysisFlow(payload) {
       ) {
         throw networkOrValidationErr;
       }
-      // Isomorphic local failover to pure Application Use Case
       const localRes = await analyzeWorkplaceRequest(payload);
       if (!localRes.ok) throw new Error(localRes.error);
       resultData = localRes.data;
@@ -478,7 +547,6 @@ async function runAnalysisFlow(payload) {
       resultData = localRes.data;
     }
     if (originChannelId !== activeChannel.id) {
-      // The user switched channels while the analysis was running: keep the result in its own channel
       const originBoard = loadPersistedBoardState(originChannelId, activeUserId) ?? createInitialBoardState();
       savePersistedBoardState(
         taskBoardReducer(originBoard, { type: "LOAD_TRIAGE_RESULT", payload: resultData }),
@@ -502,6 +570,7 @@ async function runAnalysisFlow(payload) {
     }
   }
 }
+
 function openCrudDialog(task = null) {
   if (!el.crudDialog) return;
   if (task) {
@@ -515,12 +584,15 @@ function openCrudDialog(task = null) {
     el.crudAssignee.value = task.assignee === "Por asignar" ? "" : task.assignee;
     el.crudReason.value = task.priorityReason || "";
   } else {
-    if (el.crudDialogTitle) el.crudDialogTitle.textContent = "Crear Nueva Tarea";
+    if (el.crudDialogTitle) {
+      el.crudDialogTitle.textContent =
+        activeChannel.kind === "personal" ? "Nueva Tarea en Mi Día (Privado)" : "Crear Nueva Tarea";
+    }
     el.crudTaskId.value = "";
     el.crudTitle.value = "";
     el.crudPriority.value = "HIGH";
     el.crudStatus.value = "PENDING";
-    el.crudDeadline.value = "";
+    el.crudDeadline.value = activeChannel.kind === "personal" ? (el.inputRefDate?.value || "") : "";
     if (el.crudScheduledTime) el.crudScheduledTime.value = "";
     el.crudAssignee.value = "";
     el.crudReason.value = "";
@@ -528,6 +600,7 @@ function openCrudDialog(task = null) {
   el.crudDialog.showModal();
   el.crudTitle.focus();
 }
+
 function openThreadDialog(task) {
   const dialog = (document.getElementById("slack-thread-dialog"));
   if (!dialog) return;
@@ -536,11 +609,14 @@ function openThreadDialog(task) {
   const senderEl = document.getElementById("slack-thread-sender");
   const quoteEl = document.getElementById("slack-thread-parent-quote");
   const detailsEl = document.getElementById("slack-thread-task-details");
-  const channelVal = el.inputChannel?.value === "slack" ? "general" : el.inputChannel?.value || "general";
+  const channelVal = activeChannel.kind === "personal" ? "mi-dia" : activeChannel.name || "general";
   if (channelEl) channelEl.textContent = channelVal;
-  if (avatarEl) avatarEl.textContent = "LS";
-  if (senderEl) senderEl.textContent = "Luis Soto (Coordinación)";
-  if (quoteEl) quoteEl.textContent = `"${el.inputMessage?.value || ""}"`;
+  if (avatarEl) avatarEl.textContent = activeChannel.kind === "personal" ? "🔒" : "TF";
+  if (senderEl) {
+    senderEl.textContent =
+      activeChannel.kind === "personal" ? "Mi Día (Espacio Privado)" : "Canal Colaborativo";
+  }
+  if (quoteEl) quoteEl.textContent = `"${task.sourceQuote || el.inputMessage?.value || task.title}"`;
   const prioMeta = PRIORITIES[task.priority] || PRIORITIES.MEDIUM;
   const statusMeta = TASK_STATUSES[task.status] || TASK_STATUSES.PENDING;
   const isConfirmed = task.deadlineState === DEADLINE_STATES.CONFIRMED;
@@ -554,6 +630,7 @@ function openThreadDialog(task) {
       <p class="task-card__reason">${escapeHtml(task.priorityReason)}</p>
       ${task.sourceQuote ? `<p class="task-card__quote">💬 Sustento textual: "${escapeHtml(task.sourceQuote)}"</p>` : ""}
       <div class="task-badges">
+        ${task.scheduledTime ? `<span class="meta-badge">⏰ Hora: ${escapeHtml(task.scheduledTime)}</span>` : ""}
         <span class="date-badge ${isConfirmed ? "date-confirmed" : "date-missing"}">
           ${isConfirmed ? "📅 Fecha:" : "⚠️ Falta fecha:"} ${escapeHtml(task.deadlineLabel)}
         </span>
@@ -564,6 +641,7 @@ function openThreadDialog(task) {
   }
   dialog.showModal();
 }
+
 function triggerDownload(filename, content, mimeType) {
   const blob = new Blob([content], { type: mimeType });
   const url = URL.createObjectURL(blob);
@@ -575,6 +653,7 @@ function triggerDownload(filename, content, mimeType) {
   a.remove();
   URL.revokeObjectURL(url);
 }
+
 async function copyTextToClipboard(text, successMsg) {
   try {
     await navigator.clipboard.writeText(text);
@@ -583,6 +662,7 @@ async function copyTextToClipboard(text, successMsg) {
     showToast("No se pudo acceder al portapapeles automáticamente.");
   }
 }
+
 function setActiveTopSection(section) {
   const isPres = section === "presentation";
   if (el.viewWorkspace) el.viewWorkspace.hidden = isPres;
@@ -592,6 +672,7 @@ function setActiveTopSection(section) {
   el.navWorkspace?.setAttribute("aria-pressed", String(!isPres));
   el.navPresentation?.setAttribute("aria-pressed", String(isPres));
 }
+
 function setViewMode(mode) {
   currentViewMode = mode;
   const map = {
@@ -608,6 +689,7 @@ function setViewMode(mode) {
   }
   renderWorkspace();
 }
+
 function updateSlackMessagePreview(preset) {
   const avatar = document.getElementById("slack-avatar");
   const sender = document.getElementById("slack-sender-name");
@@ -626,6 +708,7 @@ function updateSlackMessagePreview(preset) {
   if (channelBadge) channelBadge.textContent = `#${preset.id || "general"}`;
   if (text) text.textContent = `"${preset.message}"`;
 }
+
 function initPresets(todayIso) {
   if (!el.presetContainer) return;
   el.presetContainer.innerHTML = WORKPLACE_PRESETS.map(
@@ -638,12 +721,10 @@ function initPresets(todayIso) {
     const presetId = btn.getAttribute("data-preset-id");
     const found = WORKPLACE_PRESETS.find((p) => p.id === presetId);
     if (!found) return;
-    // Each quick case lives in its own channel; re-run it fresh like before
     const target = channelsCtrl?.findByPresetId(found.id);
     if (target) channelsCtrl.activate(target.id, { rerun: true });
   });
 
-  // Example messages offered in an empty custom channel
   document.getElementById("channel-welcome")?.addEventListener("click", (ev) => {
     const btn = /** @type {HTMLElement} */ (ev.target).closest("[data-example]");
     if (!btn) return;
@@ -651,7 +732,7 @@ function initPresets(todayIso) {
     updateCharCounter();
     el.inputMessage.focus();
   });
-  // Wire Slack Inline Extract Button
+
   const inlineExtractBtn = document.getElementById("slack-inline-extract-btn");
   inlineExtractBtn?.addEventListener("click", () => {
     runAnalysisFlow({
@@ -660,7 +741,7 @@ function initPresets(todayIso) {
       referenceDate: el.inputRefDate.value || todayIso
     });
   });
-  // Wire Slack Reaction buttons
+
   document.querySelectorAll(".slack-reaction-btn").forEach((rBtn) => {
     rBtn.addEventListener("click", () => {
       rBtn.classList.toggle("is-reacted");
@@ -672,17 +753,19 @@ function initPresets(todayIso) {
     });
   });
 }
+
 async function bootstrap() {
   initVisualPreferences(el, showToast);
   const todayIso = new Date().toISOString().slice(0, 10);
   if (el.inputRefDate) el.inputRefDate.value = todayIso;
+
   channelsCtrl = initChannels({
     onActivate: (channel, opts) => applyChannel(channel, opts, todayIso),
-    onRemoved: (channel) => removePersistedBoardState(channel.id),
+    onRemoved: (channel) => removePersistedBoardState(channel.id, activeUserId),
     showToast
   });
 
-  const realtimeSlack = initRealtimeSlack({
+  realtimeSlackCtrl = initRealtimeSlack({
     onExtractTasksFromMessage: (text, channelName) => {
       if (el.inputMessage) el.inputMessage.value = text;
       if (el.inputChannel) el.inputChannel.value = channelName;
@@ -693,18 +776,32 @@ async function bootstrap() {
         referenceDate: el.inputRefDate?.value || todayIso
       });
     },
-    onUserChanged: (user) => {
+    onUserChanged: (user, meta = {}) => {
       activeUserId = user ? user.id : null;
-      const saved = loadPersistedBoardState(activeChannel.id, activeUserId);
-      boardState = saved ?? createInitialBoardState();
-      renderWorkspace();
+      if (!user) {
+        boardState =
+          activeChannel.kind === "personal"
+            ? createInitialBoardState()
+            : (loadPersistedBoardState(activeChannel.id, null) ?? createInitialBoardState());
+        renderWorkspace();
+        return;
+      }
+
+      const hasJoinLink = Boolean(new URLSearchParams(window.location.search).get("join"));
+      if (meta.signedIn && !hasJoinLink && channelsCtrl) {
+        channelsCtrl.activate("personal");
+        return;
+      }
+
+      if (channelsCtrl) {
+        void applyChannel(channelsCtrl.getActive(), { initial: true }, todayIso);
+      }
     },
     showToast
   });
 
   initPresets(todayIso);
 
-  // Restore the active channel (and its saved board) or seed the canonical Friday meeting case
   await applyChannel(channelsCtrl.getActive(), { initial: true }, todayIso);
 
   // Event Listeners
@@ -728,12 +825,14 @@ async function bootstrap() {
         payload: { id: t.id, deadlineDate: friday }
       });
     }
-    savePersistedBoardState(boardState, activeChannel.id, activeUserId);
-    syncRemoteTasks(activeChannel.id, boardState.tasks, activeUserId);
+    if (activeChannel.kind !== "personal" || activeUserId) {
+      savePersistedBoardState(boardState, activeChannel.id, activeUserId);
+      syncRemoteTasks(activeChannel.id, boardState.tasks, activeUserId);
+    }
     renderWorkspace();
     showToast(`${pending.length} tarea(s) con fecha ${friday} confirmada por el usuario.`);
   });
-  // Inline quick date picker on each task card
+
   el.tasksRenderRoot?.addEventListener("change", (ev) => {
     const input = (ev.target);
     const action = input.getAttribute("data-action");
@@ -746,6 +845,7 @@ async function bootstrap() {
       showToast(input.value ? `⏰ Hora programada: ${input.value}` : "Hora eliminada.");
     }
   });
+
   el.inputMessage?.addEventListener("input", updateCharCounter);
   el.inputMessage?.addEventListener("keydown", (ev) => {
     if ((ev.ctrlKey || ev.metaKey) && ev.key === "Enter") {
@@ -757,16 +857,18 @@ async function bootstrap() {
       });
     }
   });
+
   el.clearInputBtn?.addEventListener("click", () => {
     el.inputMessage.value = "";
     updateCharCounter();
     el.inputMessage.focus();
   });
+
   el.analyzeForm?.addEventListener("submit", (ev) => {
     ev.preventDefault();
     const msgText = el.inputMessage?.value?.trim() || "";
-    if (msgText && typeof realtimeSlack?.sendMessage === "function") {
-      realtimeSlack.sendMessage(msgText);
+    if (msgText && activeChannel.kind !== "personal" && typeof realtimeSlackCtrl?.sendMessage === "function") {
+      realtimeSlackCtrl.sendMessage(msgText);
     }
     runAnalysisFlow({
       message: msgText,
@@ -774,10 +876,10 @@ async function bootstrap() {
       referenceDate: el.inputRefDate.value || todayIso
     });
   });
+
   el.viewModeCards?.addEventListener("click", () => setViewMode("cards"));
   el.viewModeTimeline?.addEventListener("click", () => setViewMode("timeline"));
 
-  // Alarm permission and toggle button
   el.alarmToggleBtn?.addEventListener("click", async () => {
     const granted = await requestNotificationPermission();
     if (granted) {
@@ -790,11 +892,15 @@ async function bootstrap() {
     }
   });
 
-  // Channel Invite Generator
   el.inviteChannelBtn?.addEventListener("click", async () => {
+    if (activeChannel?.kind === "personal" || activeChannel?.id === "personal") {
+      showToast("Mi Día (Privado) es solo para tus propias tareas. Crea o abre un canal para invitar personas.");
+      return;
+    }
     try {
       const res = await fetch("/api/channels/invite", {
         method: "POST",
+        credentials: "same-origin",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           channelId: activeChannel?.id || "general",
@@ -805,21 +911,21 @@ async function bootstrap() {
       if (data.inviteUrl) {
         copyTextToClipboard(data.inviteUrl, "🔗 Enlace de invitación al canal copiado al portapapeles.");
       } else {
-        showToast("Error generando enlace de invitación.");
+        showToast(data.error || "Error generando enlace de invitación.");
       }
     } catch {
       showToast("Error de conexión al generar invitación.");
     }
   });
+
   el.viewModeTable?.addEventListener("click", () => setViewMode("table"));
   el.viewModeKanban?.addEventListener("click", () => setViewMode("kanban"));
   el.viewModeSharepoint?.addEventListener("click", () => setViewMode("sharepoint"));
   el.filterPriority?.addEventListener("change", renderWorkspace);
   el.filterDeadline?.addEventListener("change", renderWorkspace);
-  // Delegated Task CRUD actions
+
   el.tasksRenderRoot?.addEventListener("click", (ev) => {
     const target = (ev.target);
-    // SharePoint toolbar buttons
     if (target.id === "sp-new-btn") {
       openCrudDialog(null);
       return;
@@ -861,6 +967,7 @@ async function bootstrap() {
       showToast(`Tarea eliminada: "${task.title}"`);
     }
   });
+
   el.addTaskBtn?.addEventListener("click", () => openCrudDialog(null));
   el.closeDialogBtn?.addEventListener("click", () => el.crudDialog?.close());
   el.cancelDialogBtn?.addEventListener("click", () => el.crudDialog?.close());
@@ -876,22 +983,30 @@ async function bootstrap() {
       deadlineDate: el.crudDeadline.value.trim() || null,
       scheduledTime: el.crudScheduledTime?.value?.trim() || null,
       assignee: el.crudAssignee.value.trim() || "Por asignar",
-      priorityReason: el.crudReason.value.trim() || "Prioridad definida por el usuario."
+      priorityReason: el.crudReason.value.trim() || "Prioridad definida por el usuario.",
+      isPrivate: activeChannel.kind === "personal",
+      userId: activeChannel.kind === "personal" ? activeUserId : null
     };
     if (id) {
       dispatch({ type: "UPDATE_TASK", payload: { id, ...payload } });
       showToast("Tarea actualizada correctamente.");
     } else {
       dispatch({ type: "CREATE_TASK", payload });
-      showToast("Nueva tarea agregada al plan.");
+      showToast(
+        activeChannel.kind === "personal"
+          ? "Tarea privada guardada en Mi Día."
+          : "Nueva tarea agregada al plan."
+      );
     }
     el.crudDialog?.close();
   });
+
   el.exportCsvBtn?.addEventListener("click", () => {
     const csv = exportToSharePointCsv(boardState.tasks);
     triggerDownload(`taskflow-sharepoint-${todayIso}.csv`, csv, "text/csv;charset=utf-8");
     showToast("CSV exportado (compatible con SharePoint Lists, Planner y Excel).");
   });
+
   el.exportTeamsCardBtn?.addEventListener("click", () => {
     const card = exportToTeamsAdaptiveCard({
       tasks: boardState.tasks,
@@ -906,6 +1021,7 @@ async function bootstrap() {
     renderTeamsCardPreviewHelper();
     el.teamsCardDialog?.showModal();
   });
+
   el.closeTeamsDialogBtn?.addEventListener("click", () => el.teamsCardDialog?.close());
   el.dismissTeamsDialogBtn?.addEventListener("click", () => el.teamsCardDialog?.close());
   el.copyTeamsJsonBtn?.addEventListener("click", () => {
@@ -931,14 +1047,12 @@ async function bootstrap() {
     showToast("Contrato JSON descargado.");
   });
 
-  // RFC 5545 iCalendar Export for Outlook / Apple / Google Calendar
   document.getElementById("export-ics-btn")?.addEventListener("click", () => {
     const ics = exportToICalendar(boardState.tasks);
     triggerDownload(`taskflow-calendar-${todayIso}.ics`, ics, "text/calendar;charset=utf-8");
     showToast("📅 Archivo iCalendar (.ics) generado para Outlook y Apple Calendar.");
   });
 
-  // RFC 2368 Mailto Clarification Link
   document.getElementById("send-clarification-email-btn")?.addEventListener("click", () => {
     const missingTasks = boardState.tasks.filter((t) => t.deadlineState !== DEADLINE_STATES.CONFIRMED);
     const draftText = el.clarificationDraftBox?.textContent || "";
@@ -952,13 +1066,11 @@ async function bootstrap() {
     showToast("Abriendo cliente de correo corporativo para enviar aclaración...");
   });
 
-  // Native Kanban Drag & Drop
   setupKanbanDragAndDrop(el.tasksRenderRoot, (taskId, targetStatus) => {
     dispatch({ type: "UPDATE_TASK", payload: { id: taskId, status: targetStatus } });
     showToast(`Tarea movida a: ${TASK_STATUSES[targetStatus]?.labelEs || targetStatus}`);
   });
 
-  // Voice Dictation (Web Speech API)
   const micBtn = document.getElementById("mic-dictation-btn");
   if (micBtn) {
     setupVoiceDictation({
@@ -969,7 +1081,6 @@ async function bootstrap() {
     });
   }
 
-  // Command Palette (Ctrl+K / Cmd+K)
   setupCommandPalette({
     dialog: document.getElementById("cmd-palette-dialog"),
     searchInput: document.getElementById("cmd-palette-input"),
@@ -990,18 +1101,20 @@ async function bootstrap() {
     setViewMode,
     showToast
   });
+
   el.resetDemoBtn?.addEventListener("click", () => {
-    if (activeChannel.kind === "custom") {
+    if (activeChannel.kind === "custom" || activeChannel.kind === "personal") {
       if (boardState.tasks.length === 0) {
-        showToast("La lista de este canal ya está vacía.");
+        showToast("Esta lista ya está vacía.");
         return;
       }
-      if (!window.confirm(`¿Vaciar todas las tareas de #${activeChannel.name}?`)) return;
+      const label = activeChannel.kind === "personal" ? "Mi Día (Privado)" : `#${activeChannel.name}`;
+      if (!window.confirm(`¿Vaciar todas las tareas de ${label}?`)) return;
       dispatch({ type: "CLEAR_BOARD" });
-      showToast(`Lista de #${activeChannel.name} vaciada.`);
+      showToast(`Lista de ${label} vaciada.`);
       return;
     }
-    const preset = WORKPLACE_PRESETS.find((p) => p.id === activeChannel.presetId) || canonical;
+    const preset = WORKPLACE_PRESETS.find((p) => p.id === activeChannel.presetId) || WORKPLACE_PRESETS[0];
     el.inputChannel.value = preset.channel;
     el.inputMessage.value = preset.message;
     updateCharCounter();
@@ -1011,6 +1124,7 @@ async function bootstrap() {
       referenceDate: el.inputRefDate.value || todayIso
     });
   });
+
   const threadDialog = (document.getElementById("slack-thread-dialog"));
   document.getElementById("close-thread-dialog-btn")?.addEventListener("click", () => threadDialog?.close());
   document.getElementById("dismiss-thread-dialog-btn")?.addEventListener("click", () => threadDialog?.close());
@@ -1022,7 +1136,7 @@ async function bootstrap() {
       threadDialog?.close();
     }
   });
-  // Power-User Keyboard Shortcuts
+
   window.addEventListener("keydown", (ev) => {
     if ((ev.ctrlKey || ev.metaKey) && ev.key === "Enter") {
       ev.preventDefault();
@@ -1031,19 +1145,16 @@ async function bootstrap() {
       }
       return;
     }
-    // Alt + N: New task modal
     if (ev.altKey && (ev.key === "n" || ev.key === "N")) {
       ev.preventDefault();
       openCrudDialog(null);
       return;
     }
-    // Alt + P: Print executive memo
     if (ev.altKey && (ev.key === "p" || ev.key === "P")) {
       ev.preventDefault();
       window.print();
       return;
     }
-    // View Switching 1-4 when not typing in text fields
     const tag = (document.activeElement?.tagName || "").toLowerCase();
     const isTyping = tag === "input" || tag === "textarea" || tag === "select";
     if (!isTyping && !ev.ctrlKey && !ev.altKey && !ev.metaKey) {
@@ -1054,6 +1165,7 @@ async function bootstrap() {
       else if (ev.key === "5") setViewMode("timeline");
     }
   });
+
   // Background Alarm & Audio Notification Loop (runs every 25 seconds)
   const firedAlarms = new Set();
   setInterval(() => {
@@ -1071,7 +1183,10 @@ async function bootstrap() {
   const urlParams = new URLSearchParams(window.location.search);
   const joinToken = urlParams.get("join");
   if (joinToken) {
-    fetch(`/api/channels/join?token=${encodeURIComponent(joinToken)}`, { method: "POST" })
+    fetch(`/api/channels/join?token=${encodeURIComponent(joinToken)}`, {
+      method: "POST",
+      credentials: "same-origin"
+    })
       .then((r) => r.json())
       .then((res) => {
         if (res.ok && res.channelId) {
@@ -1089,11 +1204,15 @@ async function bootstrap() {
 
   // PWA Recovery: Unregister any legacy Service Worker to ensure clean network execution
   if ("serviceWorker" in navigator) {
-    navigator.serviceWorker.getRegistrations().then((regs) => {
-      for (const reg of regs) {
-        reg.unregister().catch(() => {});
-      }
-    }).catch(() => {});
+    navigator.serviceWorker
+      .getRegistrations()
+      .then((regs) => {
+        for (const reg of regs) {
+          reg.unregister().catch(() => {});
+        }
+      })
+      .catch(() => {});
   }
 }
+
 bootstrap();

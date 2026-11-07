@@ -1,4 +1,4 @@
-import { describe, it, mock } from "node:test";
+import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 
 describe("Task API Endpoint: api/tasks.js", () => {
@@ -24,11 +24,13 @@ describe("Task API Endpoint: api/tasks.js", () => {
     assert.equal(res2.status, 400);
   });
 
-  it("normalizes channelId with or without c_ prefix", async () => {
+  it("normalizes channelId with c_ prefix and maps mi-dia to personal", async () => {
     const { normalizeChannelId } = await import("../api/tasks.js");
     assert.equal(normalizeChannelId("c_general"), "general");
     assert.equal(normalizeChannelId("general"), "general");
     assert.equal(normalizeChannelId("c_URGENCIAS"), "urgencias");
+    assert.equal(normalizeChannelId("mi-dia"), "personal");
+    assert.equal(normalizeChannelId("personal"), "personal");
     assert.equal(normalizeChannelId(""), "general");
   });
 
@@ -37,9 +39,32 @@ describe("Task API Endpoint: api/tasks.js", () => {
 
     const req = new Request("http://localhost/api/tasks?channelId=general");
     const res = await GET(req);
-    assert.ok(res.status === 200 || res.status === 500); // 500 only if DB not reachable in test
+    assert.ok(res.status === 200 || res.status === 500);
     const json = await res.json();
     assert.ok(typeof json.ok === "boolean");
+  });
+
+  it("rejects unauthenticated GET and POST on Mi Día (Privado) (BDD-CS-007)", async () => {
+    const { GET, POST } = await import("../api/tasks.js");
+
+    const unauthGet = new Request("http://localhost/api/tasks?channelId=personal");
+    const getRes = await GET(unauthGet);
+    assert.equal(getRes.status, 401);
+    const getJson = await getRes.json();
+    assert.equal(getJson.ok, false);
+
+    const unauthPost = new Request("http://localhost/api/tasks", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        channelId: "personal",
+        tasks: [{ title: "Intento sin sesión" }]
+      })
+    });
+    const postRes = await POST(unauthPost);
+    assert.equal(postRes.status, 401);
+    const postJson = await postRes.json();
+    assert.equal(postJson.ok, false);
   });
 
   it("handles personal private tasks with scheduledTime and userId isolation", async () => {
