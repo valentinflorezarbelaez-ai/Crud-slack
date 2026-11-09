@@ -5,7 +5,7 @@
   "stagesPassed": "7/7",
   "exitCode": 0,
   "artifactCount": 87,
-  "sbomMerkleRoot": "sha256:ebe95e4ae33529e179f68eeaa9f0a19f6738eaa981f6913bac52a887efbc59e6",
+  "sbomMerkleRoot": "sha256:5e95044874c7e16900a9abf681de70c2705c98263eceede269f12bdc3fd4c9ec",
   "budgets": {
     "cssKilobytes": 43.5,
     "uiJsKilobytes": 53.8,

@@ -191,8 +191,8 @@ function dispatch(action) {
   const previousDone = (boardState.tasks || []).filter((t) => t.status === "COMPLETED").length;
   lastLocalMutationAt = Date.now();
   boardState = taskBoardReducer(boardState, action);
+  savePersistedBoardState(boardState, activeChannel.id, activeUserId);
   if (activeChannel.kind !== "personal" || activeUserId) {
-    savePersistedBoardState(boardState, activeChannel.id, activeUserId);
     syncRemoteTasks(activeChannel.id, boardState.tasks, activeUserId);
   }
   renderWorkspace();
@@ -359,7 +359,7 @@ async function applyChannel(channel, opts = {}, todayIso = new Date().toISOStrin
   realtimeSlackCtrl?.setActiveChannel(channel.id, channel.name, channel.topic);
 
   if (channel.kind === "personal") {
-    const saved = activeUserId && !opts.rerun ? loadPersistedBoardState(channel.id, activeUserId) : null;
+    const saved = !opts.rerun ? loadPersistedBoardState(channel.id, activeUserId) : null;
     boardState = saved ?? createInitialBoardState();
     if (el.inputMessage) el.inputMessage.value = "";
     updateCharCounter();
@@ -899,8 +899,8 @@ async function bootstrap() {
         payload: { id: t.id, deadlineDate: friday }
       });
     }
+    savePersistedBoardState(boardState, activeChannel.id, activeUserId);
     if (activeChannel.kind !== "personal" || activeUserId) {
-      savePersistedBoardState(boardState, activeChannel.id, activeUserId);
       syncRemoteTasks(activeChannel.id, boardState.tasks, activeUserId);
     }
     renderWorkspace();

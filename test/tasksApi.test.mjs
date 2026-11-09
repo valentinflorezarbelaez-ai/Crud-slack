@@ -41,6 +41,63 @@ describe("Task API & Persistent Task Discussion Threads: api/tasks.js & api/mess
     assert.equal(isPersonalChannelId("general"), false);
   });
 
+  it("builds valid parameterized PostgreSQL bulk upsert statements with $1..$N placeholders", async () => {
+    const { buildBulkTaskUpsert } = await import("../api/tasks.js");
+
+    const sampleChunk = [
+      {
+        id: "tsk_101",
+        title: "Test Task A",
+        description: "Desc A",
+        priority: "CRITICAL",
+        priorityReason: "Urgent",
+        status: "PENDING",
+        deadlineDate: "2026-11-20",
+        deadlineLabel: "2026-11-20",
+        deadlineState: "CONFIRMED",
+        missingDetails: "",
+        assignee: "Valentín",
+        sourceQuote: "do this",
+        dependsOnOrder: null,
+        grounded: true,
+        channel: "slack",
+        scheduledTime: "10:00",
+        durationMinutes: 90,
+        isPrivate: false,
+        userId: "usr_valentin"
+      },
+      {
+        id: "tsk_102",
+        title: "Test Task B",
+        description: "Desc B",
+        priority: "MEDIUM",
+        status: "IN_PROGRESS",
+        isPrivate: false
+      }
+    ];
+
+    const { queryText, flatParams, valuesRows } = buildBulkTaskUpsert(sampleChunk, "general", 1);
+
+    // 2 tasks * 21 columns = 42 parameters
+    assert.equal(flatParams.length, 42);
+    assert.equal(valuesRows.length, 2);
+
+    // Placeholders must all start with $ (never raw integer strings without $)
+    assert.ok(valuesRows[0].startsWith("($1, $2, $3,"));
+    assert.ok(valuesRows[0].endsWith(", NOW())"));
+    assert.ok(valuesRows[1].startsWith("($22, $23, $24,"));
+    assert.ok(valuesRows[1].endsWith(", NOW())"));
+
+    // Ensure raw numbers without $ are not in valuesRows
+    const rawNumberMatcher = /\(\s*\d+\s*,/;
+    assert.equal(rawNumberMatcher.test(valuesRows[0]), false, "Must not contain raw unparameterized numbers");
+
+    // Query must contain ON CONFLICT (id) DO UPDATE SET
+    assert.ok(queryText.includes("INSERT INTO tasks ("));
+    assert.ok(queryText.includes("ON CONFLICT (id) DO UPDATE SET"));
+    assert.ok(queryText.includes("WHERE tasks.user_id IS NOT DISTINCT FROM EXCLUDED.user_id;"));
+  });
+
   it("handles GET requests returning tasks and deterministic checksum for canonical channel", async () => {
     const { GET } = await import("../api/tasks.js");
 
