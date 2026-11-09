@@ -52,10 +52,10 @@ const ACTION_VERBS_REGEX =
   /\b(revisar|actualizar|enviar|preparar|agendar|programar|validar|auditar|corregir|desplegar|configurar|crear|documentar|compartir|aprobar|redactar|coordinar|subir|migrar|presentar|llamar|responder|analizar|verificar|organizar|definir|confirmar|entregar|completar|resolver|ajustar|construir|publicar|notificar|sincronizar|review|update|send|prepare|schedule|validate|audit|fix|deploy|create|share|submit|complete)\b/i;
 
 const TRIGGER_PREFIX_REGEX =
-  /^(?:hola[^,.!:\n]*[,.!:]?\s*)?(?:buenos\s+d[ií]as[^,.!:\n]*[,.!:]?\s*|buenas\s+tardes[^,.!:\n]*[,.!:]?\s*|equipo[,.!:]?\s*)?(?:por\s+favor\s+|necesitamos\s+|hay\s+que\s+|debemos\s+|tenemos\s+que\s+|se\s+requiere\s+|se\s+debe\s+|favor\s+de\s+|urge\s+|es\s+necesario\s+|recuerden\s+|we\s+need\s+to\s+|please\s+)/i;
+  /^(?:hola[^,.!:\n]*[,.!:]?\s*)?(?:buenos\s+d[ií]as[^,.!:\n]*[,.!:]?\s*|buenas\s+tardes[^,.!:\n]*[,.!:]?\s*|equipo[,.!:]?\s*)?(?:por\s+favor[,.!:]?\s*|necesitamos\s+|hay\s+que\s+|debemos\s+|tenemos\s+que\s+|se\s+requiere\s+|se\s+debe\s+|favor\s+de\s+|urge\s+|es\s+necesario\s+|recuerden\s+|we\s+need\s+to\s+|please[,.!:]?\s*)/i;
 
 const GREETING_ONLY_REGEX =
-  /^(hola|buenos\s+d[ií]as|buenas\s+tardes|buenas\s+noches|saludos|gracias|muchas\s+gracias|quedo\s+atento|atentamente|hello|hi|thanks)[,!.\s]*$/i;
+  /^(hola|buenos\s+d[ií]as|buenas\s+tardes|buenas\s+noches|saludos|gracias|muchas\s+gracias|por\s+favor|favor|quedo\s+atento|atentamente|hello|hi|thanks|please)[,!.\s]*$/i;
 
 /**
  * Formats a UTC Date object into YYYY-MM-DD.
