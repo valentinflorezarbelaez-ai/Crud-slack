@@ -7,7 +7,6 @@
  */
 import {
   DEADLINE_STATES,
-  PRIORITIES,
   TASK_STATUSES,
   escapeHtml
 } from "../domain/taskEntities.mjs";
@@ -34,6 +33,14 @@ import { setupVoiceDictation } from "./voiceDictation.mjs";
 import { setupCommandPalette } from "./commandPalette.mjs";
 import { fireConfettiCelebration } from "./confetti.mjs";
 import { renderTableView, renderSharePointListView, renderTeamsCardPreview, renderHourlyTimelineView } from "./taskViews.mjs?v=5.5.5";
+import {
+  fillAssigneeSelectElement,
+  formatIsoDateEs,
+  listAssigneeChoices,
+  parseEsDateToIso,
+  renderKanbanView,
+  renderTaskCardHtml
+} from "./taskCards.mjs?v=5.6.1";
 import { playTaskCompletedSound, playAlarmChime } from "./soundFx.mjs";
 import { checkDueAlarms, formatLocalHhMm } from "../application/notificationEngine.mjs";
 import { requestNotificationPermission, triggerTaskNotification } from "../infrastructure/webNotificationAdapter.mjs";
@@ -224,47 +231,6 @@ function getFilteredTasks() {
   });
 }
 
-function renderQuickBar(task) {
-  const id = escapeHtml(task.id);
-  const isConfirmed = task.deadlineState === DEADLINE_STATES.CONFIRMED;
-  const isDone = task.status === "COMPLETED";
-  return `
-    <div class="task-quick-bar">
-      <span class="task-quick-bar__label">Agenda:</span>
-      <label class="sr-only" for="qd-${id}">Fecha límite de ${escapeHtml(task.title)}</label>
-      <input type="date" id="qd-${id}" class="field__control field__control--sm quick-date" data-action="quick-date" data-id="${id}" value="${escapeHtml(task.deadlineDate || "")}" />
-      <label class="sr-only" for="qt-${id}">Hora programada de ${escapeHtml(task.title)}</label>
-      <input type="time" id="qt-${id}" class="field__control field__control--sm quick-date" data-action="quick-time" data-id="${id}" value="${escapeHtml(task.scheduledTime || "")}" title="Hora exacta con alarma" />
-      ${isConfirmed ? "" : `<button type="button" class="btn btn--ghost btn--sm" data-action="quick-friday" data-id="${id}">📅 Viernes</button>`}
-      ${isDone ? "" : `<button type="button" class="btn btn--secondary btn--sm" data-action="quick-complete" data-id="${id}">✅ Completar</button>`}
-    </div>
-  `;
-}
-
-function renderTaskBadges(task) {
-  const prioMeta = PRIORITIES[task.priority] || PRIORITIES.MEDIUM;
-  const statusMeta = TASK_STATUSES[task.status] || TASK_STATUSES.PENDING;
-  const isDateConfirmed = task.deadlineState === DEADLINE_STATES.CONFIRMED;
-  const dateBadgeClass = isDateConfirmed ? "date-confirmed" : "date-missing";
-  const datePrefix = isDateConfirmed ? "Fecha:" : "Fecha pendiente:";
-  const timeBadge = task.scheduledTime
-    ? `<span class="meta-badge">⏰ ${escapeHtml(task.scheduledTime)}</span>`
-    : "";
-  const depBadge = task.dependsOnOrder
-    ? `<span class="meta-badge">Depende de #${escapeHtml(task.dependsOnOrder)}</span>`
-    : "";
-  return `
-    <div class="task-badges">
-      <span class="prio-badge ${escapeHtml(prioMeta.badgeClass)}">${escapeHtml(prioMeta.labelEs)}</span>
-      ${timeBadge}
-      <span class="date-badge ${dateBadgeClass}">${datePrefix} ${escapeHtml(task.deadlineLabel)}</span>
-      <span class="meta-badge">Estado: ${escapeHtml(statusMeta.labelEs)}</span>
-      <span class="meta-badge">Resp: ${escapeHtml(task.assignee)}</span>
-      ${depBadge}
-    </div>
-  `;
-}
-
 function setCloudSyncStatus(source) {
   const syncEl = document.getElementById("cloud-sync-status");
   if (!syncEl) return;
@@ -277,88 +243,10 @@ function setCloudSyncStatus(source) {
     : "Solo en este navegador (sin confirmación de nube)";
 }
 
-function renderTaskCardHtml(task) {
-  const isCompleted = task.status === "COMPLETED";
-  const completedClass = isCompleted ? "is-completed" : "";
-  const needsDate = task.deadlineState !== DEADLINE_STATES.CONFIRMED;
-  const toggleLabel =
-    task.status === "PENDING"
-      ? "Iniciar"
-      : task.status === "IN_PROGRESS"
-        ? "Completar"
-        : "Reabrir";
-  const missingBlock =
-    needsDate && task.missingDetails
-      ? `<p class="task-card__missing">⚠️ ${escapeHtml(task.missingDetails)}</p>`
-      : "";
-  const quoteBlock = task.sourceQuote
-    ? `<p class="task-card__quote">💬 "${escapeHtml(task.sourceQuote)}"</p>`
-    : "";
-  const checkMark = isCompleted ? "✓" : task.status === "IN_PROGRESS" ? "⚡" : "";
-  return `
-    <article class="task-card task-card--dense ${completedClass}${needsDate ? " has-gap" : ""}" data-task-id="${escapeHtml(task.id)}" data-id="${escapeHtml(task.id)}" draggable="true">
-      <div class="task-card__top">
-        <div class="task-card__slack-row">
-          <button type="button" class="slack-check-circle ${isCompleted ? "is-checked" : ""}" data-action="cycle-status" data-id="${escapeHtml(task.id)}" title="Cambiar estado (${escapeHtml(task.status)})" aria-label="Cambiar estado de ${escapeHtml(task.title)}">
-            ${checkMark}
-          </button>
-          <div class="task-card__title-group">
-            <span class="task-order">#${escapeHtml(task.order)}</span>
-            <h3 class="task-card__title">${escapeHtml(task.title)}</h3>
-          </div>
-        </div>
-        <div class="task-card__actions">
-          <button type="button" class="btn btn--ghost btn--sm" data-action="cycle-status" data-id="${escapeHtml(task.id)}">
-            ${toggleLabel}
-          </button>
-          <button type="button" class="btn btn--ghost btn--sm" data-action="edit" data-id="${escapeHtml(task.id)}">
-            Editar
-          </button>
-          <button type="button" class="btn btn--danger btn--sm" data-action="delete" data-id="${escapeHtml(task.id)}" aria-label="Eliminar tarea ${escapeHtml(task.title)}">
-            ✕
-          </button>
-        </div>
-      </div>
-      ${renderTaskBadges(task)}
-      ${missingBlock}
-      <div class="task-card__inline-fix">${renderQuickBar(task)}</div>
-      <details class="task-card__more">
-        <summary>Detalle</summary>
-        <p class="task-card__reason">${escapeHtml(task.priorityReason)}</p>
-        ${quoteBlock}
-        <button type="button" class="btn btn--ghost btn--sm slack-thread-btn" data-action="open-thread" data-id="${escapeHtml(task.id)}" title="Abrir hilo">
-          💬 Hilo
-        </button>
-      </details>
-    </article>
-  `;
-}
-
-function renderKanbanView(tasks) {
-  const columns = [
-    { code: "PENDING", title: "Pendientes" },
-    { code: "IN_PROGRESS", title: "En Progreso" },
-    { code: "COMPLETED", title: "Completadas" }
-  ];
-  const colsHtml = columns
-    .map((col) => {
-      const colTasks = tasks.filter((t) => t.status === col.code);
-      const itemsHtml =
-        colTasks.length > 0
-          ? colTasks.map((t) => renderTaskCardHtml(t)).join("")
-          : `<div class="empty-state">Sin tareas en esta columna</div>`;
-      return `
-        <div class="kanban-col" data-col-status="${escapeHtml(col.code)}">
-          <h3 class="kanban-col__title">
-            <span>${escapeHtml(col.title)}</span>
-            <span>(${colTasks.length})</span>
-          </h3>
-          <div class="kanban-col__items">${itemsHtml}</div>
-        </div>
-      `;
-    })
-    .join("");
-  return `<div class="kanban-grid">${colsHtml}</div>`;
+function currentAssigneeChoices() {
+  const user = realtimeSlackCtrl?.getCurrentUser?.() || null;
+  const extras = (boardState.tasks || []).map((t) => t.assignee).filter(Boolean);
+  return listAssigneeChoices(user, extras);
 }
 
 function renderTeamsCardPreviewHelper() {
@@ -537,16 +425,17 @@ function renderWorkspace() {
     el.tasksRenderRoot.innerHTML = `<div class="empty-state" role="status"><strong>Sin tareas aquí todavía</strong><p>${escapeHtml(emptyMsg)}</p></div>`;
     return;
   }
+  const assignees = currentAssigneeChoices();
   if (currentViewMode === "table") {
     el.tasksRenderRoot.innerHTML = renderTableView(filtered);
   } else if (currentViewMode === "timeline") {
     el.tasksRenderRoot.innerHTML = renderHourlyTimelineView(filtered);
   } else if (currentViewMode === "kanban") {
-    el.tasksRenderRoot.innerHTML = renderKanbanView(filtered);
+    el.tasksRenderRoot.innerHTML = renderKanbanView(filtered, assignees);
   } else if (currentViewMode === "sharepoint") {
     el.tasksRenderRoot.innerHTML = renderSharePointListView(filtered);
   } else {
-    el.tasksRenderRoot.innerHTML = `<div class="task-stack task-stack--dense">${filtered.map(renderTaskCardHtml).join("")}</div>`;
+    el.tasksRenderRoot.innerHTML = `<div class="task-stack task-stack--dense">${filtered.map((t) => renderTaskCardHtml(t, assignees)).join("")}</div>`;
   }
 }
 
@@ -609,22 +498,23 @@ async function runAnalysisFlow(payload) {
   } finally {
     if (el.analyzeSubmitBtn) {
       el.analyzeSubmitBtn.disabled = false;
-      el.analyzeSubmitBtn.textContent = "⚡ Enviar y Extraer Tareas con IA";
+      el.analyzeSubmitBtn.textContent = "⚡ Extraer tareas";
     }
   }
 }
 
 function openCrudDialog(task = null) {
   if (!el.crudDialog) return;
+  const assignees = currentAssigneeChoices();
   if (task) {
     if (el.crudDialogTitle) el.crudDialogTitle.textContent = `Editar Tarea #${task.order}`;
     el.crudTaskId.value = task.id;
     el.crudTitle.value = task.title;
     el.crudPriority.value = task.priority;
     el.crudStatus.value = task.status;
-    el.crudDeadline.value = task.deadlineDate || "";
+    el.crudDeadline.value = formatIsoDateEs(task.deadlineDate) || "";
     if (el.crudScheduledTime) el.crudScheduledTime.value = task.scheduledTime || "";
-    el.crudAssignee.value = task.assignee === "Por asignar" ? "" : task.assignee;
+    fillAssigneeSelectElement(el.crudAssignee, assignees, task.assignee || "Por asignar");
     el.crudReason.value = task.priorityReason || "";
   } else {
     if (el.crudDialogTitle) {
@@ -635,9 +525,11 @@ function openCrudDialog(task = null) {
     el.crudTitle.value = "";
     el.crudPriority.value = "HIGH";
     el.crudStatus.value = "PENDING";
-    el.crudDeadline.value = activeChannel.kind === "personal" ? (el.inputRefDate?.value || "") : "";
+    const refIso = activeChannel.kind === "personal" ? el.inputRefDate?.value || "" : "";
+    el.crudDeadline.value = formatIsoDateEs(refIso) || "";
     if (el.crudScheduledTime) el.crudScheduledTime.value = "";
-    el.crudAssignee.value = "";
+    const selfName = realtimeSlackCtrl?.getCurrentUser?.()?.full_name || "Por asignar";
+    fillAssigneeSelectElement(el.crudAssignee, assignees, selfName);
     el.crudReason.value = "";
   }
   el.crudDialog.showModal();
@@ -913,8 +805,9 @@ async function bootstrap() {
       return;
     }
     const friday = nextFridayIso(el.inputRefDate?.value || todayIso);
+    const fridayEs = formatIsoDateEs(friday) || friday;
     const ok = window.confirm(
-      `¿Asignar la fecha ${friday} (próximo viernes) a ${pending.length} tarea(s) sin fecha?\n\nEs una decisión humana: la IA no inventa fechas. Puedes ajustarlas luego en cada tarjeta.`
+      `¿Asignar la fecha ${fridayEs} (próximo viernes) a ${pending.length} tarea(s) sin fecha?\n\nEs una decisión humana: la IA no inventa fechas. Puedes ajustarlas luego en cada tarjeta.`
     );
     if (!ok) return;
     lastLocalMutationAt = Date.now();
@@ -929,19 +822,34 @@ async function bootstrap() {
       syncRemoteTasks(activeChannel.id, boardState.tasks, activeUserId);
     }
     renderWorkspace();
-    showToast(`${pending.length} tarea(s) con fecha ${friday} confirmada por el usuario.`);
+    showToast(`${pending.length} tarea(s) con fecha ${fridayEs} confirmada por el usuario.`);
   });
 
   el.tasksRenderRoot?.addEventListener("change", (ev) => {
     const input = (ev.target);
     const action = input.getAttribute("data-action");
     const taskId = input.getAttribute("data-id");
-    if (action === "quick-date") {
+    if (action === "quick-date-es") {
+      const raw = String(input.value || "").trim();
+      if (raw && !parseEsDateToIso(raw)) {
+        showToast("Usa el formato dd/mm/aaaa (ej. 10/11/2026).");
+        return;
+      }
+      const iso = parseEsDateToIso(raw);
+      dispatch({ type: "UPDATE_TASK", payload: { id: taskId, deadlineDate: iso } });
+      showToast(iso ? `Fecha confirmada: ${formatIsoDateEs(iso)}` : "Fecha eliminada; la tarea vuelve a info faltante.");
+    } else if (action === "quick-date") {
       dispatch({ type: "UPDATE_TASK", payload: { id: taskId, deadlineDate: input.value || null } });
-      showToast(input.value ? `Fecha confirmada: ${input.value}` : "Fecha eliminada; la tarea vuelve a info faltante.");
+      showToast(input.value ? `Fecha confirmada: ${formatIsoDateEs(input.value) || input.value}` : "Fecha eliminada; la tarea vuelve a info faltante.");
     } else if (action === "quick-time") {
       dispatch({ type: "UPDATE_TASK", payload: { id: taskId, scheduledTime: input.value || null } });
       showToast(input.value ? `⏰ Hora programada: ${input.value}` : "Hora eliminada.");
+    } else if (action === "quick-assignee") {
+      dispatch({
+        type: "UPDATE_TASK",
+        payload: { id: taskId, assignee: input.value || "Por asignar" }
+      });
+      showToast(`Responsable: ${input.value || "Por asignar"}`);
     }
   });
 
@@ -1059,7 +967,7 @@ async function bootstrap() {
     } else if (action === "quick-friday") {
       const friday = nextFridayIso(el.inputRefDate?.value || todayIso);
       dispatch({ type: "UPDATE_TASK", payload: { id: task.id, deadlineDate: friday } });
-      showToast(`Fecha confirmada (próximo viernes): ${friday}`);
+      showToast(`Fecha confirmada (próximo viernes): ${formatIsoDateEs(friday) || friday}`);
     } else if (action === "quick-complete") {
       dispatch({ type: "UPDATE_TASK", payload: { id: task.id, status: "COMPLETED" } });
       showToast(`Tarea completada: "${task.title}"`);
@@ -1083,11 +991,17 @@ async function bootstrap() {
     const id = el.crudTaskId.value.trim();
     const title = el.crudTitle.value.trim();
     if (!title) return;
+    const deadlineRaw = el.crudDeadline.value.trim();
+    if (deadlineRaw && !parseEsDateToIso(deadlineRaw)) {
+      showToast("Fecha inválida: usa dd/mm/aaaa (ej. 14/11/2026).");
+      el.crudDeadline.focus();
+      return;
+    }
     const payload = {
       title,
       priority: el.crudPriority.value,
       status: el.crudStatus.value,
-      deadlineDate: el.crudDeadline.value.trim() || null,
+      deadlineDate: parseEsDateToIso(deadlineRaw),
       scheduledTime: el.crudScheduledTime?.value?.trim() || null,
       assignee: el.crudAssignee.value.trim() || "Por asignar",
       priorityReason: el.crudReason.value.trim() || "Prioridad definida por el usuario.",

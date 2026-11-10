@@ -119,11 +119,13 @@ execFileSync(
     path.join(root, "test/hourlyTask.test.mjs"),
     path.join(root, "test/notificationEngine.test.mjs"),
     path.join(root, "test/channelInvites.test.mjs"),
-    path.join(root, "test/workloadOptimizer.test.mjs")
+    path.join(root, "test/workloadOptimizer.test.mjs"),
+    path.join(root, "test/dateLocale.test.mjs")
   ],
   {
     cwd: root,
-    stdio: "inherit"
+    stdio: "inherit",
+    env: { ...process.env, TASKFLOW_HERMETIC_TEST: "1" }
   }
 );
 console.log(`[PASS] Stage 4/7 — Static Syntax & Automated BDD/Security Test Suite (${codeFiles.length} modules verified).`);

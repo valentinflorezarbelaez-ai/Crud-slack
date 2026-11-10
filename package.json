@@ -5,7 +5,7 @@
   "type": "module",
   "dependencies": {},
   "scripts": {
-    "test": "node --test test/taskflow.test.mjs test/tasksApi.test.mjs test/cloudTaskAdapter.test.mjs test/hourlyTask.test.mjs test/notificationEngine.test.mjs test/channelInvites.test.mjs test/workloadOptimizer.test.mjs",
+    "test": "node --test test/taskflow.test.mjs test/tasksApi.test.mjs test/cloudTaskAdapter.test.mjs test/hourlyTask.test.mjs test/notificationEngine.test.mjs test/channelInvites.test.mjs test/workloadOptimizer.test.mjs test/dateLocale.test.mjs",
     "verify:strict": "node scripts/verify-strict.mjs",
     "cicd:gate": "node scripts/verify-strict.mjs"
   },
