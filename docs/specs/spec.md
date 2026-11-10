@@ -48,8 +48,8 @@
 ### FR-CS-012: Functional Message Composer
 - **Pattern (Event-Driven)**: CUANDO el usuario acciona la barra de formato del compositor (o `Ctrl+B` / `Ctrl+I`), EL SISTEMA aplicará sintaxis mrkdwn de Slack (negrita, cursiva, tachado, código, enlace, lista), insertará emojis y menciones en la posición del cursor y ajustará la altura del campo al contenido.
 
-### FR-CS-013: First-Visit Google OAuth Authentication Gate & Session Integrity
-- **Pattern (Event-Driven)**: CUANDO un visitante nuevo o sin sesión activa accede a la aplicación, EL SISTEMA presentará de inmediato la pantalla modal de inicio de sesión (`#slack-auth-gate`) priorizando la autenticación con Google OIDC (`/api/auth/google`) sin auto-iniciar silenciosamente un perfil interno de demostración, y firmará una cookie `HttpOnly` HMAC-SHA256 verificable en `/api/auth/me`.
+### FR-CS-013: Soft First-Run Auth CTA & Session Integrity (Slack Lists Pattern)
+- **Pattern (Event-Driven)**: CUANDO un visitante nuevo o sin sesión activa accede a la aplicación, EL SISTEMA abrirá de inmediato el tablero de demostración (lista + extracción) con un banner no modal de «modo demo», sin auto-iniciar silenciosamente un perfil interno; la pantalla `#slack-auth-gate` (Google OIDC `/api/auth/google` o perfil de equipo explícito) se mostrará solo al elegir «Entrar / Guardar cuenta», al intentar una acción colaborativa que exija identidad, o tras cerrar sesión si el usuario lo solicita. Toda sesión autenticada firmará una cookie `HttpOnly` HMAC-SHA256 verificable en `/api/auth/me`.
 
 ### FR-CS-014: Dedicated Private Daily Workspace ("Mi Día (Privado)") & Per-User Task Isolation
 - **Pattern (Ubiquitous / Permanent)**: EL SISTEMA proveerá secciones personales privadas protegidas contra borrado (`Mi Día (Privado)` / `personal`, `Mis Proyectos` / `personal-proyectos` y `Notas & Ideas` / `personal-notas`) cuyas tareas locales y en Neon PostgreSQL estarán estrictamente aisladas por la tupla `(userId, channelId)`, rechazando con HTTP `401` cualquier intento de lectura o escritura privada sin identidad de usuario válida.
@@ -113,11 +113,12 @@ ESCENARIO: BDD-CS-005: Exportación interoperable a SharePoint Lists CSV y Slack
   ENTONCES el sistema genera un artefacto bien formado con codificación UTF-8 segura contra CSV Injection (neutralizando prefijos =, +, -, @)
   Y conserva prioridades, estados, fechas resueltas y notas de información faltante.
 
-ESCENARIO: BDD-CS-006: Puerta de inicio de sesión obligatoria para visitantes nuevos
+ESCENARIO: BDD-CS-006: First-run abierto con CTA de autenticación bajo demanda
   DADO un navegador sin sesión previa en localStorage ni cookie HttpOnly taskflow_session
   CUANDO el visitante abre la aplicación por primera vez
-  ENTONCES el sistema muestra inmediatamente la pantalla #slack-auth-gate encabezada por "Continuar con Google"
-  Y NO inicia sesión automáticamente con ningún perfil interno hasta que el usuario se autentique explícitamente.
+  ENTONCES el sistema muestra el tablero de trabajo (compositor + lista) con un banner de modo demo y #slack-auth-gate permanece oculto
+  Y NO inicia sesión automáticamente con ningún perfil interno
+  Y al pulsar «Entrar / Guardar cuenta» o una acción colaborativa que exija identidad, ENTONCES aparece #slack-auth-gate con Google OIDC y perfiles de demostración explícitos.
 
 ESCENARIO: BDD-CS-007: Aislamiento estricto por usuario en "Mi Día (Privado)"
   DADO un usuario autenticado A que guarda tareas con hora programada en la sección "Mi Día (Privado)" (channelId = "personal")

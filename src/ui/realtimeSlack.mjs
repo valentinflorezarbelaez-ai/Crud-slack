@@ -82,7 +82,7 @@ export function initRealtimeSlack({
   // DOM Elements
   const authGate = document.getElementById("slack-auth-gate");
   const authCloseBtn = document.getElementById("slack-auth-close-btn");
-  const demoDetails = /** @type {HTMLDetailsElement|null} */ (document.getElementById("auth-demo-details"));
+  const demoDetails = document.getElementById("auth-demo-details");
   const googleStatusTip = document.getElementById("gate-google-status");
   const teamUsersGrid = document.getElementById("team-users-grid");
   const userSlot = document.getElementById("slack-user-slot");
@@ -119,7 +119,7 @@ export function initRealtimeSlack({
     btn.innerHTML = `${GOOGLE_G_SVG}<span>Iniciar sesión con Google</span>`;
     btn.addEventListener("click", () => {
       if (isMissingConfig) {
-        if (demoDetails) demoDetails.open = true;
+        demoDetails?.scrollIntoView?.({ block: "nearest" });
         showToast("Configura GOOGLE_CLIENT_ID en Vercel para activar Google OAuth en vivo, o elige un perfil rápido abajo.");
       } else {
         void bootstrapGoogleAuth();
@@ -139,6 +139,7 @@ export function initRealtimeSlack({
           localStorage.setItem("taskflow_slack_user", JSON.stringify(currentUser));
         } catch {}
         hideAuthGate();
+        setGuestBannerVisible(false);
         renderUserStatus();
         if (previousId !== currentUser.id) {
           onUserChanged?.(currentUser, { restoredFromCookie: true });
@@ -151,9 +152,15 @@ export function initRealtimeSlack({
     }
   }
 
+  function setGuestBannerVisible(visible) {
+    const banner = document.getElementById("guest-mode-banner");
+    if (banner) banner.hidden = !visible;
+  }
+
   function showAuthGate() {
     if (authGate) authGate.hidden = false;
-    if (authCloseBtn) authCloseBtn.hidden = !currentUser;
+    // Guests may dismiss to keep exploring the demo board (Slack-style soft gate).
+    if (authCloseBtn) authCloseBtn.hidden = false;
     renderTeamUsersGrid();
     renderImmediateGooglePlaceholder(false);
     void bootstrapGoogleAuth();
@@ -163,6 +170,12 @@ export function initRealtimeSlack({
     if (authGate) authGate.hidden = true;
   }
 
+  function continueAsGuest() {
+    hideAuthGate();
+    setGuestBannerVisible(!currentUser);
+    showToast("Modo demo: puedes extraer y editar tareas aquí. Entra para guardar en la nube.");
+  }
+
   function loginAsUser(user) {
     if (!user) return;
     currentUser = user;
@@ -170,6 +183,7 @@ export function initRealtimeSlack({
       localStorage.setItem("taskflow_slack_user", JSON.stringify(user));
     } catch {}
     hideAuthGate();
+    setGuestBannerVisible(false);
     renderUserStatus();
     onUserChanged?.(currentUser, { signedIn: true });
     showToast(`¡Bienvenido, ${currentUser.full_name}! Tu espacio personal está listo.`);
@@ -203,22 +217,17 @@ export function initRealtimeSlack({
     loginAsUser(profile);
   });
 
-  // Close modal button (only allowed when user already has an active session)
-  authCloseBtn?.addEventListener("click", () => {
-    if (currentUser) hideAuthGate();
-  });
+  authCloseBtn?.addEventListener("click", () => continueAsGuest());
+  document.getElementById("auth-continue-demo-btn")?.addEventListener("click", () => continueAsGuest());
+  document.getElementById("guest-signin-btn")?.addEventListener("click", () => showAuthGate());
 
-  // Backdrop click or Escape key (never bypasses login for unauthenticated visitors)
   authGate?.addEventListener("click", (ev) => {
-    if (ev.target === authGate) {
-      if (currentUser) hideAuthGate();
-      else showToast("Inicia sesión con Google para abrir tu propio espacio personalizado.");
-    }
+    if (ev.target === authGate) continueAsGuest();
   });
 
   document.addEventListener("keydown", (ev) => {
     if (ev.key === "Escape" && authGate && !authGate.hidden) {
-      if (currentUser) hideAuthGate();
+      continueAsGuest();
     }
   });
 
@@ -313,7 +322,7 @@ export function initRealtimeSlack({
           googleStatusTip.textContent =
             "⚙️ Pendiente configurar GOOGLE_CLIENT_ID en Vercel para activar Google OAuth en vivo. Mientras tanto puedes entrar con un perfil de demostración abajo.";
         }
-        if (demoDetails) demoDetails.open = true;
+        demoDetails?.scrollIntoView?.({ block: "nearest" });
         googleBootPromise = null;
         return;
       }
@@ -429,6 +438,7 @@ export function initRealtimeSlack({
       } catch {}
 
       hideAuthGate();
+      setGuestBannerVisible(false);
       renderUserStatus();
       onUserChanged?.(currentUser, { signedIn: true });
       showToast(`¡Hola, ${currentUser.full_name}! Cargamos tu propio espacio e historial.`);
@@ -449,8 +459,9 @@ export function initRealtimeSlack({
     if (messageFeed) messageFeed.replaceChildren();
     renderUserStatus();
     onUserChanged?.(null, { loggedOut: true });
-    showAuthGate();
-    showToast("Sesión cerrada. Cada cuenta mantiene sus propios datos separados.");
+    hideAuthGate();
+    setGuestBannerVisible(true);
+    showToast("Sesión cerrada. Sigues en modo demo; entra de nuevo para guardar en la nube.");
   }
 
   // 2. ACTIVE CHANNEL SWITCHING
@@ -658,13 +669,15 @@ export function initRealtimeSlack({
   if (storedUser) {
     currentUser = storedUser;
     hideAuthGate();
+    setGuestBannerVisible(false);
     renderUserStatus();
     onUserChanged?.(currentUser, { initial: true });
   } else {
     currentUser = null;
+    hideAuthGate();
+    setGuestBannerVisible(true);
     renderUserStatus();
     onUserChanged?.(null, { initial: true });
-    showAuthGate();
   }
 
   // Verify server HttpOnly cookie session in background

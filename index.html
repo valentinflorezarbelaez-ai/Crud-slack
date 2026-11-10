@@ -2,7 +2,7 @@
 <html lang="es" data-theme="light" data-scale="md">
   <head>
     <meta charset="UTF-8" />
-    <script src="./src/ui/recovery.js?v=5.5.5"></script>
+    <script src="./src/ui/recovery.js?v=5.6.0"></script>
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>TaskFlow AI · Organizador Omnicanal de Tareas con IA &amp; CRUD Verificado</title>
     <meta
@@ -31,8 +31,8 @@
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap"
       rel="stylesheet"
     />
-    <link rel="modulepreload" href="./src/ui/main.mjs?v=5.5.5" />
-    <link rel="modulepreload" href="./src/ui/slackShell.mjs?v=5.5.5" />
+    <link rel="modulepreload" href="./src/ui/main.mjs?v=5.6.0" />
+    <link rel="modulepreload" href="./src/ui/slackShell.mjs?v=5.6.0" />
     <link rel="modulepreload" href="./src/ui/realtimeSlack.mjs?v=5.5.5" />
     <link rel="modulepreload" href="./src/ui/channels.mjs?v=5.5.5" />
     <link rel="modulepreload" href="./src/ui/taskThreads.mjs?v=5.5.5" />
@@ -92,21 +92,30 @@
             <path d="M82.5 101.3c7.4 0 13.4 6 13.4 13.4s-6 13.4-13.4 13.4-13.4-6-13.4-13.4v-13.4h13.4zm0-6.7c-7.4 0-13.4-6-13.4-13.4s6-13.4 13.4-13.4h33.4c7.4 0 13.4 6 13.4 13.4s-6 13.4-13.4 13.4H82.5z" fill="#ECB22E"/>
           </svg>
         </div>
-        <h1 class="slack-auth-title" id="slack-auth-title">Iniciar Sesión en TaskFlow AI</h1>
-        <p class="slack-auth-subtitle">Entra con tu cuenta de Google para gestionar tus propias tareas por horas en <strong>Mi Día (Privado)</strong> y colaborar en canales compartidos.</p>
+        <h1 class="slack-auth-title" id="slack-auth-title">Guardar tu espacio en TaskFlow AI</h1>
+        <p class="slack-auth-subtitle">Entra con Google para aislar <strong>Mi Día (Privado)</strong> y sincronizar canales. O elige un perfil de demostración.</p>
 
         <div class="slack-auth-section slack-auth-google-box">
           <div id="gate-google-btn" class="gate-google-btn-slot" aria-label="Iniciar sesión con Google"></div>
-          <p class="slack-auth-tip" id="gate-google-status">Tus tareas en «Mi Día (Privado)» quedan aisladas en tu propia cuenta.</p>
+          <p class="slack-auth-tip" id="gate-google-status">Cada cuenta tiene su propio historial, tema y listas privadas.</p>
         </div>
 
-        <div class="slack-auth-divider"><span>o modo demostración / equipo</span></div>
+        <div class="slack-auth-divider"><span>o perfil rápido de equipo</span></div>
 
-        <details id="auth-demo-details" class="slack-auth-demo">
-          <summary class="slack-auth-demo__summary">Entrar con perfil rápido de equipo (4 perfiles)</summary>
+        <div id="auth-demo-details" class="slack-auth-demo is-open">
+          <p class="slack-auth-demo__summary">4 perfiles de demostración</p>
           <div class="team-users-grid" id="team-users-grid" role="list" aria-label="Perfiles de equipo"></div>
-        </details>
+        </div>
+
+        <button type="button" id="auth-continue-demo-btn" class="btn btn--ghost btn--full auth-continue-demo">
+          Continuar sin cuenta · ver el tablero
+        </button>
       </div>
+    </div>
+
+    <div id="guest-mode-banner" class="guest-banner" role="status" hidden>
+      <span>Modo demo · las tareas viven en este navegador hasta que entres.</span>
+      <button type="button" id="guest-signin-btn" class="btn btn--secondary btn--sm">Entrar / Guardar cuenta</button>
     </div>
 
     <header class="topbar" role="banner">
@@ -360,13 +369,13 @@
           </div>
         </header>
 
-        <div class="workspace-grid">
-          <!-- LEFT COLUMN: OMNICHANNEL MESSAGE INGESTION -->
+        <div class="workspace-grid is-lists-first">
+          <!-- LEFT COLUMN: COMPACT MESSAGE INGESTION -->
           <section class="panel panel--intake" aria-labelledby="intake-heading">
             <div class="panel__header">
               <div>
-                <span class="eyebrow">Paso 1 · Ingesta Omnicanal</span>
-                <h2 id="intake-heading" class="panel__title">Canal Slack &amp; Mensaje Recibido</h2>
+                <span class="eyebrow">Mensaje</span>
+                <h2 id="intake-heading" class="panel__title">Convertir a lista</h2>
               </div>
               <span class="char-counter" id="char-counter">0 / 4000</span>
             </div>
@@ -442,10 +451,10 @@
                 <textarea
                   id="input-message"
                   name="message"
-                  rows="5"
+                  rows="3"
                   maxlength="4000"
                   class="field__control field__textarea slack-composer__textarea"
-                  placeholder="Enviar un mensaje a #general o pegar una solicitud..."
+                  placeholder="Pega un correo o mensaje y extrae la lista…"
                   required
                 ></textarea>
                 <div class="slack-composer-toolbar" role="toolbar" aria-label="Herramientas del compositor">
@@ -455,14 +464,14 @@
                     <button type="button" class="slack-fmt-icon" data-fmt="strike" title="Tachado" aria-label="Tachado"><s>S</s></button>
                     <button type="button" class="slack-fmt-icon" data-fmt="link" title="Enlace" aria-label="Enlace"><svg class="icon" width="15" height="15" aria-hidden="true"><use href="#i-link" /></svg></button>
                     <button type="button" class="slack-fmt-icon" data-fmt="list" title="Lista" aria-label="Lista"><svg class="icon" width="15" height="15" aria-hidden="true"><use href="#i-list" /></svg></button>
-                    <button type="button" class="slack-fmt-icon" data-fmt="code" title="C?digo" aria-label="C?digo">&lt;/&gt;</button>
+                    <button type="button" class="slack-fmt-icon" data-fmt="code" title="Código" aria-label="Código">&lt;/&gt;</button>
                   </div>
                   <div class="slack-fmt-group">
-                    <button type="button" id="import-file-btn" class="slack-fmt-icon" title="Adjuntar correo (.eml) o chat (.txt, .md)" aria-label="Importar archivo de correo o chat">??</button>
+                    <button type="button" id="import-file-btn" class="slack-fmt-icon" title="Adjuntar correo (.eml) o chat (.txt, .md)" aria-label="Importar archivo de correo o chat">📎</button>
                     <input type="file" id="import-file-input" accept=".eml,.txt,.md" hidden />
                     <button type="button" class="slack-fmt-icon" data-fmt="emoji" title="Emoji" aria-label="Insertar emoji" aria-haspopup="true" aria-expanded="false" aria-controls="emoji-pop"><svg class="icon" width="15" height="15" aria-hidden="true"><use href="#i-smile" /></svg></button>
-                    <button type="button" class="slack-fmt-icon" data-fmt="mention" title="Menci?n" aria-label="Mencionar a alguien"><svg class="icon" width="15" height="15" aria-hidden="true"><use href="#i-at" /></svg></button>
-                    <button type="button" id="mic-dictate-btn" class="slack-fmt-icon slack-fmt-mic-btn" title="Dictar mensaje por voz" aria-label="Dictar mensaje por voz" aria-pressed="false">???</button>
+                    <button type="button" class="slack-fmt-icon" data-fmt="mention" title="Mención" aria-label="Mencionar a alguien"><svg class="icon" width="15" height="15" aria-hidden="true"><use href="#i-at" /></svg></button>
+                    <button type="button" id="mic-dictate-btn" class="slack-fmt-icon slack-fmt-mic-btn" title="Dictar mensaje por voz" aria-label="Dictar mensaje por voz" aria-pressed="false">🎤</button>
                   </div>
                 </div>
                 <div class="emoji-pop" id="emoji-pop" role="group" aria-label="Emojis" hidden>
@@ -481,10 +490,10 @@
 
               <div class="intake-actions">
                 <button type="submit" id="analyze-submit-btn" class="btn btn--slack-send btn--full">
-                  ⚡ Enviar a Slack Lists (Extraer Tareas) ➤
+                  ⚡ Extraer tareas
                 </button>
                 <div class="intake-actions__sub">
-                  <span class="slack-shortcut-tip">💡 Atajo: Presiona <strong>Ctrl + Enter</strong> para enviar</span>
+                  <span class="slack-shortcut-tip"><strong>Ctrl + Enter</strong> para enviar</span>
                   <button type="button" id="clear-input-btn" class="btn btn--ghost btn--sm">
                     Limpiar
                   </button>
@@ -492,12 +501,11 @@
               </div>
             </form>
 
-            <!-- VERIFICATION & ANTI-HALLUCINATION TELEMETRY CARD -->
-            <div class="verification-box" id="verification-box" aria-live="polite">
-              <div class="verification-box__header">
-                <span class="eyebrow">Auditoría de Confiabilidad IA</span>
-                <span class="badge badge--verified" id="verif-confidence-badge">100% Verificado</span>
-              </div>
+            <details class="verification-box verification-box--collapsible" id="verification-box" aria-live="polite">
+              <summary class="verification-box__header">
+                <span class="eyebrow">Auditoría IA</span>
+                <span class="badge badge--verified" id="verif-confidence-badge">0 fechas inventadas</span>
+              </summary>
               <div class="verification-metrics">
                 <div class="v-metric">
                   <span class="v-metric__val" id="verif-grounding-val">100%</span>
@@ -505,7 +513,7 @@
                 </div>
                 <div class="v-metric">
                   <span class="v-metric__val" id="verif-coverage-val">100%</span>
-                  <span class="v-metric__lbl">Cobertura cláusulas</span>
+                  <span class="v-metric__lbl">Cobertura</span>
                 </div>
                 <div class="v-metric">
                   <span class="v-metric__val" id="verif-hallucinations-val">0</span>
@@ -513,65 +521,99 @@
                 </div>
               </div>
               <p class="verification-box__note" id="verif-summary-note">
-                Cada tarea se valida contra fragmentos reales del mensaje original; ninguna fecha ausente es inventada.
+                Cada tarea se valida contra el mensaje original; las fechas ausentes no se inventan.
               </p>
-            </div>
+            </details>
           </section>
 
           <!-- RIGHT COLUMN: VISUAL ORGANIZED RESULTS, MISSING INFO AUDIT & FULL CRUD -->
           <section class="panel panel--results" aria-labelledby="results-heading">
             <div class="panel__header panel__header--wrap">
               <div>
-                <span class="eyebrow">Paso 2 · Plan Organizado &amp; CRUD</span>
+                <span class="eyebrow">Lista</span>
                 <div class="panel__title-row">
-                  <h2 id="results-heading" class="panel__title">Lista de Tareas Priorizadas</h2>
-                  <span id="cloud-sync-status" class="sync-badge" title="Sincronización multiusuario en tiempo real vía Neon PostgreSQL">☁️ En la nube</span>
+                  <h2 id="results-heading" class="panel__title">Tareas</h2>
+                  <span id="cloud-sync-status" class="sync-badge sync-badge--local" title="Estado de sincronización">💾 Local</span>
                 </div>
               </div>
-              <div class="toolbar-actions">
-                <button type="button" id="btn-daily-digest" class="btn btn--primary" title="Generar Resumen Diario Ejecutivo con IA y Detecci?n de Conflictos">
-                  ?? Resumen Ejecutivo
-                </button>
-                <button type="button" id="alarm-toggle-btn" class="btn btn--secondary" title="Activar recordatorios y alarmas sonoras">
-                  🔔 Notificaciones
-                </button>
-                <button type="button" id="invite-channel-btn" class="btn btn--ghost" title="Generar enlace de invitación a este canal">
-                  🔗 Invitar
-                </button>
+              <div class="toolbar-actions toolbar-actions--primary">
                 <button type="button" id="add-task-btn" class="btn btn--secondary">
-                  + Nueva Tarea
+                  + Nueva
                 </button>
                 <button type="button" id="export-csv-btn" class="btn btn--ghost" title="Exportar CSV compatible con SharePoint Lists, Planner y Excel">
-                  Exportar SharePoint CSV
-                </button>
-                <button type="button" id="export-ics-btn" class="btn btn--ghost" title="Agendar entregas en Outlook / Apple Calendar / Google Calendar (.ics)">
-                  📅 Outlook / iCal (.ics)
-                </button>
-                <button type="button" id="export-teams-card-btn" class="btn btn--ghost" title="Visualizar y copiar Microsoft Teams Adaptive Card v1.5">
-                  Teams Adaptive Card
+                  Exportar CSV
                 </button>
                 <button type="button" id="copy-slack-md-btn" class="btn btn--ghost" title="Copiar resumen estructurado para Slack o Teams">
-                  Copiar Resumen Slack
+                  Copiar resumen
                 </button>
+                <details class="toolbar-more">
+                  <summary class="btn btn--ghost btn--sm">Más</summary>
+                  <div class="toolbar-more__menu" role="group">
+                    <button type="button" id="btn-daily-digest" class="btn btn--ghost btn--sm" title="Generar resumen diario y detectar conflictos">
+                      📋 Resumen ejecutivo
+                    </button>
+                    <button type="button" id="alarm-toggle-btn" class="btn btn--ghost btn--sm" title="Activar recordatorios y alarmas sonoras">
+                      🔔 Notificaciones
+                    </button>
+                    <button type="button" id="invite-channel-btn" class="btn btn--ghost btn--sm" title="Generar enlace de invitación a este canal">
+                      🔗 Invitar
+                    </button>
+                    <button type="button" id="export-ics-btn" class="btn btn--ghost btn--sm" title="Agendar en Outlook / Apple Calendar / Google Calendar (.ics)">
+                      📅 Outlook / iCal
+                    </button>
+                    <button type="button" id="export-teams-card-btn" class="btn btn--ghost btn--sm" title="Microsoft Teams Adaptive Card v1.5">
+                      Teams Card
+                    </button>
+                  </div>
+                </details>
               </div>
             </div>
 
-            <!-- KPI SUMMARY CARDS -->
-            <div class="kpi-grid" aria-label="Resumen de métricas del plan">
+            <!-- MISSING INFORMATION FIRST (product differentiator) -->
+            <aside class="missing-panel missing-panel--hero" id="missing-info-panel" aria-labelledby="missing-panel-title" hidden>
+              <div class="missing-panel__top">
+                <div>
+                  <h3 id="missing-panel-title" class="missing-panel__title">
+                    Hay huecos que la IA no inventó
+                  </h3>
+                  <p class="missing-panel__sub">
+                    Confirma fechas o responsables, o pide aclaración en un clic.
+                  </p>
+                </div>
+                <div class="missing-panel__actions">
+                  <button type="button" id="resolve-all-missing-btn" class="btn btn--secondary btn--sm" title="Asigna el próximo viernes a las tareas sin fecha, previa confirmación">
+                    📅 Asignar viernes
+                  </button>
+                  <button type="button" id="copy-clarification-btn" class="btn btn--ghost btn--sm">
+                    📋 Copiar aclaración
+                  </button>
+                  <button type="button" id="send-clarification-email-btn" class="btn btn--ghost btn--sm" title="Abrir cliente de correo con el borrador">
+                    ✉️ Pedir datos
+                  </button>
+                </div>
+              </div>
+              <ul class="missing-list" id="missing-gaps-list"></ul>
+              <details class="clarification-details">
+                <summary>Borrador para pedir los datos faltantes</summary>
+                <pre class="clarification-pre" id="clarification-draft-box"></pre>
+              </details>
+            </aside>
+
+            <div class="kpi-grid kpi-grid--compact" aria-label="Resumen de métricas del plan">
               <div class="kpi-card">
                 <span class="kpi-card__label">Actividades</span>
                 <strong class="kpi-card__value" id="kpi-total">0</strong>
               </div>
               <div class="kpi-card kpi-card--high">
-                <span class="kpi-card__label">Prioridad Alta / Crítica</span>
+                <span class="kpi-card__label">Alta / Crítica</span>
                 <strong class="kpi-card__value" id="kpi-high">0</strong>
               </div>
               <div class="kpi-card kpi-card--warn">
-                <span class="kpi-card__label">Con Info Faltante</span>
+                <span class="kpi-card__label">Info faltante</span>
                 <strong class="kpi-card__value" id="kpi-missing">0</strong>
               </div>
               <div class="kpi-card kpi-card--ok">
-                <span class="kpi-card__label">Progreso Completado</span>
+                <span class="kpi-card__label">Progreso</span>
                 <strong class="kpi-card__value" id="kpi-progress">0%</strong>
               </div>
             </div>
@@ -581,54 +623,28 @@
               <progress id="board-progress-bar" class="board-progress" value="0" max="100"></progress>
             </div>
 
-            <!-- MISSING INFORMATION & CLARIFICATION ALERT PANEL -->
-            <aside class="missing-panel" id="missing-info-panel" aria-labelledby="missing-panel-title">
-              <div class="missing-panel__top">
-                <div>
-                  <h3 id="missing-panel-title" class="missing-panel__title">
-                    ⚠️ Información Faltante Detectada (No Inventada por la IA)
-                  </h3>
-                  <p class="missing-panel__sub">
-                    Datos ausentes o ambiguos en la solicitud original que conviene confirmar o resolver en 1 clic:
-                  </p>
-                </div>
-                <div class="missing-panel__actions">
-                  <button type="button" id="resolve-all-missing-btn" class="btn btn--secondary btn--sm" title="Asigna el próximo viernes (desde la fecha de referencia) a las tareas sin fecha, previa confirmación">
-                    📅 Asignar próximo viernes a pendientes
-                  </button>
-                  <button type="button" id="copy-clarification-btn" class="btn btn--ghost btn--sm">
-                    📋 Copiar mensaje de aclaración
-                  </button>
-                  <button type="button" id="send-clarification-email-btn" class="btn btn--ghost btn--sm" title="Abrir cliente de correo (Outlook/Mail) con el borrador de aclaración">
-                    ✉️ Enviar Correo de Aclaración
-                  </button>
-                </div>
-              </div>
-              <ul class="missing-list" id="missing-gaps-list"></ul>
-              <details class="clarification-details">
-                <summary>Ver borrador automático de respuesta para pedir los datos faltantes</summary>
-                <pre class="clarification-pre" id="clarification-draft-box"></pre>
-              </details>
-            </aside>
-
-            <!-- VIEW MODE & FILTER CONTROLS -->
             <div class="filter-bar">
               <div class="view-switcher" role="group" aria-label="Modo de visualización de tareas">
                 <button type="button" id="view-mode-cards" class="chip is-active" aria-pressed="true">
-                  📋 Slack Lists
+                  📋 Lista
                 </button>
-                <button type="button" id="view-mode-timeline" class="chip" aria-pressed="false" title="Organización horaria diaria Time-Blocking">
-                  ⏰ Agenda Horaria
-                </button>
-                <button type="button" id="view-mode-kanban" class="chip" aria-pressed="false">
-                  📌 Tablero Kanban
-                </button>
-                <button type="button" id="view-mode-table" class="chip" aria-pressed="false">
-                  📊 Tabla Ejecutiva
-                </button>
-                <button type="button" id="view-mode-sharepoint" class="chip" aria-pressed="false" title="Vista simulada interactiva de Microsoft SharePoint Online Modern List">
-                  📑 Vista SharePoint List
-                </button>
+                <details class="view-more">
+                  <summary class="chip">Más vistas</summary>
+                  <div class="view-more__menu" role="group">
+                    <button type="button" id="view-mode-timeline" class="chip" aria-pressed="false" title="Agenda horaria diaria">
+                      ⏰ Agenda
+                    </button>
+                    <button type="button" id="view-mode-kanban" class="chip" aria-pressed="false">
+                      📌 Kanban
+                    </button>
+                    <button type="button" id="view-mode-table" class="chip" aria-pressed="false">
+                      📊 Tabla
+                    </button>
+                    <button type="button" id="view-mode-sharepoint" class="chip" aria-pressed="false" title="Vista tipo SharePoint List">
+                      📑 SharePoint
+                    </button>
+                  </div>
+                </details>
               </div>
 
               <div class="filter-controls">
@@ -983,7 +999,7 @@
     <!-- ================================================================ -->
     <dialog id="email-clarification-dialog" class="crud-dialog email-dialog" closedby="any" aria-labelledby="email-dialog-title">
       <div class="crud-dialog__header">
-        <h2 id="email-dialog-title" class="crud-dialog__title">?? Enviar Correo de Aclaraci?n</h2>
+        <h2 id="email-dialog-title" class="crud-dialog__title">✉️ Enviar Correo de Aclaración</h2>
         <button type="button" id="close-email-dialog-btn" class="btn btn--ghost btn--sm" aria-label="Cerrar ventana">
           ?
         </button>
@@ -995,26 +1011,26 @@
         </div>
         <div class="field">
           <label for="email-modal-subject" class="field__label">Asunto</label>
-          <input type="text" id="email-modal-subject" class="field__control" value="TaskFlow AI ? Aclaraci?n de fechas y entregables de la solicitud" />
+          <input type="text" id="email-modal-subject" class="field__control" value="TaskFlow AI — Aclaración de fechas y entregables de la solicitud" />
         </div>
         <div class="field">
           <label for="email-modal-body" class="field__label">Cuerpo del correo</label>
           <textarea id="email-modal-body" rows="6" class="field__control field__textarea"></textarea>
         </div>
         <div class="email-send-options">
-          <span class="eyebrow">Elige c?mo deseas abrir y enviar este correo:</span>
+          <span class="eyebrow">Elige cómo deseas abrir y enviar este correo:</span>
           <div class="email-send-buttons-grid">
-            <button type="button" id="email-open-gmail-btn" class="btn btn--secondary email-provider-btn" title="Abrir en Gmail Web en nueva pesta?a">
-              ?? Abrir en Gmail Web
+            <button type="button" id="email-open-gmail-btn" class="btn btn--secondary email-provider-btn" title="Abrir en Gmail Web en nueva pestaña">
+              🌐 Abrir en Gmail Web
             </button>
             <button type="button" id="email-open-outlook-btn" class="btn btn--secondary email-provider-btn" title="Abrir en Outlook Web / Microsoft 365">
-              ?? Abrir en Outlook Web (M365)
+              🌐 Abrir en Outlook Web (M365)
             </button>
-            <button type="button" id="email-open-mailto-btn" class="btn btn--ghost email-provider-btn" title="Abrir en aplicaci?n de correo local (Outlook Desktop / Mail de Windows)">
-              ?? App de Correo Local
+            <button type="button" id="email-open-mailto-btn" class="btn btn--ghost email-provider-btn" title="Abrir en aplicación de correo local (Outlook Desktop / Mail de Windows)">
+              📧 App de Correo Local
             </button>
             <button type="button" id="email-copy-all-btn" class="btn btn--ghost email-provider-btn" title="Copiar texto completo al portapapeles">
-              ?? Copiar al Portapapeles
+              📋 Copiar al Portapapeles
             </button>
           </div>
         </div>
@@ -1123,23 +1139,23 @@
     <!-- ================================================================ -->
     <dialog id="dialog-executive-digest" class="crud-dialog" closedby="any" aria-labelledby="digest-dialog-title">
       <div class="crud-dialog__header">
-        <h2 id="digest-dialog-title" class="crud-dialog__title">?? Resumen Ejecutivo Diario</h2>
+        <h2 id="digest-dialog-title" class="crud-dialog__title">📋 Resumen Ejecutivo Diario</h2>
         <button type="button" id="btn-digest-close" class="crud-dialog__close btn btn--ghost btn--sm" aria-label="Cerrar resumen">?</button>
       </div>
       <div id="digest-modal-body" class="crud-dialog__body"></div>
       <div class="crud-dialog__actions">
         <button type="button" id="btn-digest-speak" class="btn btn--secondary" aria-label="Escuchar resumen de voz">
-          ?? Escuchar Resumen
+          🔊 Escuchar Resumen
         </button>
         <button type="button" id="btn-digest-copy" class="btn btn--primary" aria-label="Copiar resumen en formato Markdown">
-          ?? Copiar Formato Standup
+          📋 Copiar Formato Standup
         </button>
       </div>
     </dialog>
 
     <div id="toast-notification" class="toast" role="status" aria-live="polite" hidden></div>
 
-    <script type="module" src="./src/ui/main.mjs?v=5.5.5"></script>
-    <script type="module" src="./src/ui/slackShell.mjs?v=5.5.5"></script>
+    <script type="module" src="./src/ui/main.mjs?v=5.6.0"></script>
+    <script type="module" src="./src/ui/slackShell.mjs?v=5.6.0"></script>
   </body>
 </html>

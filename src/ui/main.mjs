@@ -265,9 +265,22 @@ function renderTaskBadges(task) {
   `;
 }
 
+function setCloudSyncStatus(source) {
+  const syncEl = document.getElementById("cloud-sync-status");
+  if (!syncEl) return;
+  const isCloud = source === "cloud";
+  syncEl.textContent = isCloud ? "☁️ En la nube" : "💾 Local";
+  syncEl.classList.toggle("sync-badge--local", !isCloud);
+  syncEl.classList.toggle("sync-badge--cloud", isCloud);
+  syncEl.title = isCloud
+    ? "Sincronizado con Neon PostgreSQL"
+    : "Solo en este navegador (sin confirmación de nube)";
+}
+
 function renderTaskCardHtml(task) {
   const isCompleted = task.status === "COMPLETED";
   const completedClass = isCompleted ? "is-completed" : "";
+  const needsDate = task.deadlineState !== DEADLINE_STATES.CONFIRMED;
   const toggleLabel =
     task.status === "PENDING"
       ? "Iniciar"
@@ -275,15 +288,15 @@ function renderTaskCardHtml(task) {
         ? "Completar"
         : "Reabrir";
   const missingBlock =
-    task.deadlineState !== DEADLINE_STATES.CONFIRMED && task.missingDetails
-      ? `<p class="task-card__missing">⚠️ Dato faltante: ${escapeHtml(task.missingDetails)}</p>`
+    needsDate && task.missingDetails
+      ? `<p class="task-card__missing">⚠️ ${escapeHtml(task.missingDetails)}</p>`
       : "";
   const quoteBlock = task.sourceQuote
-    ? `<p class="task-card__quote">💬 Sustento textual: "${escapeHtml(task.sourceQuote)}"</p>`
+    ? `<p class="task-card__quote">💬 "${escapeHtml(task.sourceQuote)}"</p>`
     : "";
   const checkMark = isCompleted ? "✓" : task.status === "IN_PROGRESS" ? "⚡" : "";
   return `
-    <article class="task-card ${completedClass}" data-task-id="${escapeHtml(task.id)}" data-id="${escapeHtml(task.id)}" draggable="true">
+    <article class="task-card task-card--dense ${completedClass}${needsDate ? " has-gap" : ""}" data-task-id="${escapeHtml(task.id)}" data-id="${escapeHtml(task.id)}" draggable="true">
       <div class="task-card__top">
         <div class="task-card__slack-row">
           <button type="button" class="slack-check-circle ${isCompleted ? "is-checked" : ""}" data-action="cycle-status" data-id="${escapeHtml(task.id)}" title="Cambiar estado (${escapeHtml(task.status)})" aria-label="Cambiar estado de ${escapeHtml(task.title)}">
@@ -295,9 +308,6 @@ function renderTaskCardHtml(task) {
           </div>
         </div>
         <div class="task-card__actions">
-          <button type="button" class="btn btn--ghost btn--sm slack-thread-btn" data-action="open-thread" data-id="${escapeHtml(task.id)}" title="Abrir hilo de comentarios y acuerdos">
-            💬 Hilo
-          </button>
           <button type="button" class="btn btn--ghost btn--sm" data-action="cycle-status" data-id="${escapeHtml(task.id)}">
             ${toggleLabel}
           </button>
@@ -310,10 +320,16 @@ function renderTaskCardHtml(task) {
         </div>
       </div>
       ${renderTaskBadges(task)}
-      <p class="task-card__reason">${escapeHtml(task.priorityReason)}</p>
       ${missingBlock}
-      ${quoteBlock}
-      ${renderQuickBar(task)}
+      <div class="task-card__inline-fix">${renderQuickBar(task)}</div>
+      <details class="task-card__more">
+        <summary>Detalle</summary>
+        <p class="task-card__reason">${escapeHtml(task.priorityReason)}</p>
+        ${quoteBlock}
+        <button type="button" class="btn btn--ghost btn--sm slack-thread-btn" data-action="open-thread" data-id="${escapeHtml(task.id)}" title="Abrir hilo">
+          💬 Hilo
+        </button>
+      </details>
     </article>
   `;
 }
@@ -374,10 +390,15 @@ async function applyChannel(channel, opts = {}, todayIso = new Date().toISOStrin
               tasks: res.tasks,
               checksum: computeTasksChecksum(res.tasks)
             };
+            setCloudSyncStatus(res.source === "cloud" ? "cloud" : "local");
             renderWorkspace();
+          } else {
+            setCloudSyncStatus("local");
           }
         })
-        .catch(() => {});
+        .catch(() => setCloudSyncStatus("local"));
+    } else {
+      setCloudSyncStatus("local");
     }
     if (!opts.initial && el.inputMessage) el.inputMessage.focus();
     return;
@@ -398,10 +419,13 @@ async function applyChannel(channel, opts = {}, todayIso = new Date().toISOStrin
             tasks: res.tasks,
             checksum: computeTasksChecksum(res.tasks)
           };
+          setCloudSyncStatus(res.source === "cloud" ? "cloud" : "local");
           renderWorkspace();
+        } else {
+          setCloudSyncStatus("local");
         }
       })
-      .catch(() => {});
+      .catch(() => setCloudSyncStatus("local"));
     if (!opts.initial && el.inputMessage) el.inputMessage.focus();
     return;
   }
@@ -427,11 +451,12 @@ async function applyChannel(channel, opts = {}, todayIso = new Date().toISOStrin
             checksum: computeTasksChecksum(res.tasks)
           };
           renderWorkspace();
-          const syncEl = document.getElementById("cloud-sync-status");
-          if (syncEl) syncEl.textContent = "☁️ En la nube";
+          setCloudSyncStatus(res.source === "cloud" ? "cloud" : "local");
+        } else {
+          setCloudSyncStatus("local");
         }
       })
-      .catch(() => {});
+      .catch(() => setCloudSyncStatus("local"));
   }
 
   if (boardState.tasks.length > 0) return;
@@ -521,7 +546,7 @@ function renderWorkspace() {
   } else if (currentViewMode === "sharepoint") {
     el.tasksRenderRoot.innerHTML = renderSharePointListView(filtered);
   } else {
-    el.tasksRenderRoot.innerHTML = `<div class="task-stack">${filtered.map(renderTaskCardHtml).join("")}</div>`;
+    el.tasksRenderRoot.innerHTML = `<div class="task-stack task-stack--dense">${filtered.map(renderTaskCardHtml).join("")}</div>`;
   }
 }
 
@@ -1265,7 +1290,9 @@ async function bootstrap() {
     const snapshotChannelId = activeChannel.id;
     try {
       const res = await fetchRemoteTasks(snapshotChannelId, activeUserId);
-      if (!res?.ok || res.source !== "cloud" || activeChannel.id !== snapshotChannelId) return;
+      if (!res?.ok || activeChannel.id !== snapshotChannelId) return;
+      setCloudSyncStatus(res.source === "cloud" ? "cloud" : "local");
+      if (res.source !== "cloud") return;
       if (Date.now() - lastLocalMutationAt < 3500) return;
       const nextChecksum = computeTasksChecksum(res.tasks);
       if (nextChecksum !== boardState.checksum) {
@@ -1277,7 +1304,7 @@ async function bootstrap() {
         renderWorkspace();
       }
     } catch {
-      // Offline or transient timeout — keep local board untouched
+      setCloudSyncStatus("local");
     }
   }, 4500);
 
