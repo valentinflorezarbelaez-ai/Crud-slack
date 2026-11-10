@@ -159,35 +159,90 @@ describe("Task API & Persistent Task Discussion Threads: api/tasks.js & api/mess
   });
 
   it("handles personal private tasks with scheduledTime and (userId, channelId) isolation", async () => {
+    process.env.TASKFLOW_HERMETIC_TEST = "1";
+    if (!process.env.SESSION_SECRET) {
+      process.env.SESSION_SECRET = "test_hermetic_session_secret_32_chars_long_minimum!";
+    }
     const { POST, GET } = await import("../api/tasks.js");
+    const { signSession } = await import("../api/_auth.js");
 
-    const postReq = new Request("http://localhost/api/tasks", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        channelId: "personal-test-sandbox",
-        userId: "usr_test_hermetic",
-        tasks: [
-          {
-            id: "tsk_priv_test_hermetic",
-            title: "Hermetic Isolated Test Task",
-            scheduledTime: "09:30",
-            durationMinutes: 45,
-            isPrivate: true,
-            userId: "usr_test_hermetic"
-          }
-        ]
+    // Unauthenticated private write must fail-closed (401) when DB is live on Vercel builds.
+    const unauthPost = await POST(
+      new Request("http://localhost/api/tasks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          channelId: "personal",
+          userId: "usr_test_hermetic",
+          tasks: [
+            {
+              id: "tsk_priv_test_hermetic_unauth",
+              title: "Should be rejected without session",
+              scheduledTime: "09:30",
+              durationMinutes: 45,
+              isPrivate: true,
+              userId: "usr_test_hermetic"
+            }
+          ]
+        })
       })
-    });
-
-    const postRes = await POST(postReq);
-    assert.ok(postRes.status === 200 || postRes.status === 500);
-
-    const getReq = new Request(
-      "http://localhost/api/tasks?channelId=personal-test-sandbox&userId=usr_test_hermetic"
     );
-    const getRes = await GET(getReq);
-    assert.ok(getRes.status === 200 || getRes.status === 500);
+    if (process.env.DATABASE_URL) {
+      // On Vercel builds with live Neon: isolation must reject spoofed private writes.
+      // Do not POST authenticated fixtures into production data during the gate.
+      assert.equal(unauthPost.status, 401, "live DB must reject spoofed private personal writes");
+      const unauthGet = await GET(
+        new Request("http://localhost/api/tasks?channelId=personal&userId=usr_test_hermetic")
+      );
+      assert.equal(unauthGet.status, 401, "live DB must reject spoofed private personal reads");
+      return;
+    }
+
+    assert.equal(unauthPost.status, 200, "hermetic no-DB path should accept showcase writes");
+
+    // Authenticated demo profile path (local hermetic, no Neon).
+    const token = await signSession({
+      userId: "usr_valentin",
+      fullName: "Valentín Flórez Arbelaez"
+    });
+    const authHeaders = {
+      "Content-Type": "application/json",
+      cookie: `taskflow_session=${encodeURIComponent(token)}`
+    };
+    const postRes = await POST(
+      new Request("http://localhost/api/tasks", {
+        method: "POST",
+        headers: authHeaders,
+        body: JSON.stringify({
+          channelId: "personal",
+          userId: "usr_valentin",
+          tasks: [
+            {
+              id: "tsk_priv_test_hermetic",
+              title: "Hermetic Isolated Test Task",
+              scheduledTime: "09:30",
+              durationMinutes: 45,
+              isPrivate: true,
+              userId: "usr_valentin"
+            }
+          ]
+        })
+      })
+    );
+    assert.ok(
+      postRes.status === 200 || postRes.status === 500,
+      `unexpected auth private POST status: ${postRes.status}`
+    );
+
+    const getRes = await GET(
+      new Request("http://localhost/api/tasks?channelId=personal&userId=usr_valentin", {
+        headers: { cookie: `taskflow_session=${encodeURIComponent(token)}` }
+      })
+    );
+    assert.ok(
+      getRes.status === 200 || getRes.status === 500,
+      `unexpected auth private GET status: ${getRes.status}`
+    );
   });
 
   it("supports persistent task-level discussion threads via /api/messages?taskId=... (BDD-CS-010)", async () => {
