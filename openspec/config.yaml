@@ -1,0 +1,32 @@
+schema: spec-driven
+
+artifact_store: hybrid
+
+context: |
+  Project: TaskFlow AI — Omnichannel Request-to-Task CRUD & Triage
+  Tech stack: Node.js, Slack Bolt SDK, Omnichannel REST APIs, Vercel
+  Architecture: AI Productivity Workspace & Event-Driven Triage
+  Governance: EOS System Control Plane + Gentle AI Stack (Engram + SDD)
+  Technical docs: English
+
+rules:
+  proposal:
+    - Include rollback plan for risky changes
+    - Identify affected modules/packages
+  specs:
+    - Use Given/When/Then format for scenarios
+    - Use RFC 2119 keywords (MUST, SHALL, SHOULD, MAY)
+    - Follow EARS pattern (Event, State, Error, Ubiquitous)
+  design:
+    - Document architecture decisions with rationale and rejected alternatives
+  tasks:
+    - Group tasks by phase (Domain, Application, Infrastructure, UI)
+    - Keep tasks atomic and verifiable
+  apply:
+    - Follow pure Layer-0 domain separation where applicable
+    - Never commit unvalidated secrets
+  verify:
+    - Run automated test suites before claiming done
+    - Verify zero broken invariants
+
+strict_tdd: false
