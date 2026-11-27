@@ -6,7 +6,7 @@
 
 import https from "node:https";
 import dns from "node:dns";
-import { createAuthClient } from "@neon/auth";
+import { createAuthClient, isAuthError } from "@neon/auth";
 import { BetterAuthVanillaAdapter } from "@neon/auth/vanilla/adapters";
 import { sql } from "../_db.js";
 import { signSession, createSessionCookieHeader } from "../_auth.js";
@@ -172,6 +172,46 @@ function sanitizeAvatarSeed(seed) {
   return `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(seed)}`;
 }
 
+function extractHttpStatus(err) {
+  const raw = Number(err?.status || err?.statusCode || err?.cause?.status || 0);
+  if (raw >= 400 && raw <= 599) return raw;
+  if (isAuthError(err)) return 401;
+  return 0;
+}
+
+function mapClientAuthError(err, action) {
+  const status = extractHttpStatus(err);
+  const rawMsg = String(err?.message || "").trim();
+  const lower = rawMsg.toLowerCase();
+  if (action === "signin") {
+    if (
+      status === 400 ||
+      status === 401 ||
+      status === 403 ||
+      lower.includes("invalid") ||
+      lower.includes("password") ||
+      lower.includes("credential")
+    ) {
+      return { status: 401, error: "Correo o contraseña incorrectos." };
+    }
+  }
+  if (action === "signup") {
+    if (status === 409 || status === 422 || lower.includes("already exists") || lower.includes("duplicate")) {
+      return { status: 409, error: "Ya existe una cuenta registrada con este correo." };
+    }
+    if (status >= 400 && status < 500) {
+      return { status, error: rawMsg || "No fue posible crear la cuenta. Verifica tus datos." };
+    }
+  }
+  if (status >= 400 && status < 500) {
+    return {
+      status: status === 403 ? 401 : status,
+      error: action === "signin" ? "Correo o contraseña incorrectos." : rawMsg || "Solicitud de autenticación rechazada."
+    };
+  }
+  return null;
+}
+
 export async function GET(req) {
   try {
     const baseUrl = getNeonAuthBaseUrl();
@@ -202,7 +242,20 @@ export async function GET(req) {
       })
     });
 
-    const { data, error } = await authClient.getSession();
+    let sessionResult;
+    try {
+      sessionResult = await authClient.getSession();
+    } catch (sessionErr) {
+      const status = extractHttpStatus(sessionErr);
+      if (status >= 400 && status < 500) {
+        return Response.json(
+          { ok: false, user: null, error: "SESSION_INVALID" },
+          { status: 401 }
+        );
+      }
+      throw sessionErr;
+    }
+    const { data, error } = sessionResult || {};
     if (error || !data?.user) {
       return Response.json(
         { ok: false, user: null, error: error?.message || "SESSION_INVALID" },
@@ -273,16 +326,27 @@ export async function POST(req) {
       })
     });
 
-    const authResult =
-      action === "signin"
-        ? await authClient.signIn.email({ email, password })
-        : await authClient.signUp.email({ email, password, name: displayName });
+    let authResult;
+    try {
+      authResult =
+        action === "signin"
+          ? await authClient.signIn.email({ email, password })
+          : await authClient.signUp.email({ email, password, name: displayName });
+    } catch (authErr) {
+      const mapped = mapClientAuthError(authErr, action);
+      if (mapped) {
+        return Response.json({ ok: false, error: mapped.error }, { status: mapped.status });
+      }
+      throw authErr;
+    }
 
     if (authResult?.error || !authResult?.data?.user) {
+      const mapped = mapClientAuthError(authResult?.error, action);
       const msg =
+        mapped?.error ||
         authResult?.error?.message ||
         (action === "signin" ? "Correo o contraseña incorrectos." : "No fue posible crear la cuenta.");
-      return Response.json({ ok: false, error: msg }, { status: 401 });
+      return Response.json({ ok: false, error: msg }, { status: mapped?.status || 401 });
     }
 
     const neonUser = authResult.data.user;
