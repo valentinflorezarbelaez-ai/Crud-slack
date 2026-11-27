@@ -221,6 +221,98 @@ export function initRealtimeSlack({
   document.getElementById("auth-continue-demo-btn")?.addEventListener("click", () => continueAsGuest());
   document.getElementById("guest-signin-btn")?.addEventListener("click", () => showAuthGate());
 
+  // Neon Managed Better Auth Email + Password Sign-Up / Sign-In wiring
+  let emailAuthMode = "signup";
+  const emailForm = document.getElementById("neon-email-auth-form");
+  const signupTabBtn = document.getElementById("auth-mode-signup-btn");
+  const signinTabBtn = document.getElementById("auth-mode-signin-btn");
+  const nameFieldWrap = document.getElementById("auth-name-field");
+  const nameInput = /** @type {HTMLInputElement|null} */ (document.getElementById("auth-name-input"));
+  const emailInput = /** @type {HTMLInputElement|null} */ (document.getElementById("auth-email-input"));
+  const passwordInput = /** @type {HTMLInputElement|null} */ (document.getElementById("auth-password-input"));
+  const emailSubmitBtn = /** @type {HTMLButtonElement|null} */ (document.getElementById("auth-email-submit-btn"));
+  const emailFeedback = document.getElementById("auth-email-feedback");
+
+  function setEmailAuthMode(nextMode) {
+    emailAuthMode = nextMode === "signin" ? "signin" : "signup";
+    const isSignup = emailAuthMode === "signup";
+    signupTabBtn?.classList.toggle("is-active", isSignup);
+    signupTabBtn?.setAttribute("aria-selected", String(isSignup));
+    signinTabBtn?.classList.toggle("is-active", !isSignup);
+    signinTabBtn?.setAttribute("aria-selected", String(!isSignup));
+    if (nameFieldWrap) nameFieldWrap.hidden = !isSignup;
+    if (passwordInput) passwordInput.autocomplete = isSignup ? "new-password" : "current-password";
+    if (emailSubmitBtn) {
+      emailSubmitBtn.textContent = isSignup ? "Crear cuenta con correo" : "Entrar con correo";
+    }
+    if (emailFeedback) {
+      emailFeedback.hidden = true;
+      emailFeedback.textContent = "";
+    }
+  }
+
+  signupTabBtn?.addEventListener("click", () => setEmailAuthMode("signup"));
+  signinTabBtn?.addEventListener("click", () => setEmailAuthMode("signin"));
+
+  emailForm?.addEventListener("submit", async (ev) => {
+    ev.preventDefault();
+    const email = (emailInput?.value || "").trim();
+    const password = passwordInput?.value || "";
+    const name = (nameInput?.value || "").trim();
+
+    if (emailFeedback) {
+      emailFeedback.hidden = true;
+      emailFeedback.classList.remove("is-ok");
+    }
+    if (!email || password.length < 8) {
+      if (emailFeedback) {
+        emailFeedback.textContent = "Ingresa un correo válido y contraseña de mínimo 8 caracteres.";
+        emailFeedback.hidden = false;
+      }
+      return;
+    }
+
+    if (emailSubmitBtn) {
+      emailSubmitBtn.disabled = true;
+      emailSubmitBtn.textContent = emailAuthMode === "signup" ? "Creando cuenta..." : "Ingresando...";
+    }
+
+    try {
+      const res = await fetch("./api/auth/email", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: emailAuthMode, email, password, name })
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || !json.ok || !json.user) {
+        throw new Error(json.error || "No se pudo autenticar con correo.");
+      }
+
+      currentUser = json.user;
+      try {
+        localStorage.setItem("taskflow_slack_user", JSON.stringify(currentUser));
+      } catch {}
+      hideAuthGate();
+      setGuestBannerVisible(false);
+      renderUserStatus();
+      onUserChanged?.(currentUser, { signedIn: true });
+      showToast(`¡Bienvenido, ${currentUser.full_name}! Cuenta verificada con Neon Auth.`);
+      fetchMessages();
+      emailForm.reset();
+    } catch (err) {
+      if (emailFeedback) {
+        emailFeedback.textContent = err.message || "Error al conectar con Neon Auth.";
+        emailFeedback.hidden = false;
+      }
+    } finally {
+      if (emailSubmitBtn) {
+        emailSubmitBtn.disabled = false;
+        emailSubmitBtn.textContent = emailAuthMode === "signup" ? "Crear cuenta con correo" : "Entrar con correo";
+      }
+    }
+  });
+
   authGate?.addEventListener("click", (ev) => {
     if (ev.target === authGate) continueAsGuest();
   });

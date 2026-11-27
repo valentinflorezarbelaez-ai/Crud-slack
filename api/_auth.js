@@ -126,8 +126,8 @@ export async function resolveVerifiedUserId(req, fallbackUserId = "") {
 
   if (!cleanFallback) return null;
 
-  // Never allow unauthenticated spoofing of real Google accounts (usr_g_*)
-  if (cleanFallback.startsWith("usr_g_")) {
+  // Never allow unauthenticated spoofing of real Google or Neon Auth accounts
+  if (cleanFallback.startsWith("usr_g_") || cleanFallback.startsWith("usr_n_")) {
     return null;
   }
 

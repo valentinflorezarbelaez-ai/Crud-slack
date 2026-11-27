@@ -12,8 +12,10 @@ Thumbs.db
 !.env.example
 
 .cursor/
+.neon
 
 # Agentic workspace local state & secrets
 .claude/
 .claude/*
 settings.local.json
+.neon

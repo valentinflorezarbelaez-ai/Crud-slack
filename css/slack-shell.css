@@ -1795,3 +1795,69 @@ html[data-theme="dark"] .team-user-avatar {
   min-width: 7.2rem;
   font-variant-numeric: tabular-nums;
 }
+
+.neon-auth-box {
+  text-align: left;
+  border: 1px solid var(--border-subtle, #e2e8f0);
+  border-radius: 12px;
+  padding: 0.85rem;
+  margin-bottom: 0.75rem;
+  background: var(--bg-elevated, rgba(0, 0, 0, 0.02));
+}
+.neon-auth-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.35rem;
+  margin-bottom: 0.75rem;
+}
+.neon-auth-tab {
+  border: 1px solid var(--border-subtle, #cbd5e1);
+  border-radius: 8px;
+  padding: 0.45rem 0.6rem;
+  font-size: 0.84rem;
+  font-weight: 600;
+  cursor: pointer;
+  background: transparent;
+  color: var(--text-secondary, #475569);
+}
+.neon-auth-tab.is-active {
+  background: var(--accent, #4a154b);
+  border-color: var(--accent, #4a154b);
+  color: #ffffff;
+}
+.neon-auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+.neon-auth-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+.neon-auth-field[hidden] {
+  display: none !important;
+}
+.neon-auth-label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-secondary, #475569);
+}
+.neon-auth-input {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid var(--border-subtle, #cbd5e1);
+  border-radius: 8px;
+  padding: 0.5rem 0.65rem;
+  font-size: 0.88rem;
+  background: var(--bg-surface, #ffffff);
+  color: var(--text-primary, #0f172a);
+}
+.neon-auth-feedback {
+  margin: 0.2rem 0 0;
+  font-size: 0.82rem;
+  color: #e01e5a;
+}
+.neon-auth-feedback.is-ok {
+  color: #007a5a;
+}

@@ -3,7 +3,11 @@
   "version": "1.0.0",
   "description": "TaskFlow AI — Omnichannel Request-to-Task CRUD Workspace & Neuro-Symbolic Anti-Hallucination Triage Engine (EOS Layer-0 Hexagonal Standard)",
   "type": "module",
-  "dependencies": {},
+  "dependencies": {
+    "@neon/auth": "^0.8.2",
+    "@neon/config": "^1.14.8",
+    "@neon/env": "^2.1.11"
+  },
   "scripts": {
     "test": "node --test test/taskflow.test.mjs test/tasksApi.test.mjs test/cloudTaskAdapter.test.mjs test/hourlyTask.test.mjs test/notificationEngine.test.mjs test/channelInvites.test.mjs test/workloadOptimizer.test.mjs test/dateLocale.test.mjs",
     "verify:strict": "node scripts/verify-strict.mjs",

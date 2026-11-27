@@ -7,6 +7,71 @@
  * Requires DATABASE_URL from the environment (Vercel/local .env). Fail-closed.
  */
 
+import https from "node:https";
+import dns from "node:dns";
+
+const fallbackResolver = new dns.Resolver();
+try {
+  fallbackResolver.setServers(["8.8.8.8", "1.1.1.1"]);
+} catch {}
+
+function resilientDnsLookup(hostname, options, callback) {
+  const cb = typeof options === "function" ? options : callback;
+  const opts = typeof options === "object" && options !== null ? options : {};
+  dns.lookup(hostname, opts, (err, address, family) => {
+    if (!err && address) return cb(null, address, family);
+    fallbackResolver.resolve4(hostname, (rErr, addresses) => {
+      if (rErr || !addresses || addresses.length === 0) return cb(err || rErr);
+      if (opts.all) {
+        return cb(
+          null,
+          addresses.map((a) => ({ address: a, family: 4 }))
+        );
+      }
+      return cb(null, addresses[0], 4);
+    });
+  });
+}
+
+async function fetchWithDnsFallback(url, options) {
+  try {
+    return await fetch(url, options);
+  } catch (err) {
+    const msg = String(err?.cause?.message || err?.message || "");
+    if (!msg.includes("ENOTFOUND") && !msg.includes("fetch failed")) throw err;
+    const u = new URL(url);
+    return await new Promise((resolve, reject) => {
+      const req = https.request(
+        {
+          hostname: u.hostname,
+          port: u.port || 443,
+          path: u.pathname + u.search,
+          method: options.method || "POST",
+          headers: options.headers || {},
+          lookup: resilientDnsLookup,
+          timeout: 9000
+        },
+        (res) => {
+          const chunks = [];
+          res.on("data", (c) => chunks.push(c));
+          res.on("end", () => {
+            resolve(
+              new Response(Buffer.concat(chunks), {
+                status: Number(res.statusCode || 500),
+                headers: new Headers(Object.entries(res.headers || {}).map(([k, v]) => [k, String(v)]))
+              })
+            );
+          });
+        }
+      );
+      req.on("timeout", () => req.destroy(new Error("DB_HTTP_TIMEOUT")));
+      req.on("error", reject);
+      if (options.body) req.write(options.body);
+      req.end();
+    });
+  }
+}
+
 function requireDatabaseUrl() {
   const value = process.env.DATABASE_URL;
   if (typeof value !== "string" || value.trim() === "") {
@@ -50,7 +115,7 @@ export async function sql(queryText, params = []) {
   while (attempt < maxAttempts) {
     attempt++;
     try {
-      const res = await fetch(neonSqlUrl, {
+      const res = await fetchWithDnsFallback(neonSqlUrl, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

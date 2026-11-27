@@ -100,6 +100,31 @@
           <p class="slack-auth-tip" id="gate-google-status">Cada cuenta tiene su propio historial, tema y listas privadas.</p>
         </div>
 
+        <div class="slack-auth-divider"><span>o con tu correo electrónico</span></div>
+
+        <div id="neon-email-auth-box" class="neon-auth-box">
+          <div class="neon-auth-tabs" role="tablist" aria-label="Modo de acceso por correo">
+            <button type="button" id="auth-mode-signup-btn" class="neon-auth-tab is-active" role="tab" aria-selected="true">Crear cuenta</button>
+            <button type="button" id="auth-mode-signin-btn" class="neon-auth-tab" role="tab" aria-selected="false">Iniciar sesión</button>
+          </div>
+          <form id="neon-email-auth-form" class="neon-auth-form" novalidate>
+            <div id="auth-name-field" class="neon-auth-field">
+              <label for="auth-name-input" class="neon-auth-label">Nombre</label>
+              <input id="auth-name-input" name="name" type="text" class="neon-auth-input" autocomplete="name" placeholder="Tu nombre completo" maxlength="80" />
+            </div>
+            <div class="neon-auth-field">
+              <label for="auth-email-input" class="neon-auth-label">Correo electrónico</label>
+              <input id="auth-email-input" name="email" type="email" class="neon-auth-input" autocomplete="email" placeholder="nombre@empresa.com" required />
+            </div>
+            <div class="neon-auth-field">
+              <label for="auth-password-input" class="neon-auth-label">Contraseña</label>
+              <input id="auth-password-input" name="password" type="password" class="neon-auth-input" autocomplete="new-password" placeholder="Mínimo 8 caracteres" minlength="8" required />
+            </div>
+            <button type="submit" id="auth-email-submit-btn" class="btn btn--primary btn--full">Crear cuenta con correo</button>
+            <p id="auth-email-feedback" class="neon-auth-feedback" role="status" aria-live="polite" hidden></p>
+          </form>
+        </div>
+
         <div class="slack-auth-divider"><span>o perfil rápido de equipo</span></div>
 
         <div id="auth-demo-details" class="slack-auth-demo is-open">

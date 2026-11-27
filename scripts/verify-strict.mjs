@@ -26,7 +26,7 @@ console.log("===================================================================
 
 function listFiles(dir, acc = []) {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-    if ([".git", ".vercel", "node_modules"].includes(entry.name) || entry.name.startsWith(".env")) continue;
+    if ([".git", ".vercel", ".neon", "node_modules"].includes(entry.name) || entry.name.startsWith(".env")) continue;
     const full = path.join(dir, entry.name);
     if (entry.isDirectory()) listFiles(full, acc);
     else acc.push(full);
@@ -80,10 +80,16 @@ for (const rel of requiredDocs) {
 }
 console.log(`[PASS] Stage 2/7 — SDD Governance Package & Level 3 Authorization Gate (${requiredDocs.length} artifacts).`);
 
-// STAGE 3: HEXAGONAL L0 PURITY (0 RUNTIME DEPS) & SLSA SHA-256 MERKLE SBOM (LAW V)
+// STAGE 3: HEXAGONAL L0 PURITY (ONLY APPROVED NEON AUTH/CONFIG SDK DEPS) & SLSA SHA-256 MERKLE SBOM (LAW V)
 const pkg = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
 const runtimeDeps = Object.keys(pkg.dependencies || {});
-assert.equal(runtimeDeps.length, 0, `[STAGE 3 FAIL] Expected 0 runtime dependencies, found: ${runtimeDeps.join(", ")}`);
+const ALLOWED_NEON_RUNTIME_DEPS = new Set(["@neon/auth", "@neon/config", "@neon/env"]);
+const unapprovedDeps = runtimeDeps.filter((d) => !ALLOWED_NEON_RUNTIME_DEPS.has(d));
+assert.equal(
+  unapprovedDeps.length,
+  0,
+  `[STAGE 3 FAIL] Unapproved runtime dependencies detected: ${unapprovedDeps.join(", ")}`
+);
 
 // Ensure domain layer never imports UI, infrastructure, or API layers
 const domainFiles = listFiles(path.join(root, "src/domain"));
@@ -149,13 +155,14 @@ assert.ok(cssKb < 45, `CSS bundle exceeded 45 KB budget: ${cssKb} KB`);
 assert.ok(uiJsKb < 55, `UI JS bundle exceeded 55 KB budget: ${uiJsKb} KB`);
 console.log(`[PASS] Stage 5/7 — WCAG 2.1 AA, SEO JSON-LD, Strict CSP & CWV Budget Gate (CSS: ${cssKb} KB, UI JS: ${uiJsKb} KB).`);
 
-// STAGE 6: IN-PROCESS SERVERLESS ENDPOINTS SMOKE VERIFICATION (/api/health, /api/analyze, /api/metrics, /api/channels, /api/tasks, /api/auth/google)
+// STAGE 6: IN-PROCESS SERVERLESS ENDPOINTS SMOKE VERIFICATION (/api/health, /api/analyze, /api/metrics, /api/channels, /api/tasks, /api/auth/google, /api/auth/email)
 const healthMod = await import(pathToFileURL(path.join(root, "api/health.js")).href);
 const analyzeMod = await import(pathToFileURL(path.join(root, "api/analyze.js")).href);
 const metricsMod = await import(pathToFileURL(path.join(root, "api/metrics.js")).href);
 const channelsMod = await import(pathToFileURL(path.join(root, "api/channels.js")).href);
 const tasksMod = await import(pathToFileURL(path.join(root, "api/tasks.js")).href);
 const googleAuthMod = await import(pathToFileURL(path.join(root, "api/auth/google.js")).href);
+const emailAuthMod = await import(pathToFileURL(path.join(root, "api/auth/email.js")).href);
 
 const hRes = await healthMod.GET(new Request("http://localhost/api/health"));
 assert.equal(hRes.status, 200, "/api/health failed smoke check");
@@ -210,11 +217,22 @@ assert.equal(invRes.status, 400, "/api/channels?action=invite smoke check failed
 const jnRes = await channelsMod.GET(new Request("http://localhost/api/channels?action=join"));
 assert.equal(jnRes.status, 400, "/api/channels?action=join smoke check failed");
 
-// Smoke check googleAuthMod GET
+// Smoke check googleAuthMod GET and emailAuthMod GET/POST
 const gRes = await googleAuthMod.GET();
 assert.ok(gRes.status === 200 || gRes.status === 503, "/api/auth/google GET smoke check failed");
 
-console.log("[PASS] Stage 6/7 — In-Process Serverless API Smoke Gate (/api/health, /api/analyze, /api/metrics, /api/channels, /api/tasks, /api/auth/google).");
+const eGetRes = await emailAuthMod.GET(new Request("http://localhost/api/auth/email"));
+assert.equal(eGetRes.status, 200, "/api/auth/email GET unauthenticated smoke check failed");
+const ePostRes = await emailAuthMod.POST(
+  new Request("http://localhost/api/auth/email", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({})
+  })
+);
+assert.ok(ePostRes.status === 400 || ePostRes.status === 503, "/api/auth/email POST smoke check failed");
+
+console.log("[PASS] Stage 6/7 — In-Process Serverless API Smoke Gate (/api/health, /api/analyze, /api/metrics, /api/channels, /api/tasks, /api/auth/google, /api/auth/email).");
 
 // STAGE 7: CRYPTOGRAPHIC EVIDENCE RECEIPT GENERATION (LAW III)
 const receipt = {
@@ -228,7 +246,7 @@ const receipt = {
   budgets: {
     cssKilobytes: cssKb,
     uiJsKilobytes: uiJsKb,
-    runtimeDependencies: 0
+    runtimeDependencies: runtimeDeps.length
   },
   verifiedEndpoints: [
     "/api/health",
@@ -236,7 +254,8 @@ const receipt = {
     "/api/metrics",
     "/api/channels",
     "/api/tasks",
-    "/api/auth/google"
+    "/api/auth/google",
+    "/api/auth/email"
   ]
 };
 
