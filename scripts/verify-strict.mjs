@@ -26,7 +26,7 @@ console.log("===================================================================
 
 function listFiles(dir, acc = []) {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-    if ([".git", ".vercel", ".neon", "node_modules"].includes(entry.name) || entry.name.startsWith(".env")) continue;
+    if ([".git", ".vercel", ".neon", ".pnpm-store", "node_modules"].includes(entry.name) || entry.name.startsWith(".env")) continue;
     const full = path.join(dir, entry.name);
     if (entry.isDirectory()) listFiles(full, acc);
     else acc.push(full);
